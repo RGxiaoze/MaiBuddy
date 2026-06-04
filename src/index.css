@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+/*
+ * 舞萌DX 伴侣 — 浅色主题
+ * 白色+浅蓝为主，紫色用于层次深度与渐变
+ */
+
+@theme {
+  /* ── 背景层级 (白底+微紫色调) ── */
+  --color-bg: #F4F6FA;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-elevated: #EDE9F6;
+  --color-bg-gray: #EBEEF3;
+  --color-surface: #FFFFFF;
+  --color-surface-light: #F0ECF8;
+
+  /* ── 边框 ── */
+  --color-border: #DEE3EA;
+  --color-border-light: #E5E9F2;
+
+  /* ── 品牌色 (蓝色为主，紫色点缀) ── */
+  --color-primary: #5BA4CF;
+  --color-primary-light: #A8D8F0;
+  --color-primary-dark: #3D8BB8;
+  --color-secondary: #B8A0E8;
+  --color-accent: #6C4DBF;
+
+  /* ── 文字 ── */
+  --color-text: #1A1C2E;
+  --color-text-secondary: #5E6778;
+  --color-text-tertiary: #8B93A5;
+
+  /* ── 语义色 ── */
+  --color-success: #1E9E4A;
+  --color-warning: #D97706;
+  --color-error: #DC2626;
+  --color-info: #2563EB;
+
+  /* ── 难度色 ── */
+  --color-diff-basic: #22C55E;
+  --color-diff-advanced: #EAB308;
+  --color-diff-expert: #EF4444;
+  --color-diff-master: #A855F7;
+  --color-diff-remaster: #EC4899;
+
+  /* ── 评级色 ── */
+  --color-grade-sssp: #FFD700;
+  --color-grade-sss: #C0C0C0;
+  --color-grade-ss: #CD7F32;
+  --color-grade-s: #22C55E;
+  --color-grade-aaa: #3B82F6;
+
+  /* ── 字体 ── */
+  --font-sans: 'M PLUS Rounded 1c', 'Inter', 'Noto Sans SC', -apple-system, sans-serif;
+}
+
+/* ── 渐变 (蓝→紫，营造深度) ── */
+:root {
+  --gradient-prism: linear-gradient(135deg, #5BA4CF 0%, #B8A0E8 70%, #6C4DBF 100%);
+  --gradient-prism-h: linear-gradient(90deg, #5BA4CF 0%, #B8A0E8 70%, #6C4DBF 100%);
+}
+
+/* ── 全局基础 ── */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+/* ── 滚动条 ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-light);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}
+
+/* ── 选中文字色 ── */
+::selection {
+  background: rgba(91, 164, 207, 0.25);
+  color: var(--color-text);
+}
+
+/* ── 输入框自动填充 ── */
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 30px var(--color-bg-surface) inset;
+  -webkit-text-fill-color: var(--color-text);
+}
+
+/* ── 聚焦环 ── */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── 移动端侧边栏滑入动画 ── */
+@keyframes slide-in {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
+}
+
+/* ── iPhone 安全区域 ── */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
