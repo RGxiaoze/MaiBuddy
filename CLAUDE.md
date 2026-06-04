@@ -9,6 +9,8 @@
 | 设计规范 | [docs/03-设计规范.md](docs/03-设计规范.md) | 色彩、排版、布局、组件规范 |
 | 执行步骤 | [docs/04-执行步骤.md](docs/04-执行步骤.md) | 四个阶段的具体实施步骤 |
 | 算法详解 | [docs/05-算法详解.md](docs/05-算法详解.md) | Rating/B50/五维算法、完整系数表 |
+| 算法说明 | [docs/algorithms.md](docs/algorithms.md) | 玩家友好算法解读（不含代码） |
+| 知识库 | [docs/knowledge-base.md](docs/knowledge-base.md) | 定数阶梯策略、成就牌子文案 |
 | 开发日志 | [开发日志/](开发日志/) | 每日开发记录（按日期命名） |
 
 ## AI 工作指引
@@ -57,6 +59,7 @@ React + TypeScript + Vite + TailwindCSS v4 + Zustand + Dexie(IndexedDB) + EChart
 - **阶段二** (已完成): 数据联网 — API 对接、B50 算法、五维雏形、曲目缓存、全量成绩导入
 - **v0.3.0** (已完成): 结构性调整 — 多关键词搜索、别名、定数预设、分页、导入迁移、侧边栏卡
 - **阶段三** (已完成): 推分建议 — 推分算法、chart_stats 集成、知识库、策略分段、五维雷达图、推分路线
+- **v0.4.0** (已完成): 算法重构 — 配置提取、文件拆分、JSDoc、测试完善、全服达成分布卡片优化、项目结构清理
 - **阶段四** (待定): 五维算法优化 — 统计指标 → 定数分组五维 → 公式修复 → 双环雷达图
 
 ## 未来计划
@@ -70,6 +73,7 @@ React + TypeScript + Vite + TailwindCSS v4 + Zustand + Dexie(IndexedDB) + EChart
 ## 已知陷阱
 
 - **yuzuchan.moe 别名 API 响应格式**：接口返回 `{code: 0, content: AliasEntry[]}` 对象而非裸数组。解析时需先提取 `content` 字段：`const data = Array.isArray(raw) ? raw : raw.content`。仅检查 `Array.isArray()` 将静默失败——别名索引永远为 null，所有别名搜索返回 0 结果。
+- **Diving-Fish chart_stats 数据类型**：`ChartStatEntry.diff` 为 `string` 类型（如 `"14+"`、`"12"`），非 `number`。`buildChartStats()` 中构建 `diff_data` 索引时需使用 `entry.diff`（字符串 key），而非 `Math.floor(entry.fit_diff)`（数值 key）。类型声明错误将导致所有谱面的全服统计数据查找失败。`fit_diff` 是社区拟合的实际定数（`number`），与官标 `diff` 是不同字段。
 
 ## UI 规范
 
