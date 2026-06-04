@@ -12,6 +12,7 @@ import type { ScoreRecord } from '@/db/database'
 import { computeRating } from '@/utils/rating'
 import { computeDxStar, renderStars } from '@/utils/dxStar'
 import { getAliasesForSong, loadAliasData } from '@/data/aliases'
+import { getVersionDisplay } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
 import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS } from '@/services/statsService'
 
@@ -195,7 +196,7 @@ export default function SongDetail() {
             )}
             <div className="flex gap-3 mt-1 text-xs text-text-secondary">
               <span>BPM: <strong className="text-text">{song.bpm}</strong></span>
-              <span>版本: <strong className="text-text">{song.from}</strong></span>
+              <span>版本: <strong className="text-text">{getVersionDisplay(song.from)}</strong></span>
               <span>分类: <strong className="text-text">{song.genre}</strong></span>
             </div>
           </div>

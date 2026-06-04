@@ -59,3 +59,17 @@ export const VERSION_ORDER: Map<string, number> = new Map([
   ...Object.entries(JP_VERSION_ORDER),
   ...Object.entries(CN_VERSION_ORDER),
 ])
+
+// ============================================================
+// 版本显示名映射 — API 原始值 → UI 友好名称
+// ============================================================
+
+/** 部分 API from 值在 UI 中显示时需要补全前缀，避免用户困惑 */
+const VERSION_DISPLAY: Record<string, string> = {
+  'MiLK PLUS': 'maimai MiLK PLUS',
+}
+
+/** 获取版本的 UI 显示名称 */
+export function getVersionDisplay(from: string): string {
+  return VERSION_DISPLAY[from] ?? from
+}

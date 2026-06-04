@@ -9,6 +9,7 @@ import { usePlayerStore } from '@/store/playerStore'
 import SearchBar from '@/components/shared/SearchBar'
 import Pagination from '@/components/shared/Pagination'
 import { LEVEL_INDEX_MAP } from '@/data/constants'
+import { VERSION_ORDER, getVersionDisplay } from '@/data/versions'
 import { loginToProber, generateImportToken } from '@/services/divingFishApi'
 import type { LevelIndex } from '@/types'
 
@@ -135,7 +136,7 @@ export default function SongList() {
   // Deduplicate versions & genres for filter dropdowns
   const versions = useMemo(() => {
     const set = new Set(songs.map((s) => s.from).filter(Boolean))
-    return [...set].sort()
+    return [...set].sort((a, b) => (VERSION_ORDER.get(a) ?? 0) - (VERSION_ORDER.get(b) ?? 0))
   }, [songs])
 
   const genres = useMemo(() => {
@@ -357,7 +358,7 @@ export default function SongList() {
               >
                 <option value="">全部版本</option>
                 {versions.map((v) => (
-                  <option key={v} value={v}>{v}</option>
+                  <option key={v} value={v}>{getVersionDisplay(v)}</option>
                 ))}
               </select>
             </label>
