@@ -12,7 +12,7 @@ import type { ScoreRecord } from '@/db/database'
 import { computeRating } from '@/utils/rating'
 import { computeDxStar, renderStars } from '@/utils/dxStar'
 import { getAliasesForSong, loadAliasData } from '@/data/aliases'
-import ScoreForm from '@/components/ScoreForm'
+import ScoreForm from '@/components/shared/ScoreForm'
 import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, STDEV_LEVELS } from '@/services/statsService'
 
 export default function SongDetail() {
