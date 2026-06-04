@@ -13,7 +13,7 @@ import { computeRating } from '@/utils/rating'
 import { computeDxStar, renderStars } from '@/utils/dxStar'
 import { getAliasesForSong, loadAliasData } from '@/data/aliases'
 import ScoreForm from '@/components/shared/ScoreForm'
-import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, STDEV_LEVELS } from '@/services/statsService'
+import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS } from '@/services/statsService'
 
 export default function SongDetail() {
   const { songId } = useParams<{ songId: string }>()
@@ -42,11 +42,20 @@ export default function SongDetail() {
     })
   }, [song?.id])
 
-  // Chart stats (non-blocking background load)
+  // Chart stats (non-blocking background load, pass officialLevelMap when songs available)
   const [statsLoaded, setStatsLoaded] = useState(false)
   useEffect(() => {
-    loadStats().then(() => setStatsLoaded(true)).catch(() => setStatsLoaded(true))
-  }, [])
+    if (songs.length === 0) return
+    const officialLevelMap = new Map<string, number>()
+    for (const s of songs) {
+      for (const diff of [...s.difficulties.standard, ...s.difficulties.dx]) {
+        if (diff.levelValue > 0) {
+          officialLevelMap.set(`${s.id}-${diff.levelIndex}`, diff.levelValue)
+        }
+      }
+    }
+    loadStats(officialLevelMap).then(() => setStatsLoaded(true)).catch(() => setStatsLoaded(true))
+  }, [songs.length])
 
   // Pre-compute derived values (safe even when song is undefined, before early returns)
   const allDiffs = song ? [...song.difficulties.standard, ...song.difficulties.dx] : []
@@ -82,6 +91,11 @@ export default function SongDetail() {
     if (!statsLoaded || !chartStats) return undefined
     return getFitDiffAvg(chartStats.fitDiff)
   }, [statsLoaded, chartStats?.fitDiff])
+
+  const officialLevelAvg = useMemo(() => {
+    if (!statsLoaded || !currentDiff) return undefined
+    return getOfficialLevelAvg(currentDiff.levelValue)
+  }, [statsLoaded, currentDiff?.levelValue])
 
   const stdDevLevel = chartStats
     ? STDEV_LEVELS.find(l => chartStats.stdDev < l.max) ?? STDEV_LEVELS[STDEV_LEVELS.length - 1]
@@ -265,6 +279,9 @@ export default function SongDetail() {
               label="SSS 率"
               rate={chartStats.sssRate}
               levelAvg={levelAvg?.sssRate}
+              officialLevelAvgRate={officialLevelAvg?.sssRate}
+              officialLevelCount={officialLevelAvg?.chartCount}
+              levelValue={currentDiff?.levelValue}
               fitDiffAvgRate={fitDiffAvg?.sssRate}
               fitDiffCount={fitDiffAvg?.chartCount}
               fitDiffValue={chartStats.fitDiff}
@@ -275,6 +292,9 @@ export default function SongDetail() {
               label="SSS+ 率"
               rate={chartStats.sssPlusRate}
               levelAvg={levelAvg?.sssPlusRate}
+              officialLevelAvgRate={officialLevelAvg?.sssPlusRate}
+              officialLevelCount={officialLevelAvg?.chartCount}
+              levelValue={currentDiff?.levelValue}
               fitDiffAvgRate={fitDiffAvg?.sssPlusRate}
               fitDiffCount={fitDiffAvg?.chartCount}
               fitDiffValue={chartStats.fitDiff}
@@ -285,6 +305,9 @@ export default function SongDetail() {
               label="AP 率"
               rate={chartStats.apRate}
               levelAvg={levelAvg?.apRate}
+              officialLevelAvgRate={officialLevelAvg?.apRate}
+              officialLevelCount={officialLevelAvg?.chartCount}
+              levelValue={currentDiff?.levelValue}
               fitDiffAvgRate={fitDiffAvg?.apRate}
               fitDiffCount={fitDiffAvg?.chartCount}
               fitDiffValue={chartStats.fitDiff}
@@ -509,34 +532,47 @@ function diffSign(d: number): string {
   return d >= 0 ? `+${(d * 100).toFixed(1)}` : (d * 100).toFixed(1)
 }
 
-/** Single rate column with absolute value + diff vs level avg + optional fit_diff avg */
-function RateDiffCard({ label, rate, levelAvg, fitDiffAvgRate, fitDiffCount, fitDiffValue }: {
+/** Single rate column: absolute value + vs 官标等级 + vs 官标定数 + 拟合后 vs 官标定数 */
+function RateDiffCard({ label, rate, levelAvg, officialLevelAvgRate, officialLevelCount, levelValue, fitDiffAvgRate, fitDiffCount, fitDiffValue }: {
   label: string
   rate: number
   levelAvg?: number
+  officialLevelAvgRate?: number
+  officialLevelCount?: number
+  levelValue?: number
   fitDiffAvgRate?: number
   fitDiffCount?: number
   fitDiffValue?: number
 }) {
   const pct = (rate * 100).toFixed(1)
-  const diffVal = levelAvg != null ? rate - levelAvg : null
-  const fitDiffVal = fitDiffAvgRate != null ? rate - fitDiffAvgRate : null
-  const showFitDiff = fitDiffVal != null && fitDiffCount != null && fitDiffCount >= 3
+  const diffVsLevel = levelAvg != null ? rate - levelAvg : null
+  const diffVsOfficial = officialLevelAvgRate != null ? rate - officialLevelAvgRate : null
+  const showOfficial = diffVsOfficial != null && officialLevelCount != null && officialLevelCount >= 3
+  const diffVsFit = fitDiffAvgRate != null ? rate - fitDiffAvgRate : null
+  const showFitDiff = diffVsFit != null && fitDiffCount != null && fitDiffCount >= 3
 
   return (
     <div className="bg-bg-gray rounded-md px-3 py-4">
       <div className="text-xs mb-1" style={LABEL_STYLES[label] || {}}>{label}</div>
       <div className="text-lg font-bold text-text tabular-nums">{pct}%</div>
-      {diffVal != null ? (
-        <div className="text-xs mt-0.5 tabular-nums font-medium" style={{ color: getDiffColor(diffVal, label) }}>
-          {diffSign(diffVal)}% vs 同级
+      {/* Row 1: vs 官标等级 */}
+      {diffVsLevel != null ? (
+        <div className="text-xs mt-0.5 tabular-nums font-medium" style={{ color: getDiffColor(diffVsLevel, label) }}>
+          {diffSign(diffVsLevel)}% vs 官标等级
         </div>
       ) : (
         <div className="text-xs text-text-tertiary mt-0.5">--</div>
       )}
+      {/* Row 2: vs 官标定数 */}
+      {showOfficial && (
+        <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: getDiffColor(diffVsOfficial!, label) }}>
+          {diffSign(diffVsOfficial!)}% vs 官标定数({levelValue?.toFixed(1)})
+        </div>
+      )}
+      {/* Row 3: 拟合后 vs 官标定数 */}
       {showFitDiff && (
-        <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: getDiffColor(fitDiffVal!, label) }}>
-          {diffSign(fitDiffVal!)}% vs 同定数({fitDiffValue?.toFixed(1)})
+        <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: getDiffColor(diffVsFit!, label) }}>
+          {diffSign(diffVsFit!)}% 拟合后 vs 官标定数({fitDiffValue?.toFixed(1)})
         </div>
       )}
     </div>

@@ -59,13 +59,22 @@ export const STDEV_LEVELS = [
 let _chartStats: Map<string, ChartStatSummary> | null = null  // key: "songId-level"
 let _levelAvgs: Map<string, LevelAvg> | null = null            // key: level string (e.g. "14+")
 let _fitDiffAvgs: Map<number, FitDiffAvg> | null = null        // key: fit_diff 一位小数 (e.g. 14.3)
+let _officialLevelAvgs: Map<number, FitDiffAvg> | null = null  // key: 官方 levelValue 一位小数 (e.g. 14.7)
 let _loaded = false
 let _loading = false
 
 // ---- Public interface ----
 
-export async function loadStats(): Promise<void> {
-  if (_loaded) return
+export async function loadStats(officialLevelMap?: Map<string, number>): Promise<void> {
+  // If already loaded but official avgs missing (e.g. first call from DimensionAnalysis without songs),
+  // and now we have the map — build official avgs from cached data and return
+  if (_loaded) {
+    if (officialLevelMap && officialLevelMap.size > 0 && !_officialLevelAvgs) {
+      const data = await getCachedStats()
+      if (data) _officialLevelAvgs = buildOfficialLevelAvgs(data, officialLevelMap)
+    }
+    return
+  }
   if (_loading) {
     // Wait for existing load
     while (_loading) await new Promise(r => setTimeout(r, 100))
@@ -89,12 +98,16 @@ export async function loadStats(): Promise<void> {
     _chartStats = buildChartStats(data)
     _levelAvgs = buildLevelAvgs(data)
     _fitDiffAvgs = buildFitDiffAvgs(data)
+    if (officialLevelMap && officialLevelMap.size > 0) {
+      _officialLevelAvgs = buildOfficialLevelAvgs(data, officialLevelMap)
+    }
     _loaded = true
   } catch (err) {
     console.warn('statsService: 加载 chart_stats 失败', err)
     if (!_chartStats) _chartStats = new Map()
     if (!_levelAvgs) _levelAvgs = new Map()
     if (!_fitDiffAvgs) _fitDiffAvgs = new Map()
+    if (!_officialLevelAvgs) _officialLevelAvgs = new Map()
     _loaded = true
   } finally {
     _loading = false
@@ -112,6 +125,12 @@ export function getLevelAvg(level: string): LevelAvg | undefined {
 export function getFitDiffAvg(fitDiff: number): FitDiffAvg | undefined {
   const key = Math.round(fitDiff * 10) / 10
   return _fitDiffAvgs?.get(key)
+}
+
+/** 按官方定数（一位小数）查询同定数全服平均率 */
+export function getOfficialLevelAvg(levelValue: number): FitDiffAvg | undefined {
+  const key = Math.round(levelValue * 10) / 10
+  return _officialLevelAvgs?.get(key)
 }
 
 export function isStatsLoaded(): boolean {
@@ -208,10 +227,56 @@ function buildFitDiffAvgs(data: ChartStatsResponse): Map<number, FitDiffAvg> {
   return map
 }
 
+/**
+ * Build official level-value averages (grouped by official levelValue rounded to 1 decimal).
+ * Cross-references chart_stats entries with music_data via `officialLevelMap`.
+ * @param data - chart_stats API response
+ * @param officialLevelMap - `${songId}-${levelIndex}` → official levelValue
+ */
+function buildOfficialLevelAvgs(
+  data: ChartStatsResponse,
+  officialLevelMap: Map<string, number>,
+): Map<number, FitDiffAvg> {
+  const groups = new Map<number, { dist: number[]; fc_dist: number[]; count: number }>()
+
+  for (const [songIdStr, entries] of Object.entries(data.charts)) {
+    for (let levelIndex = 0; levelIndex < entries.length; levelIndex++) {
+      const entry = entries[levelIndex]
+      if (entry.diff == null) continue
+      const levelKey = `${songIdStr}-${levelIndex}`
+      const officialLv = officialLevelMap.get(levelKey)
+      if (officialLv == null) continue
+      const key = Math.round(officialLv * 10) / 10
+      let group = groups.get(key)
+      if (!group) {
+        group = { dist: new Array(14).fill(0), fc_dist: new Array(5).fill(0), count: 0 }
+        groups.set(key, group)
+      }
+      for (let i = 0; i < 14; i++) group.dist[i] += (entry.dist[i] || 0)
+      for (let i = 0; i < 5; i++) group.fc_dist[i] += (entry.fc_dist[i] || 0)
+      group.count++
+    }
+  }
+
+  const map = new Map<number, FitDiffAvg>()
+  for (const [key, group] of groups) {
+    const totalDist = group.dist.reduce((s, v) => s + v, 0) || 1
+    const totalFcDist = group.fc_dist.reduce((s, v) => s + v, 0) || 1
+    map.set(key, {
+      chartCount: group.count,
+      sssRate: (group.dist[12] || 0) / totalDist,
+      sssPlusRate: (group.dist[13] || 0) / totalDist,
+      apRate: ((group.fc_dist[3] || 0) + (group.fc_dist[4] || 0)) / totalFcDist,
+    })
+  }
+  return map
+}
+
 /** Reset cache (for manual refresh) */
 export function resetStats(): void {
   _chartStats = null
   _levelAvgs = null
   _fitDiffAvgs = null
+  _officialLevelAvgs = null
   _loaded = false
 }
