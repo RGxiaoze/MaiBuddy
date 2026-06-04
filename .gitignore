@@ -26,3 +26,5 @@ public/data/kb.json
 *.sw?
 .learnings/
 .claude/
+.narrafork/
+.worktrees/
