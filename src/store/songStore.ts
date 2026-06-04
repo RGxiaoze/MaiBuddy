@@ -6,8 +6,8 @@ import { create } from 'zustand'
 import type { Song } from '@/types'
 import { fetchMusicData } from '@/services/divingFishApi'
 import { getCachedSongs, setCachedSongs } from '@/db/database'
-import { VERSION_REGIONS } from '@/data/versions'
 import { searchAliases, getAliasIndex } from '@/data/aliases'
+import { VERSION_ORDER } from '@/data/versions'
 
 export type SortBy = 'default' | 'levelValue' | 'bpm' | 'version'
 export type SortOrder = 'asc' | 'desc'
@@ -22,8 +22,7 @@ interface AdvancedFilters {
   levelValueMin?: number
   levelValueMax?: number
   genre?: string
-  version?: string           // from (e.g. "舞萌2025")
-  region?: string            // '国服' | '日服'
+  version?: string           // from (e.g. "FESTiVAL")
   difficultyLevel?: number   // LevelIndex (0-4)
 }
 
@@ -146,12 +145,6 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
       // Version 精确匹配
       if (advancedFilters.version && song.from !== advancedFilters.version) return false
 
-      // Region 分组匹配
-      if (advancedFilters.region) {
-        const regionVersions = VERSION_REGIONS[advancedFilters.region]
-        if (regionVersions && !regionVersions.some(v => song.from?.includes(v))) return false
-      }
-
       // DifficultyLevel 筛选
       if (advancedFilters.difficultyLevel != null) {
         const hasLevel = !!song.difficulties.standard[advancedFilters.difficultyLevel] ||
@@ -179,8 +172,11 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
       switch (sortBy) {
         case 'bpm':
           return (a.bpm - b.bpm) * mult
-        case 'version':
-          return (a.version - b.version) * mult
+        case 'version': {
+          const va = VERSION_ORDER.get(a.from) ?? 0
+          const vb = VERSION_ORDER.get(b.from) ?? 0
+          return (va - vb) * mult
+        }
         case 'default':
         case 'levelValue': {
           const maxA = Math.max(...[...a.difficulties.standard, ...a.difficulties.dx].map(d => d.levelValue), 0)

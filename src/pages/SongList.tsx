@@ -347,20 +347,6 @@ export default function SongList() {
               />
             </label>
 
-            {/* Region filter */}
-            <label className="flex flex-col gap-1 text-xs text-text-secondary">
-              区域
-              <select
-                value={advancedFilters.region ?? ''}
-                onChange={(e) => setAdvancedFilters({ region: e.target.value || undefined })}
-                className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
-              >
-                <option value="">全部区域</option>
-                <option value="国服">国服</option>
-                {/* 日服: 框架预留，LXNS 集成后启用 */}
-              </select>
-            </label>
-
             {/* Version filter */}
             <label className="flex flex-col gap-1 text-xs text-text-secondary">
               版本
