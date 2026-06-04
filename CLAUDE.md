@@ -38,6 +38,27 @@
 - 遵循全局 CLAUDE.md 中的行为准则（think before coding、simplicity first、surgical changes）
 - TDD：修改纯逻辑代码前先写失败测试；修改 UI/样式时不强制
 
+### 手动调试交接原则
+
+浏览器自动化不可用（无 Chrome/Chromium）时，代码修改完成后必须：
+
+1. **列出需手动验证的检查点**：明确告知开发者哪些页面 / 组件 / 交互需要打开浏览器确认
+2. **说明预期行为**：每个检查点描述正确表现（如「切换难度后卡片应显示三行对比」）
+3. **标注风险区域**：指出改动可能影响的相关功能（如「loadStats 签名变更可能影响 DimensionAnalysis 和 PushSuggestions」）
+4. **格式示例**：
+
+```
+## 手动验证清单
+
+| # | 页面 | 操作 | 预期结果 |
+|---|------|------|----------|
+| 1 | 曲目详情页 | 打开「系ぎて」Re:MASTER | 全服达成分布显示三行对比 |
+| 2 | 曲目详情页 | 切换不同难度 | 三行数据随难度正确更新 |
+| 3 | 五维分析页 | 刷新页面 | 页面正常加载，无白屏 |
+```
+
+此清单在每次代码修改后、提交 Git 之前产出。
+
 ## 技术栈
 
 React + TypeScript + Vite + TailwindCSS v4 + Zustand + Dexie(IndexedDB) + ECharts

@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { ChartDifficulty, DfChartInfo, DfMusic, LevelIndex, Notes, Score, Song } from '@/types'
+import { VERSION_ORDER } from '@/data/versions'
 
 // ---- Re-export DfScore for divingFishApi consumers ----
 
@@ -56,7 +57,7 @@ export function toInternalSong(m: DfMusic, imageUrl: string): Song {
     artist: m.basic_info.artist,
     genre: m.basic_info.genre,
     bpm: m.basic_info.bpm,
-    version: 0,
+    version: VERSION_ORDER.get(m.basic_info.from) ?? 0,
     from: m.basic_info.from,
     isNew: m.basic_info.is_new,
     imageUrl,
