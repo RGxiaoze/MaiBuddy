@@ -2,13 +2,16 @@
 // Sidebar navigation — collapsible on desktop, hidden on mobile
 // ============================================================
 
-import { NavLink } from 'react-router'
+import { useState } from 'react'
+import { NavLink, Link } from 'react-router'
 import UserInfoCard from './UserInfoCard'
 
 const links = [
   { to: '/songs',    label: '曲目检索',   icon: '♪' },
   { to: '/player',   label: 'B50 一览',   icon: '👤' },
   { to: '/analysis', label: '五维分析',   icon: '📊' },
+  { to: '/guide',     label: '使用指南',   icon: '📖' },
+  { to: '/changelog', label: '更新记录',   icon: '📋' },
 ]
 
 interface SidebarProps {
@@ -19,6 +22,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
+  const [aboutOpen, setAboutOpen] = useState(false)
   const sidebarContent = (
     <nav
       className={`flex flex-col h-full transition-all duration-200
@@ -64,6 +68,76 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         ))}
       </ul>
 
+      {/* About section — collapsible */}
+      <div className="border-t border-border">
+        {!collapsed && (
+          <button
+            onClick={() => setAboutOpen(!aboutOpen)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-text-tertiary
+                       hover:bg-surface-light hover:text-text-secondary transition-colors
+                       cursor-pointer border-none bg-transparent"
+          >
+            <span className="font-medium">关于</span>
+            <span className={`text-xs transition-transform ${aboutOpen ? 'rotate-90' : ''}`}>▶</span>
+          </button>
+        )}
+        {collapsed && (
+          <button
+            onClick={() => setAboutOpen(!aboutOpen)}
+            className="w-full flex justify-center py-2 text-xs text-text-tertiary
+                       hover:bg-surface-light hover:text-text-secondary transition-colors
+                       cursor-pointer border-none bg-transparent"
+            title="关于"
+          >
+            <span className="text-sm">💎</span>
+          </button>
+        )}
+
+        {aboutOpen && (
+          <div className={`px-4 pb-3 space-y-2 text-[11px] text-text-tertiary ${collapsed ? 'text-center px-1' : ''}`}>
+            {!collapsed ? (
+              <>
+                <div className="leading-relaxed">
+                  <p className="text-text-secondary font-medium mb-1">致谢</p>
+                  <p>Diving-Fish API · Yuzu-ChaN 别名</p>
+                  <p>舞萌 DX 社区数据支持</p>
+                </div>
+                <div className="leading-relaxed">
+                  <p className="text-text-secondary font-medium mb-1">技术栈</p>
+                  <p>React · TypeScript · Vite · TailwindCSS</p>
+                </div>
+                <p>版本 v0.4.0</p>
+                <div className="flex items-center gap-3 pt-1">
+                  <Link
+                    to="/docs"
+                    onClick={onMobileClose}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    📖 开发文档
+                  </Link>
+                  <a
+                    href="#"
+                    className="text-xs text-text-tertiary hover:text-primary transition-colors no-underline"
+                    title="GitHub（暂未开放）"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    GitHub ↗
+                  </a>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-1 text-[10px]">
+                <p className="font-medium text-text-secondary">v0.4.0</p>
+                <Link to="/docs" onClick={onMobileClose} className="text-primary hover:underline block">
+                  📖
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Collapse toggle (desktop only) */}
       <div className="hidden md:block border-t border-border p-3">
         <button
@@ -76,13 +150,6 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
           {!collapsed && <span>收起</span>}
         </button>
       </div>
-
-      {/* Footer */}
-      {!collapsed && (
-        <div className="px-4 py-3 text-[11px] text-text-tertiary border-t border-border">
-          v0.3.0
-        </div>
-      )}
     </nav>
   )
 

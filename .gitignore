@@ -13,6 +13,8 @@ dist-ssr
 *.local
 *.png
 public/data/kb.json
+public/changelog.json
+public/docs-index.json
 
 # Editor directories and files
 .vscode/*

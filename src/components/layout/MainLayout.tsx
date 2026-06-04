@@ -7,6 +7,7 @@ import { Outlet } from 'react-router'
 import Sidebar from './Sidebar'
 import MobileHeader from './MobileHeader'
 import MobileBottomNav from './MobileBottomNav'
+import Footer from './Footer'
 
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false)
@@ -32,8 +33,11 @@ export default function MainLayout() {
         <MobileHeader onMenuToggle={openMobile} />
 
         {/* Scrollable content */}
-        <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 overflow-auto">
-          <Outlet />
+        <main className="flex-1 flex flex-col p-4 md:p-6 pb-20 md:pb-6 overflow-auto">
+          <div className="flex-1">
+            <Outlet />
+          </div>
+          <Footer />
         </main>
 
         {/* Mobile bottom nav */}

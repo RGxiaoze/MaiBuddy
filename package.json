@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build:kb": "node scripts/build-kb.js",
-    "prebuild": "npm run build:kb",
+    "prebuild": "npm run build:kb && node scripts/gen-changelog.js && node scripts/gen-docs.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -19,6 +19,7 @@
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
     "lucide-react": "^1.17.0",
+    "marked": "^18.0.5",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router": "^7.16.0",
