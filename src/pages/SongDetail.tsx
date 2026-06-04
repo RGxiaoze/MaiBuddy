@@ -79,9 +79,9 @@ export default function SongDetail() {
   }, [statsLoaded, currentDiff?.level])
 
   const fitDiffAvg = useMemo(() => {
-    if (!statsLoaded || !currentDiff) return undefined
-    return getFitDiffAvg(currentDiff.levelValue)
-  }, [statsLoaded, currentDiff?.levelValue])
+    if (!statsLoaded || !chartStats) return undefined
+    return getFitDiffAvg(chartStats.fitDiff)
+  }, [statsLoaded, chartStats?.fitDiff])
 
   const stdDevLevel = chartStats
     ? STDEV_LEVELS.find(l => chartStats.stdDev < l.max) ?? STDEV_LEVELS[STDEV_LEVELS.length - 1]
