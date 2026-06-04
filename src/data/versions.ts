@@ -20,33 +20,27 @@ export const VERSION_REGIONS: Record<string, string[]> = {
 // 版本排序映射 — 按发行时间递增赋值（间隔10预留扩展）
 // ============================================================
 
-/** 日文/国际版 版本名 → 排序值 */
+/** 日文/国际版 版本名 → 排序值（键对齐 Diving-Fish API 实际返回的 from 值） */
 const JP_VERSION_ORDER: Record<string, number> = {
-  'maimai':            100,
-  'maimai PLUS':       110,
-  'maimai GreeN':      200,
-  'maimai GreeN PLUS': 210,
-  'maimai ORANGE':     300,
-  'maimai ORANGE PLUS': 310,
-  'maimai PiNK':       400,
-  'maimai PiNK PLUS':  410,
-  'maimai MURASAKi':      500,
-  'maimai MURASAKi PLUS': 510,
-  'maimai MiLK':       600,
-  'MiLK PLUS':         610,
-  'FiNALE':            700,
-  'DX':                800,
-  'DX PLUS':           810,
-  'Splash':            820,
-  'Splash PLUS':       830,
-  'UNiVERSE':          840,
-  'UNiVERSE PLUS':     850,
-  'FESTiVAL':          860,
-  'FESTiVAL PLUS':     870,
-  'BUDDiES':          880,
-  'BUDDiES PLUS':     890,
-  'PRiSM':            900,
-  'PRiSM PLUS':       910,
+  'maimai':                   100,
+  'maimai PLUS':              110,
+  'maimai GreeN':             200,
+  'maimai GreeN PLUS':        210,
+  'maimai ORANGE':            300,
+  'maimai ORANGE PLUS':       310,
+  'maimai PiNK':              400,
+  'maimai PiNK PLUS':         410,
+  'maimai MURASAKi':          500,
+  'maimai MURASAKi PLUS':     510,
+  'maimai MiLK':              600,
+  'MiLK PLUS':                610,
+  'maimai FiNALE':            700,
+  'maimai でらっくす':         800,
+  'maimai でらっくす Splash':   820,
+  'maimai でらっくす UNiVERSE': 840,
+  'maimai でらっくす FESTiVAL': 860,
+  'maimai でらっくす BUDDiES':  880,
+  'maimai でらっくす PRiSM':    900,
 }
 
 /** 国服 版本名 → 排序值（与日文值隔开避免碰撞） */
