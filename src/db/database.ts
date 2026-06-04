@@ -51,12 +51,19 @@ export interface CachedStats {
   updatedAt: number       // timestamp (ms)
 }
 
+/** Settings entry (key-value store) */
+export interface SettingsEntry {
+  key: string             // PK
+  value: unknown          // any JSON-serializable value
+}
+
 /** Database singleton */
 class MaimaiDB extends Dexie {
   scores!: EntityTable<ScoreRecord, 'id'>
   songCache!: EntityTable<CachedSongs, 'id'>
   aliasCache!: EntityTable<CachedAliases, 'id'>
   statsCache!: EntityTable<CachedStats, 'id'>
+  settings!: EntityTable<SettingsEntry, 'key'>
 
   constructor() {
     super('MaimaiDB')
@@ -84,6 +91,15 @@ class MaimaiDB extends Dexie {
       songCache: 'id',
       aliasCache: 'id',
       statsCache: 'id',
+    })
+
+    // v5: add settings table
+    this.version(5).stores({
+      scores: '++id, songId, [songId+levelIndex], playDate',
+      songCache: 'id',
+      aliasCache: 'id',
+      statsCache: 'id',
+      settings: '&key',
     })
   }
 }
@@ -298,5 +314,42 @@ export function toScoreRecord(s: Score, createdAt?: Date): Omit<ScoreRecord, 'id
     dxScoreDetail: s.dxScoreDetail ?? null,
     playDate: s.playDate,
     createdAt: createdAt ?? new Date(),
+  }
+}
+
+// ---- Settings helpers ----
+
+/** Default settings — used when no stored value exists */
+export const DEFAULT_SETTINGS = {
+  darkMode: 'system' as 'light' | 'dark' | 'system',
+  pushTargetAch: 100.5,
+}
+
+/** Get a single setting value with fallback */
+export async function getSetting<T = unknown>(key: string, fallback: T): Promise<T> {
+  try {
+    const entry = await db.settings.get(key)
+    return entry ? (entry.value as T) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+/** Write a setting value */
+export async function setSetting(key: string, value: unknown): Promise<void> {
+  try {
+    await db.settings.put({ key, value })
+  } catch {
+    // Silently fail — settings are optional
+  }
+}
+
+/** Get all settings as a Map */
+export async function getAllSettings(): Promise<Map<string, unknown>> {
+  try {
+    const entries = await db.settings.toArray()
+    return new Map(entries.map((e) => [e.key, e.value]))
+  } catch {
+    return new Map()
   }
 }

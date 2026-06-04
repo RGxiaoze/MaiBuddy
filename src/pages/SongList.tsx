@@ -2,15 +2,19 @@
 // Song list / search page — search, filter, paginate, import
 // ============================================================
 
-import { useCallback, useEffect, useMemo, useState, useDeferredValue } from 'react'
+import { useCallback, useEffect, useMemo, useState, useDeferredValue, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { useSongStore, SORT_OPTIONS } from '@/store/songStore'
 import { usePlayerStore } from '@/store/playerStore'
+import { useScoreStore } from '@/store/scoreStore'
 import SearchBar from '@/components/shared/SearchBar'
 import Pagination from '@/components/shared/Pagination'
 import { LEVEL_INDEX_MAP } from '@/data/constants'
 import { VERSION_ORDER, getVersionDisplay } from '@/data/versions'
 import { loginToProber, generateImportToken } from '@/services/divingFishApi'
+import { exportScoresToFile } from '@/utils/exportScores'
+import { importScoresFromFile } from '@/utils/importScores'
+import { getAllScores } from '@/db/database'
 import type { LevelIndex } from '@/types'
 
 const PAGE_SIZE = 50
@@ -116,11 +120,16 @@ export default function SongList() {
     setImportToken(token)
     try { localStorage.setItem('maimai-df-import-token', token) } catch { /* quota exceeded */ }
   }
+  const fetchAllScores = useScoreStore((s) => s.fetchAllScores)
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [importResult, setImportResult] = useState<{
     total: number; imported: number; updated: number; skipped: number; nickname: string
   } | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [fileImporting, setFileImporting] = useState(false)
+  const [fileImportResult, setFileImportResult] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ---- Pagination state ----
   const [page, setPage] = useState(0)
@@ -203,6 +212,45 @@ export default function SongList() {
       setImportError(err instanceof Error ? err.message : '导入失败')
     } finally {
       setImporting(false)
+    }
+  }
+
+  // ---- Export handler ----
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const scores = await getAllScores()
+      exportScoresToFile(scores)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // ---- File import handler ----
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setFileImporting(true)
+    setFileImportResult(null)
+    try {
+      const result = await importScoresFromFile(file)
+      if (result.errors && result.errors.length > 0) {
+        setFileImportResult(result.errors.map((e) => e.message).join('\n'))
+      } else {
+        setFileImportResult(
+          `导入完成：共 ${result.total} 条，新增 ${result.imported} 条，更新 ${result.updated} 条，跳过 ${result.skipped} 条`
+        )
+        // Reload scores from DB to update in-memory state
+        await fetchAllScores()
+      }
+    } catch (err) {
+      setFileImportResult(err instanceof Error ? err.message : '导入失败')
+    } finally {
+      setFileImporting(false)
+      // Reset file input
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      e.target.value = ''
     }
   }
 
@@ -298,6 +346,15 @@ export default function SongList() {
                        bg-surface text-text-secondary border-border hover:border-primary"
           >
             📥 导入成绩
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border transition-colors cursor-pointer
+                       bg-surface text-text-secondary border-border hover:border-primary
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            📤 导出成绩
           </button>
         </div>
       </div>
@@ -561,6 +618,39 @@ export default function SongList() {
                 </p>
               </div>
             )}
+
+            {/* File import section */}
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-xs text-text-secondary mb-2">
+                或从之前导出的 JSON 文件恢复成绩（保留最高达成率）：
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleFileImport}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={fileImporting}
+                className="px-4 py-2 rounded-md border border-border bg-surface text-sm text-text-secondary
+                           hover:border-primary hover:text-primary transition-colors cursor-pointer
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {fileImporting ? '导入中...' : '📂 选择备份文件'}
+              </button>
+
+              {fileImportResult && (
+                <div className={`mt-3 rounded-lg p-3 text-sm whitespace-pre-wrap ${
+                  fileImportResult.startsWith('导入完成')
+                    ? 'bg-success/10 border border-success/30 text-text-secondary'
+                    : 'bg-error/10 border border-error/30 text-error'
+                }`}>
+                  {fileImportResult}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

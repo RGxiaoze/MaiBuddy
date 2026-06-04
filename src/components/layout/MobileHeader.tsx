@@ -1,6 +1,8 @@
 // ============================================================
-// Mobile top header bar (hamburger menu trigger)
+// Mobile top header bar (hamburger menu trigger + theme toggle)
 // ============================================================
+
+import DarkModeToggle from '@/components/shared/DarkModeToggle'
 
 interface MobileHeaderProps {
   onMenuToggle: () => void
@@ -27,8 +29,8 @@ export default function MobileHeader({ onMenuToggle }: MobileHeaderProps) {
         <span className="text-sm font-semibold text-text">舞萌DX 伴侣</span>
       </div>
 
-      {/* Spacer for centering */}
-      <div className="w-8" />
+      {/* Theme toggle */}
+      <DarkModeToggle />
     </header>
   )
 }

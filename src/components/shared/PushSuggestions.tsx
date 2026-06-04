@@ -7,6 +7,7 @@ import { Link } from 'react-router'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
+import { useSettingsStore } from '@/store/settingsStore'
 import { computePushSuggestions, type PushSuggestion } from '@/utils/pushSuggestions'
 import { computeTheoreticalMaxRating } from '@/utils/b50'
 import { loadStats, getChartStats, isStatsLoaded } from '@/services/statsService'
@@ -30,6 +31,8 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
   const { localB50 } = usePlayerStore()
   const { scores } = useScoreStore()
   const { songs } = useSongStore()
+  const pushTargetAch = useSettingsStore((s) => s.pushTargetAch)
+  const setPushTargetAch = useSettingsStore((s) => s.setPushTargetAch)
 
   const [showAll, setShowAll] = useState(false)
   const [statsReady, setStatsReady] = useState(isStatsLoaded())
@@ -54,14 +57,26 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
     // Build song map
     const songMap = new Map(songs.map(s => [s.id, s]))
 
-    return computePushSuggestions(scores, songMap, localB50, getChartStats)
-  }, [localB50, scores, songs, statsReady])
+    return computePushSuggestions(scores, songMap, localB50, getChartStats, pushTargetAch)
+  }, [localB50, scores, songs, statsReady, pushTargetAch])
 
   // Empty state: no B50 data
   if (!localB50) {
     return (
       <div className="bg-surface border border-border rounded-lg p-5 mt-4">
-        <h3 className="text-sm font-semibold text-text mb-1">📈 推分建议</h3>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-semibold text-text m-0">📈 推分建议</h3>
+          <select
+            value={pushTargetAch}
+            onChange={(e) => setPushTargetAch(Number(e.target.value))}
+            className="text-xs px-2 py-1 rounded border border-border bg-surface text-text-secondary
+                       cursor-pointer focus:outline-none focus:border-primary"
+          >
+            <option value={99}>目标: SS+ (99.0%)</option>
+            <option value={100}>目标: SSS (100.0%)</option>
+            <option value={100.5}>目标: SSS+ (100.5%)</option>
+          </select>
+        </div>
         <p className="text-xs text-text-secondary">
           暂无 B50 数据，导入成绩后自动生成推分建议。
         </p>
@@ -73,7 +88,19 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
   if (!suggestions || suggestions.length === 0) {
     return (
       <div className="bg-surface border border-border rounded-lg p-5 mt-4">
-        <h3 className="text-sm font-semibold text-text mb-1">📈 推分建议</h3>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-semibold text-text m-0">📈 推分建议</h3>
+          <select
+            value={pushTargetAch}
+            onChange={(e) => setPushTargetAch(Number(e.target.value))}
+            className="text-xs px-2 py-1 rounded border border-border bg-surface text-text-secondary
+                       cursor-pointer focus:outline-none focus:border-primary"
+          >
+            <option value={99}>目标: SS+ (99.0%)</option>
+            <option value={100}>目标: SSS (100.0%)</option>
+            <option value={100.5}>目标: SSS+ (100.5%)</option>
+          </select>
+        </div>
         <p className="text-xs text-text-secondary">
           暂无推分建议。B50 地板分已接近理论最高值
           {theoryMax > 0 ? ` (${theoryMax})` : ''}，继续保持！
@@ -90,11 +117,24 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
         <h3 className="text-sm font-semibold text-text m-0">
           📈 推分建议 ({suggestions.length})
         </h3>
-        {localB50 && theoryMax > 0 && (
-          <span className="text-xs text-text-secondary">
-            当前 {localB50.totalRating} / 理论最高 {theoryMax}
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {/* Target achievement selector */}
+          <select
+            value={pushTargetAch}
+            onChange={(e) => setPushTargetAch(Number(e.target.value))}
+            className="text-xs px-2 py-1 rounded border border-border bg-surface text-text-secondary
+                       cursor-pointer focus:outline-none focus:border-primary"
+          >
+            <option value={99}>目标: SS+ (99.0%)</option>
+            <option value={100}>目标: SSS (100.0%)</option>
+            <option value={100.5}>目标: SSS+ (100.5%)</option>
+          </select>
+          {localB50 && theoryMax > 0 && (
+            <span className="text-xs text-text-secondary">
+              当前 {localB50.totalRating} / 理论最高 {theoryMax}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto">

@@ -7,6 +7,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import MainLayout from '@/components/layout/MainLayout'
 import ErrorBoundary from '@/components/shared/ErrorBoundary'
 import { loadAliasData } from '@/data/aliases'
+import { useSettingsStore } from '@/store/settingsStore'
+import { useDarkMode } from '@/hooks/useDarkMode'
 import './App.css'
 
 // Route-level code splitting — each page loaded on demand
@@ -30,8 +32,13 @@ function PageLoader() {
 }
 
 export default function App() {
-  // Kick off alias data loading on app startup (search uses it, non-blocking)
-  useEffect(() => { loadAliasData() }, [])
+  const loadSettings = useSettingsStore((s) => s.loadSettings)
+
+  // Kick off alias data loading and settings loading on app startup
+  useEffect(() => { loadAliasData(); loadSettings() }, [])
+
+  // Apply dark mode to <html> based on settings
+  useDarkMode()
 
   return (
     <BrowserRouter>

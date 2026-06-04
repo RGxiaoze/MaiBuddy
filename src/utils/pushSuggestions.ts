@@ -108,10 +108,13 @@ export function computePushSuggestions(
   songMap: Map<number, Song>,
   currentB50: B50Result,
   getStats?: (songId: number, level: string) => ChartStatSummary | undefined,
+  targetAch?: number,
 ): PushSuggestion[] {
   if (currentB50.best35.length === 0 && currentB50.best15.length === 0) {
     return []
   }
+
+  const userTargetAch = targetAch ?? MAX_ACHIEVEMENTS
 
   const floor35 = currentB50.best35.length > 0
     ? currentB50.best35[currentB50.best35.length - 1].dxRating : 0
@@ -175,8 +178,8 @@ export function computePushSuggestions(
     const song = songMap.get(score.songId)
     const songIsNew = song?.isNew ?? false
 
-    // Use realistic target achievement based on player's B50 ceiling
-    const realisticTarget = realisticTargetAch(score.levelValue, mode)
+    // Use realistic target achievement based on player's B50 ceiling, capped by user preference
+    const realisticTarget = Math.min(realisticTargetAch(score.levelValue, mode), userTargetAch)
     const targetRating = computeRating(score.levelValue, Math.min(realisticTarget, MAX_ACHIEVEMENTS))
     const stats = getStats?.(score.songId, score.level)
 

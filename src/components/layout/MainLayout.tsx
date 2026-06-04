@@ -8,6 +8,7 @@ import Sidebar from './Sidebar'
 import MobileHeader from './MobileHeader'
 import MobileBottomNav from './MobileBottomNav'
 import Footer from './Footer'
+import DarkModeToggle from '@/components/shared/DarkModeToggle'
 
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false)
@@ -31,6 +32,11 @@ export default function MainLayout() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top header */}
         <MobileHeader onMenuToggle={openMobile} />
+
+        {/* Desktop top bar (theme toggle) */}
+        <div className="hidden md:flex items-center justify-end px-6 py-1.5">
+          <DarkModeToggle />
+        </div>
 
         {/* Scrollable content */}
         <main className="flex-1 flex flex-col p-4 md:p-6 pb-20 md:pb-6 overflow-auto">

@@ -60,6 +60,31 @@
   --gradient-prism-h: linear-gradient(90deg, #5BA4CF 0%, #B8A0E8 70%, #6C4DBF 100%);
 }
 
+/* ── 暗色主题 ── */
+[data-dark] {
+  --color-bg: #0F1117;
+  --color-bg-surface: #1A1C24;
+  --color-bg-elevated: #242636;
+  --color-bg-gray: #1E2030;
+  --color-surface: #1A1C24;
+  --color-surface-light: #252738;
+  --color-border: #2E3144;
+  --color-border-light: #252738;
+  --color-text: #E4E6F0;
+  --color-text-secondary: #9BA0B8;
+  --color-text-tertiary: #6B708A;
+  /* 品牌色微调亮度 */
+  --color-primary: #6BB8DD;
+  --color-primary-light: #3D7BA0;
+  --color-primary-dark: #82C8E8;
+  --color-secondary: #9A82D6;
+  --color-accent: #8B6ED7;
+  /* 语义色保持不变 */
+  /* 难度色保持不变 */
+  --gradient-prism: linear-gradient(135deg, #6BB8DD 0%, #9A82D6 70%, #8B6ED7 100%);
+  --gradient-prism-h: linear-gradient(90deg, #6BB8DD 0%, #9A82D6 70%, #8B6ED7 100%);
+}
+
 /* ── 全局基础 ── */
 * {
   box-sizing: border-box;
@@ -95,9 +120,21 @@ body {
   background: var(--color-text-tertiary);
 }
 
+[data-dark] ::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+}
+[data-dark] ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}
+
 /* ── 选中文字色 ── */
 ::selection {
   background: rgba(91, 164, 207, 0.25);
+  color: var(--color-text);
+}
+
+[data-dark] ::selection {
+  background: rgba(107, 184, 221, 0.3);
   color: var(--color-text);
 }
 
