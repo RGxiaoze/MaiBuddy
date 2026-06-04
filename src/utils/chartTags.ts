@@ -3,6 +3,13 @@
 // ============================================================
 
 import type { ChartDifficulty } from '@/types'
+import {
+  TECH_TOUCH_MIN, TECH_SLIDE_MIN, STAR_SLIDE_MIN,
+  STAMINA_NOTES_MIN, STAMINA_BPM_MIN,
+  JACK_TAP_MIN, JACK_BREAK_MIN,
+  JUMP_SLIDE_MAX, JUMP_TOUCH_MAX, JUMP_BREAK_MIN, JUMP_BPM_MIN,
+  STREAM_TAP_MIN, STREAM_BPM_MIN,
+} from '@/config/algorithms'
 
 export type ChartTag = '交互' | '纵连' | '星星' | '跳拍' | '体力' | '技巧' | '综合'
 
@@ -37,22 +44,22 @@ export function classifyChart(chart: ChartDifficulty, bpm: number): ChartTag {
   const touchPct = notes.touch / total
 
   // 技巧: TOUCH > 3% or SLIDE > 25%
-  if (touchPct > 0.03 || slidePct > 0.25) return '技巧'
+  if (touchPct > TECH_TOUCH_MIN || slidePct > TECH_SLIDE_MIN) return '技巧'
 
   // 星星: SLIDE > 20%
-  if (slidePct > 0.20) return '星星'
+  if (slidePct > STAR_SLIDE_MIN) return '星星'
 
   // 体力: high total notes + high BPM
-  if (total > 900 && bpm > 170) return '体力'
+  if (total > STAMINA_NOTES_MIN && bpm > STAMINA_BPM_MIN) return '体力'
 
   // 纵连: TAP+HOLD dominant + BREAK notable
-  if (tapPct > 0.65 && breakPct > 0.02) return '纵连'
+  if (tapPct > JACK_TAP_MIN && breakPct > JACK_BREAK_MIN) return '纵连'
 
   // 跳拍: low SLIDE/TOUCH, high BREAK
-  if (slidePct < 0.10 && touchPct < 0.01 && breakPct > 0.05 && bpm > 150) return '跳拍'
+  if (slidePct < JUMP_SLIDE_MAX && touchPct < JUMP_TOUCH_MAX && breakPct > JUMP_BREAK_MIN && bpm > JUMP_BPM_MIN) return '跳拍'
 
   // 交互: TAP dominant + high BPM
-  if (tapPct > 0.60 && bpm > 160) return '交互'
+  if (tapPct > STREAM_TAP_MIN && bpm > STREAM_BPM_MIN) return '交互'
 
   return '综合'
 }

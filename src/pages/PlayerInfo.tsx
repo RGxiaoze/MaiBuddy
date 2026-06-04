@@ -12,9 +12,9 @@ import { FC_LABELS, FS_LABELS } from '@/data/constants'
 import { computeDxStar, renderStars } from '@/utils/dxStar'
 import PushSuggestions from '@/components/shared/PushSuggestions'
 import { generateStrategy } from '@/utils/strategy'
-import { computeTheoreticalMaxRating } from '@/utils/rating'
+import { computeTheoreticalMaxRating } from '@/utils/b50'
 import type { LevelIndex, Song } from '@/types'
-import type { B50Result } from '@/utils/rating'
+import type { B50Result } from '@/utils/b50'
 import type { ScoreRecord } from '@/db/database'
 
 /** Shared B50 row component — works for both Diving-Fish and local B50 entries */

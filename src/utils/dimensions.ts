@@ -3,16 +3,22 @@
 // ============================================================
 
 import type { ChartDifficulty, Notes, Song } from '@/types'
+import {
+  DIM_NORM_PROCESSING, DIM_NORM_STAMINA, DIM_NORM_BURST, DIM_NORM_POSITIONING, DIM_NORM_TECHNIQUE,
+  DIM_BPM_TO_SECONDS, DIM_FALLBACK_LENGTH,
+  DIM_PEAK_MULTIPLIER, DIM_POS_SLIDE_WEIGHT, DIM_POS_HOLD_WEIGHT,
+  DIM_TECH_SLIDE_WEIGHT, DIM_TECH_TOUCH_WEIGHT, DIM_MIN_ACHIEVEMENTS,
+} from '@/config/algorithms'
 
 // ---- Dimension weights (for normalization) ----
 
 /** Max observed raw values for normalization — calibrated against full song library */
 const NORM_MAX = {
-  processing: 20000,  // BPM × total notes
-  stamina: 50000,     // total notes × estimated length
-  burst: 30000,       // BPM × peak density estimate
-  positioning: 0.8,   // position ratio
-  technique: 0.7,     // technique ratio
+  processing: DIM_NORM_PROCESSING,  // BPM × total notes
+  stamina: DIM_NORM_STAMINA,        // total notes × estimated length
+  burst: DIM_NORM_BURST,            // BPM × peak density estimate
+  positioning: DIM_NORM_POSITIONING, // position ratio
+  technique: DIM_NORM_TECHNIQUE,     // technique ratio
 }
 
 // ---- Calibration utility ----
@@ -43,15 +49,15 @@ export function calibrateNormMax(songs: Song[]): {
 
       const total = notes.total
       const bpm = song.bpm
-      const estimatedLength = bpm > 0 ? (total / bpm) * 60 : 120
+      const estimatedLength = bpm > 0 ? (total / bpm) * DIM_BPM_TO_SECONDS : DIM_FALLBACK_LENGTH
 
       const avgDensity = estimatedLength > 0 ? total / estimatedLength : 0
 
       raws.processing.push(bpm * total)
       raws.stamina.push(total * estimatedLength)
-      raws.burst.push(bpm * avgDensity * 1.5)
-      raws.positioning.push((notes.touch + notes.slide * 1.5 + notes.hold * 0.8) / total)
-      raws.technique.push((notes.slide * 1.2 + notes.hold + notes.break + notes.touch * 1.1) / total)
+      raws.burst.push(bpm * avgDensity * DIM_PEAK_MULTIPLIER)
+      raws.positioning.push((notes.touch + notes.slide * DIM_POS_SLIDE_WEIGHT + notes.hold * DIM_POS_HOLD_WEIGHT) / total)
+      raws.technique.push((notes.slide * DIM_TECH_SLIDE_WEIGHT + notes.hold + notes.break + notes.touch * DIM_TECH_TOUCH_WEIGHT) / total)
     }
   }
 
@@ -110,7 +116,7 @@ export function computeChartDimensions(chart: ChartDifficulty, bpm: number): Dim
 
   const total = notes.total
   // Estimate song duration in seconds: total notes / (BPM/60) — rough estimate
-  const estimatedLength = bpm > 0 ? (total / bpm) * 60 : 120 // default ~2min
+  const estimatedLength = bpm > 0 ? (total / bpm) * DIM_BPM_TO_SECONDS : DIM_FALLBACK_LENGTH // default ~2min
 
   // 底力: BPM × total notes — speed × density proxy
   const processingRaw = bpm * total
@@ -120,14 +126,14 @@ export function computeChartDimensions(chart: ChartDifficulty, bpm: number): Dim
 
   // 爆发: BPM × peak density (estimated as total/estimatedLength for avg, ×1.5 for peak)
   const avgDensity = estimatedLength > 0 ? total / estimatedLength : 0
-  const peakDensity = avgDensity * 1.5  // peak ≈ 1.5× average density
+  const peakDensity = avgDensity * DIM_PEAK_MULTIPLIER  // peak ≈ 1.5× average density
   const burstRaw = bpm * peakDensity
 
   // 定位: (TOUCH + SLIDE×1.5 + HOLD×0.8) / total
-  const posRaw = (notes.touch + notes.slide * 1.5 + notes.hold * 0.8) / total
+  const posRaw = (notes.touch + notes.slide * DIM_POS_SLIDE_WEIGHT + notes.hold * DIM_POS_HOLD_WEIGHT) / total
 
   // 技巧: (SLIDE×1.2 + HOLD + BREAK + TOUCH×1.1) / total
-  const techRaw = (notes.slide * 1.2 + notes.hold + notes.break + notes.touch * 1.1) / total
+  const techRaw = (notes.slide * DIM_TECH_SLIDE_WEIGHT + notes.hold + notes.break + notes.touch * DIM_TECH_TOUCH_WEIGHT) / total
 
   return {
     processing: normalize(processingRaw, NORM_MAX.processing),
@@ -149,16 +155,16 @@ export function computeChartDimensionsRaw(chart: ChartDifficulty, bpm: number): 
   }
 
   const total = notes.total
-  const estimatedLength = bpm > 0 ? (total / bpm) * 60 : 120
+  const estimatedLength = bpm > 0 ? (total / bpm) * DIM_BPM_TO_SECONDS : DIM_FALLBACK_LENGTH
 
   const avgDensity = estimatedLength > 0 ? total / estimatedLength : 0
 
   return {
     processing: bpm * total,
     stamina: total * estimatedLength,
-    burst: bpm * avgDensity * 1.5,
-    positioning: (notes.touch + notes.slide * 1.5 + notes.hold * 0.8) / total,
-    technique: (notes.slide * 1.2 + notes.hold + notes.break + notes.touch * 1.1) / total,
+    burst: bpm * avgDensity * DIM_PEAK_MULTIPLIER,
+    positioning: (notes.touch + notes.slide * DIM_POS_SLIDE_WEIGHT + notes.hold * DIM_POS_HOLD_WEIGHT) / total,
+    technique: (notes.slide * DIM_TECH_SLIDE_WEIGHT + notes.hold + notes.break + notes.touch * DIM_TECH_TOUCH_WEIGHT) / total,
   }
 }
 
@@ -208,7 +214,7 @@ export function computePlayerDimensions(
   // Filter: ≥ 97%, only one best per chart
   const bestByChart = new Map<string, { id: string; ach: number; title: string; dims: DimensionScores }>()
   for (const s of scores) {
-    if (s.achievements < 97) continue
+    if (s.achievements < DIM_MIN_ACHIEVEMENTS) continue
     const key = `${s.songId}-${s.levelIndex}`
     const dims = chartDimensions.get(key)
     if (!dims) continue

@@ -11,7 +11,7 @@ import { computeChartDimensions, computeChartDimensionsRaw, computePlayerDimensi
 import { analyzeWeakness } from '@/utils/weaknessAnalysis'
 import { recommendPracticeSongs } from '@/utils/practiceRecommend'
 import { generatePushRoute } from '@/utils/routePlanner'
-import { computePushSuggestions } from '@/utils/rating'
+import { computePushSuggestions } from '@/utils/pushSuggestions'
 import { getTagMeta, type ChartTag } from '@/utils/chartTags'
 import { loadStats, getChartStats, isStatsLoaded } from '@/services/statsService'
 import { loadKB, getLadderStrategy, type KnowledgeBase } from '@/utils/knowledgeBase'

@@ -4,6 +4,7 @@
 
 import { classifyChart, type ChartTag, getTagMeta } from './chartTags'
 import type { Song, ChartDifficulty } from '@/types'
+import { MAX_PRACTICE_PER_LEVEL, MAX_PRACTICE_TOTAL, PRACTICE_INCLUDE_THRESHOLD, PRACTICE_LEVEL_STEP, PRACTICE_LEVEL_TOLERANCE } from '@/config/algorithms'
 
 export interface PracticeSong {
   songId: number
@@ -26,7 +27,7 @@ export function recommendPracticeSongs(
   targetTag: ChartTag,
   songs: Song[],
   clearedCharts: Set<string>, // "songId-levelIndex" of charts with ≥ 97% achievement
-  maxPerLevel = 2,
+  maxPerLevel = MAX_PRACTICE_PER_LEVEL,
 ): PracticeSong[] {
   const tagMeta = getTagMeta(targetTag)
   const results: PracticeSong[] = []
@@ -58,13 +59,13 @@ export function recommendPracticeSongs(
 
     // Skip if already cleared AND we're targeting non-cleared only
     // (but include some cleared ones as reference)
-    if (alreadyCleared && diff.levelValue > lastLevel + 0.8) {
+    if (alreadyCleared && diff.levelValue > lastLevel + PRACTICE_INCLUDE_THRESHOLD) {
       // Include one cleared chart per level as reference
     }
 
     // Progressive: only pick if levelValue stepped up enough
-    if (diff.levelValue >= lastLevel + 0.3 || results.length === 0) {
-      const countAtLevel = results.filter(r => Math.abs(r.levelValue - diff.levelValue) < 0.2).length
+    if (diff.levelValue >= lastLevel + PRACTICE_LEVEL_STEP || results.length === 0) {
+      const countAtLevel = results.filter(r => Math.abs(r.levelValue - diff.levelValue) < PRACTICE_LEVEL_TOLERANCE).length
       if (countAtLevel >= maxPerLevel) continue
 
       results.push({
@@ -82,7 +83,7 @@ export function recommendPracticeSongs(
     }
 
     // Cap at 15 recommendations
-    if (results.length >= 15) break
+    if (results.length >= MAX_PRACTICE_TOTAL) break
   }
 
   return results

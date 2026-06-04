@@ -6,7 +6,7 @@ import { create } from 'zustand'
 import type { DfScore } from '@/services/adapter'
 import { toInternalScore } from '@/services/adapter'
 import { fetchPlayerScores, fetchPlayerRecords } from '@/services/divingFishApi'
-import { computeB50, type B50Result } from '@/utils/rating'
+import { computeB50, type B50Result } from '@/utils/b50'
 
 import { useScoreStore } from './scoreStore'
 import { useSongStore } from './songStore'

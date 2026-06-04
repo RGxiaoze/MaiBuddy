@@ -2,8 +2,13 @@
 // Push route planner — generate phased push roadmaps
 // ============================================================
 
-import { type B50Result, type PushSuggestion } from './rating'
+import { type B50Result } from './b50'
+import { type PushSuggestion } from './pushSuggestions'
 import type { ChartStatSummary } from '@/services/statsService'
+import {
+  EXCLUDE_LV15_RATING, ROUTE_BOOST_HIGH, ROUTE_BOOST_LOW, MAX_PER_PHASE,
+  LEVEL_TIER_LOW, LEVEL_TIER_MID, LEVEL_TIER_HIGH, LEVEL_TIER_ULTRA,
+} from '@/config/algorithms'
 
 export interface RoutePhase {
   /** Phase number */
@@ -46,7 +51,7 @@ export function generatePushRoute(
   if (suggestions.length === 0) return null
 
   // Filter: exclude 15-level for players below 14500
-  const filtered = b50.totalRating < 14500
+  const filtered = b50.totalRating < EXCLUDE_LV15_RATING
     ? suggestions.filter(s => s.levelValue < 15)
     : suggestions
 
@@ -56,8 +61,8 @@ export function generatePushRoute(
     let boost = 0
     if (stats) {
       // Bonus for charts easier than same-level average
-      if (stats.diffFromLevelAvg > 1.5) boost = 2
-      else if (stats.diffFromLevelAvg > 0.5) boost = 1
+      if (stats.diffFromLevelAvg > ROUTE_BOOST_HIGH) boost = 2
+      else if (stats.diffFromLevelAvg > ROUTE_BOOST_LOW) boost = 1
     }
     return { ...s, _boost: boost }
   })
@@ -67,10 +72,10 @@ export function generatePushRoute(
 
   // Define tier boundaries
   const tiers = [
-    { min: 10.0, max: 12.5, title: '低定数区 (10.0~12.5)', defaultAch: 'SSS+ (100.5%)' },
-    { min: 12.5, max: 13.5, title: '中定数区 (12.5~13.5)', defaultAch: 'SSS (100.0%)' },
-    { min: 13.5, max: 14.0, title: '高定数区 (13.5~14.0)', defaultAch: 'SS+ (99.5%)' },
-    { min: 14.0, max: 99.0, title: '超高定数区 (14.0+)', defaultAch: 'SS (99.0%)+' },
+    { min: 10.0, max: LEVEL_TIER_LOW, title: '低定数区 (10.0~12.5)', defaultAch: 'SSS+ (100.5%)' },
+    { min: LEVEL_TIER_LOW, max: LEVEL_TIER_MID, title: '中定数区 (12.5~13.5)', defaultAch: 'SSS (100.0%)' },
+    { min: LEVEL_TIER_MID, max: LEVEL_TIER_HIGH, title: '高定数区 (13.5~14.0)', defaultAch: 'SS+ (99.5%)' },
+    { min: LEVEL_TIER_ULTRA, max: 99.0, title: '超高定数区 (14.0+)', defaultAch: 'SS (99.0%)+' },
   ]
 
   const phases: RoutePhase[] = []
@@ -85,7 +90,7 @@ export function generatePushRoute(
     if (tierSongs.length === 0) continue
 
     // Take top 5 per tier
-    const top = tierSongs.slice(0, 5)
+    const top = tierSongs.slice(0, MAX_PER_PHASE)
     for (const s of top) usedIds.add(`${s.songId}-${s.levelIndex}`)
 
     const estimatedGain = top.reduce((sum, s) => sum + s.ratingGain, 0)

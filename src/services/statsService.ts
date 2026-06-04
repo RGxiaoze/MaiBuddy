@@ -35,10 +35,30 @@ export interface LevelAvg {
   apRate: number
 }
 
+export interface FitDiffAvg {
+  /** 该定数覆盖的谱面数 */
+  chartCount: number
+  /** SSS 率（人口加权） */
+  sssRate: number
+  /** SSS+ 率（人口加权） */
+  sssPlusRate: number
+  /** AP 率（人口加权） */
+  apRate: number
+}
+
+/** std_dev 分级阈值 — 对齐 Diving-Fish Prober 官方前端 */
+export const STDEV_LEVELS = [
+  { max: 3.6, label: '正常', color: '#22c55e', desc: '数据分布集中，参考价值高' },
+  { max: 4.2, label: '较高', color: '#eab308', desc: '数据有一定离散，整体可信' },
+  { max: 4.8, label: '高',   color: '#f97316', desc: '数据离散度偏高，可能有人差/越级因素' },
+  { max: Infinity, label: '极高', color: '#ef4444', desc: '数据离散度极高，个人差或越级严重，仅供参考' },
+] as const
+
 // ---- Internal state ----
 
-let _chartStats: Map<string, ChartStatSummary> | null = null  // key: "songId-levelIndex"
-let _levelAvgs: Map<string, LevelAvg> | null = null            // key: level string (e.g. "12")
+let _chartStats: Map<string, ChartStatSummary> | null = null  // key: "songId-level"
+let _levelAvgs: Map<string, LevelAvg> | null = null            // key: level string (e.g. "14+")
+let _fitDiffAvgs: Map<number, FitDiffAvg> | null = null        // key: fit_diff 一位小数 (e.g. 14.3)
 let _loaded = false
 let _loading = false
 
@@ -68,11 +88,13 @@ export async function loadStats(): Promise<void> {
 
     _chartStats = buildChartStats(data)
     _levelAvgs = buildLevelAvgs(data)
+    _fitDiffAvgs = buildFitDiffAvgs(data)
     _loaded = true
   } catch (err) {
     console.warn('statsService: 加载 chart_stats 失败', err)
     if (!_chartStats) _chartStats = new Map()
     if (!_levelAvgs) _levelAvgs = new Map()
+    if (!_fitDiffAvgs) _fitDiffAvgs = new Map()
     _loaded = true
   } finally {
     _loading = false
@@ -85,6 +107,11 @@ export function getChartStats(songId: number, level: string): ChartStatSummary |
 
 export function getLevelAvg(level: string): LevelAvg | undefined {
   return _levelAvgs?.get(level)
+}
+
+export function getFitDiffAvg(fitDiff: number): FitDiffAvg | undefined {
+  const key = Math.round(fitDiff * 10) / 10
+  return _fitDiffAvgs?.get(key)
 }
 
 export function isStatsLoaded(): boolean {
@@ -102,8 +129,7 @@ function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary
       // Skip padding entries (diff is null for non-existent charts like missing Re:MASTER)
       if (entry.diff == null) continue
       const key = `${songId}-${entry.diff}`
-      const levelStr = String(Math.floor(entry.fit_diff))
-      const levelData = data.diff_data[levelStr]
+      const levelData = data.diff_data[entry.diff]
 
       // SSS+ rate: dist[13] / total
       const totalDist = entry.dist.reduce((s, v) => s + v, 0) || 1
@@ -149,9 +175,43 @@ function buildLevelAvgs(data: ChartStatsResponse): Map<string, LevelAvg> {
   return map
 }
 
+function buildFitDiffAvgs(data: ChartStatsResponse): Map<number, FitDiffAvg> {
+  const groups = new Map<number, { dist: number[]; fc_dist: number[]; count: number }>()
+
+  for (const entries of Object.values(data.charts)) {
+    for (const entry of entries) {
+      if (entry.diff == null) continue
+      const key = Math.round(entry.fit_diff * 10) / 10
+      let group = groups.get(key)
+      if (!group) {
+        group = { dist: new Array(14).fill(0), fc_dist: new Array(5).fill(0), count: 0 }
+        groups.set(key, group)
+      }
+      // Accumulate per-chart dist/fc_dist (population-weighted by cnt)
+      for (let i = 0; i < 14; i++) group.dist[i] += (entry.dist[i] || 0)
+      for (let i = 0; i < 5; i++) group.fc_dist[i] += (entry.fc_dist[i] || 0)
+      group.count++
+    }
+  }
+
+  const map = new Map<number, FitDiffAvg>()
+  for (const [key, group] of groups) {
+    const totalDist = group.dist.reduce((s, v) => s + v, 0) || 1
+    const totalFcDist = group.fc_dist.reduce((s, v) => s + v, 0) || 1
+    map.set(key, {
+      chartCount: group.count,
+      sssRate: (group.dist[12] || 0) / totalDist,
+      sssPlusRate: (group.dist[13] || 0) / totalDist,
+      apRate: ((group.fc_dist[3] || 0) + (group.fc_dist[4] || 0)) / totalFcDist,
+    })
+  }
+  return map
+}
+
 /** Reset cache (for manual refresh) */
 export function resetStats(): void {
   _chartStats = null
   _levelAvgs = null
+  _fitDiffAvgs = null
   _loaded = false
 }

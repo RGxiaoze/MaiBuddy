@@ -20,9 +20,10 @@ export interface StrategyAdvice {
  * Analyzes floor rating levels to determine which tier the player is at
  * and provides targeted advice for breaking through to the next level.
  */
-import type { B50Result } from './rating'
+import type { B50Result } from './b50'
 import type { ScoreRecord } from '@/db/database'
 import type { Song } from '@/types'
+import { RATING_TIERS, AP_TRACK_LEVEL_MIN, AP_TRACK_LEVEL_MAX, AP_PREVIEW_MAX } from '@/config/algorithms'
 
 export function generateStrategy(
   b50: B50Result,
@@ -43,19 +44,19 @@ export function generateStrategy(
   }
 
   // ---- Tier classification ----
-  if (totalRating < 8000) {
+  if (totalRating < RATING_TIERS.BEGINNER) {
     return beginnerStrategy()
-  } else if (totalRating < 10000) {
+  } else if (totalRating < RATING_TIERS.INTERMEDIATE) {
     return intermediateStrategy()
-  } else if (totalRating < 13000) {
+  } else if (totalRating < RATING_TIERS.ADVANCED) {
     return advancedStrategy()
-  } else if (totalRating < 15000) {
+  } else if (totalRating < RATING_TIERS.EXPERT) {
     return expertStrategy(b35AvgLevel, b15AvgLevel)
-  } else if (totalRating < 16000) {
+  } else if (totalRating < RATING_TIERS.MANSAI) {
     return expertToMansaiStrategy(b35AvgLevel, b15AvgLevel)
-  } else if (totalRating < 16200) {
+  } else if (totalRating < RATING_TIERS.GRANDMASTER_INTERMEDIATE) {
     return masterStrategy(b35AvgLevel, b15AvgLevel, floor35, floor15)
-  } else if (totalRating < 16400) {
+  } else if (totalRating < RATING_TIERS.GRANDMASTER) {
     return grandmasterIntermediateStrategy(b35AvgLevel, b15AvgLevel, floor35, floor15)
   } else {
     return grandmasterStrategy(b35AvgLevel, b15AvgLevel, tMax)
@@ -247,7 +248,7 @@ function theoryRatingStrategy(
   for (const [id, song] of songMap) {
     const allDiffs = [...song.difficulties.standard, ...song.difficulties.dx]
     for (const diff of allDiffs) {
-      if (diff.levelValue >= 14.0 && diff.levelValue < 15.0) {
+      if (diff.levelValue >= AP_TRACK_LEVEL_MIN && diff.levelValue < AP_TRACK_LEVEL_MAX) {
         const key = `${id}-${diff.levelIndex}`
         if (!apSet.has(key)) {
           unApCharts.push({
@@ -261,10 +262,10 @@ function theoryRatingStrategy(
   }
 
   unApCharts.sort((a, b) => b.levelValue - a.levelValue)
-  const apPreview = unApCharts.slice(0, 5)
+  const apPreview = unApCharts.slice(0, AP_PREVIEW_MAX)
     .map(c => `《${c.title}》${c.levelValue}`).join('、')
   const apItem = unApCharts.length > 0
-    ? `未 AP 的 14-14+ 谱面：${apPreview}${unApCharts.length > 5 ? `等 ${unApCharts.length} 首` : ''}`
+    ? `未 AP 的 14-14+ 谱面：${apPreview}${unApCharts.length > AP_PREVIEW_MAX ? `等 ${unApCharts.length} 首` : ''}`
     : '14-14+ 谱面已全部 AP，冲击 15 级 AP 吧！'
 
   return {

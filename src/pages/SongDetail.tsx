@@ -13,7 +13,7 @@ import { computeRating } from '@/utils/rating'
 import { computeDxStar, renderStars } from '@/utils/dxStar'
 import { getAliasesForSong, loadAliasData } from '@/data/aliases'
 import ScoreForm from '@/components/ScoreForm'
-import { loadStats, getChartStats, getLevelAvg } from '@/services/statsService'
+import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, STDEV_LEVELS } from '@/services/statsService'
 
 export default function SongDetail() {
   const { songId } = useParams<{ songId: string }>()
@@ -78,8 +78,14 @@ export default function SongDetail() {
     return getLevelAvg(currentDiff.level)
   }, [statsLoaded, currentDiff?.level])
 
-  const STDEV_WARN = 15
-  const showStdDevWarning = chartStats !== undefined && chartStats.stdDev > STDEV_WARN
+  const fitDiffAvg = useMemo(() => {
+    if (!statsLoaded || !currentDiff) return undefined
+    return getFitDiffAvg(currentDiff.levelValue)
+  }, [statsLoaded, currentDiff?.levelValue])
+
+  const stdDevLevel = chartStats
+    ? STDEV_LEVELS.find(l => chartStats.stdDev < l.max) ?? STDEV_LEVELS[STDEV_LEVELS.length - 1]
+    : undefined
 
   // ---- Loading / initial state ----
   // songs.length === 0 && !error means data hasn't arrived yet (first render or page refresh)
@@ -242,62 +248,65 @@ export default function SongDetail() {
         <div className="bg-surface border border-border rounded-lg p-5 mb-4">
           <h3 className="text-sm font-semibold text-text mb-3">全服达成分布</h3>
 
-          {/* StdDev warning — only when dispersion is abnormally high */}
-          {showStdDevWarning && (
-            <div className="mb-3 px-3 py-2 rounded-md bg-warning/10 border border-warning/20 text-xs text-warning">
-              数据离散度较高（σ={chartStats.stdDev.toFixed(1)}），可能因越级/推分导致失真，仅供参考
+          {/* StdDev classification banner — always shown */}
+          {stdDevLevel && (
+            <div
+              className="mb-3 px-3 py-2 rounded-md text-xs"
+              style={{ backgroundColor: `${stdDevLevel.color}10`, border: `1px solid ${stdDevLevel.color}30`, color: stdDevLevel.color }}
+            >
+              σ = {chartStats.stdDev.toFixed(1)} — {stdDevLevel.label}：{stdDevLevel.desc}
             </div>
           )}
 
           {/* Three-column rate display */}
           <div className="grid grid-cols-3 gap-3 text-center">
             {/* SSS Rate */}
-            <div className="bg-bg-gray rounded-md px-3 py-4">
-              <div className="text-xs text-text-secondary mb-1">SSS 率</div>
-              <div className="text-lg font-bold text-text tabular-nums">
-                {(chartStats.sssRate * 100).toFixed(1)}%
-              </div>
-              <div className="text-xs text-text-tertiary mt-0.5 tabular-nums">
-                {levelAvg
-                  ? `同级均值 ${(levelAvg.sssRate * 100).toFixed(1)}%`
-                  : '--'}
-              </div>
-            </div>
+            <RateDiffCard
+              label="SSS 率"
+              rate={chartStats.sssRate}
+              levelAvg={levelAvg?.sssRate}
+              fitDiffAvgRate={fitDiffAvg?.sssRate}
+              fitDiffCount={fitDiffAvg?.chartCount}
+              fitDiffValue={chartStats.fitDiff}
+            />
 
             {/* SSS+ Rate */}
-            <div className="bg-bg-gray rounded-md px-3 py-4">
-              <div className="text-xs text-text-secondary mb-1">SSS+ 率</div>
-              <div className="text-lg font-bold text-text tabular-nums">
-                {(chartStats.sssPlusRate * 100).toFixed(1)}%
-              </div>
-              <div className="text-xs text-text-tertiary mt-0.5 tabular-nums">
-                {levelAvg
-                  ? `同级均值 ${(levelAvg.sssPlusRate * 100).toFixed(1)}%`
-                  : '--'}
-              </div>
-            </div>
+            <RateDiffCard
+              label="SSS+ 率"
+              rate={chartStats.sssPlusRate}
+              levelAvg={levelAvg?.sssPlusRate}
+              fitDiffAvgRate={fitDiffAvg?.sssPlusRate}
+              fitDiffCount={fitDiffAvg?.chartCount}
+              fitDiffValue={chartStats.fitDiff}
+            />
 
             {/* AP Rate */}
-            <div className="bg-bg-gray rounded-md px-3 py-4">
-              <div className="text-xs text-text-secondary mb-1">AP 率</div>
-              <div className="text-lg font-bold text-text tabular-nums">
-                {(chartStats.apRate * 100).toFixed(1)}%
-              </div>
-              <div className="text-xs text-text-tertiary mt-0.5 tabular-nums">
-                {levelAvg
-                  ? `同级均值 ${(levelAvg.apRate * 100).toFixed(1)}%`
-                  : '--'}
-              </div>
-            </div>
+            <RateDiffCard
+              label="AP 率"
+              rate={chartStats.apRate}
+              levelAvg={levelAvg?.apRate}
+              fitDiffAvgRate={fitDiffAvg?.apRate}
+              fitDiffCount={fitDiffAvg?.chartCount}
+              fitDiffValue={chartStats.fitDiff}
+            />
           </div>
 
-          {/* Footer: stdDev reference */}
-          <div className="mt-3 text-xs text-text-tertiary text-center">
-            达成率标准差 σ = {chartStats.stdDev.toFixed(1)}
-            {!showStdDevWarning && (
-              <span className="text-text-tertiary/60">（数据可靠）</span>
-            )}
-          </div>
+          {/* 拟合定数行 */}
+          {currentDiff && chartStats.fitDiff != null && (() => {
+            const delta = chartStats.fitDiff - currentDiff.levelValue
+            const sign = delta >= 0 ? '+' : ''
+            const deltaColor = Math.abs(delta) <= FIT_DIFF_GRAY ? '#9CA3AF'
+              : delta > 0 ? '#ef4444' : '#22c55e'
+            return (
+              <div className="mt-3 pt-3 border-t border-border/30 text-xs text-center">
+                <span className="text-text-secondary">拟合定数 </span>
+                <span className="font-semibold text-text">{chartStats.fitDiff.toFixed(2)}</span>
+                <span className="text-text-tertiary"> — </span>
+                <span style={{ color: deltaColor }}>{sign}{Math.abs(delta).toFixed(2)}</span>
+                <span className="text-text-tertiary"> vs 官方定数 {currentDiff.levelValue.toFixed(1)}</span>
+              </div>
+            )
+          })()}
         </div>
       )}
 
@@ -456,3 +465,80 @@ const ScoreRow = memo(function ScoreRow({ score, allDiffs, onEdit, onDelete }: {
     </div>
   )
 })
+
+// ---- 全服达成分布子组件 ----
+
+/** 灰化边界（百分点）—— 基于 chart_stats 5,286 首谱面真实分布统计 */
+const GRAY_ZONES: Record<string, number> = {
+  'SSS 率': 2.0,
+  'SSS+ 率': 2.0,
+  'AP 率': 0.3,
+}
+/** 拟合定数差值灰化边界（fit_diff 精度 0.001） */
+const FIT_DIFF_GRAY = 0.05
+
+/** 标签着色（用户确认的配色体系） */
+const LABEL_STYLES: Record<string, React.CSSProperties> = {
+  'SSS 率': {
+    background: 'linear-gradient(90deg, #FFD700, #FF6B6B, #FF69B4, #FFD700)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+    fontWeight: 600,
+  },
+  'SSS+ 率': {
+    background: 'linear-gradient(90deg, #FFD700, #FF6B6B, #FF69B4, #FFD700)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+    fontWeight: 600,
+  },
+  'AP 率': {
+    color: '#F97316',
+    fontWeight: 600,
+  },
+}
+
+function getDiffColor(diff: number, label: string): string {
+  const grayZone = (GRAY_ZONES[label] ?? 2.0) / 100
+  if (Math.abs(diff) < grayZone) return '#9CA3AF'
+  return diff >= 0 ? '#22c55e' : '#ef4444'
+}
+
+function diffSign(d: number): string {
+  return d >= 0 ? `+${(d * 100).toFixed(1)}` : (d * 100).toFixed(1)
+}
+
+/** Single rate column with absolute value + diff vs level avg + optional fit_diff avg */
+function RateDiffCard({ label, rate, levelAvg, fitDiffAvgRate, fitDiffCount, fitDiffValue }: {
+  label: string
+  rate: number
+  levelAvg?: number
+  fitDiffAvgRate?: number
+  fitDiffCount?: number
+  fitDiffValue?: number
+}) {
+  const pct = (rate * 100).toFixed(1)
+  const diffVal = levelAvg != null ? rate - levelAvg : null
+  const fitDiffVal = fitDiffAvgRate != null ? rate - fitDiffAvgRate : null
+  const showFitDiff = fitDiffVal != null && fitDiffCount != null && fitDiffCount >= 3
+
+  return (
+    <div className="bg-bg-gray rounded-md px-3 py-4">
+      <div className="text-xs mb-1" style={LABEL_STYLES[label] || {}}>{label}</div>
+      <div className="text-lg font-bold text-text tabular-nums">{pct}%</div>
+      {diffVal != null ? (
+        <div className="text-xs mt-0.5 tabular-nums font-medium" style={{ color: getDiffColor(diffVal, label) }}>
+          {diffSign(diffVal)}% vs 同级
+        </div>
+      ) : (
+        <div className="text-xs text-text-tertiary mt-0.5">--</div>
+      )}
+      {showFitDiff && (
+        <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: getDiffColor(fitDiffVal!, label) }}>
+          {diffSign(fitDiffVal!)}% vs 同定数({fitDiffValue?.toFixed(1)})
+        </div>
+      )}
+    </div>
+  )
+}

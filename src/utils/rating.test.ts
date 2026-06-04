@@ -3,7 +3,9 @@
 // ============================================================
 
 import { describe, it, expect } from 'vitest'
-import { computeRating, computeB50, computePushSuggestions, computeTheoreticalMaxRating } from '@/utils/rating'
+import { computeRating } from '@/utils/rating'
+import { computeB50, computeTheoreticalMaxRating } from '@/utils/b50'
+import { computePushSuggestions } from '@/utils/pushSuggestions'
 import type { ScoreRecord } from '@/db/database'
 import type { Song, ChartDifficulty } from '@/types'
 

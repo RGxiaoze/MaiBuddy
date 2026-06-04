@@ -142,7 +142,7 @@ export async function fetchPlayerRecords(importToken: string): Promise<{
 
 export interface ChartStatEntry {
   cnt: number
-  diff: number
+  diff: string  // 官标难度字符串，如 "14+"、"12"
   fit_diff: number
   avg: number
   avg_dx: number

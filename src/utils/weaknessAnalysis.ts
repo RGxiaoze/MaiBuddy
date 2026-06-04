@@ -5,6 +5,7 @@
 import { classifyChart, type ChartTag, ALL_TAGS, getTagMeta } from './chartTags'
 import type { Song, ChartDifficulty } from '@/types'
 import type { ScoreRecord } from '@/db/database'
+import { WEAKNESS_MIN_SAMPLES, WEAKNESS_STRONG_THRESHOLD } from '@/config/algorithms'
 
 export interface TagStats {
   tag: ChartTag
@@ -57,8 +58,8 @@ export function analyzeWeakness(
   // Build stats per tag
   const tagStats: TagStats[] = ALL_TAGS.map(tag => {
     const achievements = tagAchievements.get(tag) || []
-    const strongCount = achievements.filter(a => a >= 97).length
-    const weakCount = achievements.filter(a => a < 97).length
+    const strongCount = achievements.filter(a => a >= WEAKNESS_STRONG_THRESHOLD).length
+    const weakCount = achievements.filter(a => a < WEAKNESS_STRONG_THRESHOLD).length
     const avgAchievement = achievements.length > 0
       ? achievements.reduce((s, a) => s + a, 0) / achievements.length
       : 0
@@ -76,7 +77,7 @@ export function analyzeWeakness(
   })
 
   // Find worst tags (only among tags with ≥ 3 scores to avoid noise)
-  const scored = tagStats.filter(t => t.totalCount >= 3)
+  const scored = tagStats.filter(t => t.totalCount >= WEAKNESS_MIN_SAMPLES)
   scored.sort((a, b) => a.avgAchievement - b.avgAchievement)
 
   const primaryWeakness = scored.length > 0 ? scored[0].tag : null
