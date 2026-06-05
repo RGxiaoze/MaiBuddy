@@ -96,6 +96,29 @@ export const SKIP_LOW_LEVEL = 14
 /** 推分建议中排除低达成率曲目的最低达成率阈值 */
 export const SKIP_LOW_ACH = 97
 
+// ---- classifyDifficulty 加权参数（综合全服数据 + 当前→目标 gap） ----
+
+/** 社区统计权重（diffFromLevelAvg 归一化后） */
+export const DIFF_WEIGHT_COMMUNITY = 0.6
+
+/** gap 维度权重（(目标−当前) 归一化后） */
+export const DIFF_WEIGHT_GAP = 0.4
+
+/** 复合分 ≥ 此值 → easy */
+export const DIFF_COMPOSITE_EASY = 0.65
+
+/** 复合分 ≥ 此值 → medium（低于此值 → hard） */
+export const DIFF_COMPOSITE_MEDIUM = 0.35
+
+/** gap 归一化分母（超出此值 gap 分归零） */
+export const DIFF_GAP_NORM_MAX = 15
+
+/** diffFromLevelAvg 归一化偏移（diff + offset）/ (offset*2) 映射到 [0,1] */
+export const DIFF_COMMUNITY_NORM_OFFSET = 5
+
+/** 无 chart_stats 回退：gap > 此值降一级难度 */
+export const DIFF_FALLBACK_GAP_THRESHOLD = 5
+
 /** 推分建议排序时 ratingGain 平局判定容差 */
 export const SUGGESTION_SORT_TOLERANCE = 0.1
 
@@ -110,14 +133,14 @@ export const TARGET_GAP_WELL_BELOW = -0.5
 /** gap ≤ 0（在舒适区内）→ 理论天花板 */
 export const TARGET_GAP_AT_COMFORT = 0
 
-/** gap ≤ 0.3（紧凑伸展）→ 理论天花板 */
-export const TARGET_GAP_CLOSE = 0.3
+/** gap ≤ 0.5（紧凑伸展，覆盖 pełny 推分区间 mode+0.1→mode+0.5）→ 理论天花板 */
+export const TARGET_GAP_CLOSE = 0.5
 
-/** gap ≤ 0.5（中度伸展）→ SSS (100.0%) */
-export const TARGET_GAP_MODERATE = 0.5
+/** gap ≤ 1.0（中度伸展）→ SSS (100.0%) */
+export const TARGET_GAP_MODERATE = 1.0
 
-/** gap ≤ 1.0（远伸展）→ SS (99.0%)，用于 B50 地板曲目推分 */
-export const TARGET_GAP_FAR = 1.0
+/** gap ≤ 1.5（远伸展）→ SS+ (99.0%)，用于 B50 地板曲目推分 */
+export const TARGET_GAP_FAR = 1.5
 
 /** 超出伸展区外的回退达成率 → SS+ (98.5%) */
 export const TARGET_FALLBACK_ACH = 98.5

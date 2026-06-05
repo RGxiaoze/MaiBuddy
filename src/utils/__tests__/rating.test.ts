@@ -191,11 +191,11 @@ describe('computeTheoreticalMaxRating', () => {
 describe('computePushSuggestions', () => {
   it('returns empty when B50 is empty', () => {
     const empty = { best35: [], best15: [], best35Total: 0, best15Total: 0, totalRating: 0 }
-    expect(computePushSuggestions([], new Map(), empty)).toEqual([])
+    expect(computePushSuggestions(empty, new Map()).suggestions).toEqual([])
   })
 
   it('suggests chart not in B50 whose potential beats floor', () => {
-    // Fill B35 to 35 with 13.8 filler → mode=13.8, stretch=13.9–14.3
+    // Fill B35 to 35 with 13.8 filler → mode=13.8, stretch=12.8–14.3
     const { songs, scores } = fillPool(1, 35, false, 13.8, 97.0)
     // Candidate at 14.1 / 94% (inside stretch zone, below B50 floor)
     const cand = makeSong({ id: 999, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.1 })] } })
@@ -203,10 +203,10 @@ describe('computePushSuggestions', () => {
     scores.push(makeScore({ songId: 999, levelIndex: 3, levelValue: 14.1, achievements: 94.0 }))
 
     const b50 = computeB50(scores, songs)
-    const sug = computePushSuggestions(scores, songs, b50)
+    const sug = computePushSuggestions(b50, songs, { allScores: scores }).suggestions
     const c = sug.find(s => s.songId === 999)
     expect(c).toBeDefined()
-    expect(c!.ratingGain).toBeGreaterThan(0)
+    expect(c!.gains[2].ratingGain).toBeGreaterThan(0)
   })
 
   it('suggests improving the B50 floor entry', () => {
@@ -219,13 +219,13 @@ describe('computePushSuggestions', () => {
       makeScore({ songId: 2, levelIndex: 3, levelValue: 13.0, achievements: 97.0 }), // floor
     ]
     const b50 = computeB50(scores, map)
-    const sug = computePushSuggestions(scores, map, b50)
+    const sug = computePushSuggestions(b50, map, { allScores: scores }).suggestions
     // Floor (song 2 at 13.0/97%) should be suggested for improvement
     const floorSug = sug.find(s => s.songId === 2)
     expect(floorSug).toBeDefined()
     expect(floorSug!.pool).toBe('b35')
     // Gain = potential(13.0, 100.5) - current(13.0, 97.0) > 0
-    expect(floorSug!.ratingGain).toBeGreaterThan(0)
+    expect(floorSug!.gains[2].ratingGain).toBeGreaterThan(0)
   })
 
   it('does not suggest non-floor B50 entries', () => {
@@ -237,7 +237,7 @@ describe('computePushSuggestions', () => {
       makeScore({ songId: 2, levelIndex: 3, levelValue: 13.0, achievements: 97.0 }),  // floor
     ]
     const b50 = computeB50(scores, map)
-    const sug = computePushSuggestions(scores, map, b50)
+    const sug = computePushSuggestions(b50, map, { allScores: scores }).suggestions
     // Song 1 is in B50 but NOT the floor → should NOT be suggested
     expect(sug.find(s => s.songId === 1)).toBeUndefined()
   })
@@ -251,12 +251,12 @@ describe('computePushSuggestions', () => {
       makeScore({ songId: 100001, levelIndex: 3, levelValue: 15.0, achievements: 100.5 }),
     ]
     const b50 = computeB50(scores, map)
-    expect(computePushSuggestions(scores, map, b50).find(s => s.songId === 100001)).toBeUndefined()
+    expect(computePushSuggestions(b50, map, { allScores: scores }).suggestions.find(s => s.songId === 100001)).toBeUndefined()
   })
 
-  it('sorts suggestions by ratingGain descending', () => {
+  it('sorts suggestions by gains[2].ratingGain descending', () => {
     const { songs, scores } = fillPool(1, 35, false, 13.8, 97.0)
-    // Two candidates in stretch zone (13.9–14.3): higher levelValue → higher gain
+    // Two candidates in stretch zone (12.8–14.3): higher levelValue → higher gain
     const sA = makeSong({ id: 101, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.2 })] } })
     const sB = makeSong({ id: 102, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.0 })] } })
     songs.set(101, sA).set(102, sB)
@@ -265,35 +265,38 @@ describe('computePushSuggestions', () => {
       makeScore({ songId: 102, levelIndex: 3, levelValue: 14.0, achievements: 90.0 }),
     )
     const b50 = computeB50(scores, songs)
-    const sug = computePushSuggestions(scores, songs, b50)
+    const sug = computePushSuggestions(b50, songs, { allScores: scores }).suggestions
     // Both candidates should have potential > floor (14.5/97% ≈ 281)
     expect(sug.length).toBeGreaterThanOrEqual(2)
     // Sorted by gain desc: higher levelValue = higher gain
-    expect(sug[0].ratingGain).toBeGreaterThanOrEqual(sug[1].ratingGain)
+    expect(sug[0].gains[2].ratingGain).toBeGreaterThanOrEqual(sug[1].gains[2].ratingGain)
   })
 
-  it('keeps highest achievement per chart when deduplicating', () => {
-    const { songs, scores } = fillPool(1, 35, false, 13.8, 97.0)
+  it('keeps highest achievement per chart when deduplicating (precise layer)', () => {
+    const { songs, scores } = fillPool(1, 35, false, 13.8, 97.3)
     const s = makeSong({ id: 999, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.1 })] } })
     songs.set(999, s)
+    // Both within 2% of regression prediction (~97.5) → precise layer
+    // Both ratings below B50 floor → candidate is NOT in B50
     scores.push(
-      makeScore({ songId: 999, levelIndex: 3, levelValue: 14.1, achievements: 90.0 }),
-      makeScore({ songId: 999, levelIndex: 3, levelValue: 14.1, achievements: 92.0 }),
+      makeScore({ songId: 999, levelIndex: 3, levelValue: 14.1, achievements: 95.5 }),
+      makeScore({ songId: 999, levelIndex: 3, levelValue: 14.1, achievements: 96.0 }),
     )
     const b50 = computeB50(scores, songs)
-    const sug = computePushSuggestions(scores, songs, b50)
+    const sug = computePushSuggestions(b50, songs, { allScores: scores }).suggestions
     const c = sug.find(s => s.songId === 999)
     expect(c).toBeDefined()
-    expect(c!.currentAchievements).toBe(92.0)
+    expect(c!.currentAchievements).toBe(96.0)  // highest achievement in precise layer
+    expect(c!.precision).toBe('precise')
   })
 
-  it('filters non-B50 charts outside stretch zone (mode+0.1 to mode+0.5)', () => {
-    // Fill B35 with 13.8 charts → mode = 13.8, stretch zone = 13.9–14.3
+  it('filters non-B50 charts outside stretch zone (mode–1.0 to mode+0.5)', () => {
+    // Fill B35 with 13.8 charts → mode = 13.8, stretch zone = 12.8–14.3
     const { songs, scores } = fillPool(1, 35, false, 13.8, 97.0)
-    // Below zone: 13.3 (< 13.9) → excluded
-    const sLow = makeSong({ id: 101, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.3 })] } })
+    // Below zone: 11.0 (< 12.8) → excluded (SSS+ can't beat floor35=267)
+    const sLow = makeSong({ id: 101, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 11.0 })] } })
     songs.set(101, sLow)
-    scores.push(makeScore({ songId: 101, levelIndex: 3, levelValue: 13.3, achievements: 97.0 }))
+    scores.push(makeScore({ songId: 101, levelIndex: 3, levelValue: 11.0, achievements: 97.0 }))
     // Inside zone: 14.1 / 90% → suggested
     const sIn = makeSong({ id: 102, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.1 })] } })
     songs.set(102, sIn)
@@ -304,31 +307,31 @@ describe('computePushSuggestions', () => {
     scores.push(makeScore({ songId: 103, levelIndex: 3, levelValue: 14.8, achievements: 97.0 }))
 
     const b50 = computeB50(scores, songs)
-    const sug = computePushSuggestions(scores, songs, b50)
+    const sug = computePushSuggestions(b50, songs, { allScores: scores }).suggestions
     expect(sug.find(s => s.songId === 101)).toBeUndefined()  // below zone
     expect(sug.find(s => s.songId === 102)).toBeDefined()     // in zone
     expect(sug.find(s => s.songId === 103)).toBeUndefined()   // above zone
   })
 
-  it('falls back to mean when B35 has fewer than 5 entries', () => {
+  it('works with DF data (no allScores) — all estimates', () => {
     const m = new Map<number, Song>()
     const scores: ScoreRecord[] = []
-    // Only 2 entries in B35 → mode unreliable, uses mean = (13.0+14.0)/2 = 13.5
-    const s1 = makeSong({ id: 1, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.0 })] } })
-    const s2 = makeSong({ id: 2, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.0 })] } })
-    m.set(1, s1).set(2, s2)
-    scores.push(
-      makeScore({ songId: 1, levelIndex: 3, levelValue: 13.0, achievements: 99.0 }),
-      makeScore({ songId: 2, levelIndex: 3, levelValue: 14.0, achievements: 99.0 }),
-    )
-    // Mean = 13.5, stretch zone = 13.6–14.0
-    // Candidate at 13.7 / 90%: inside stretch zone, not in B50
-    const cand = makeSong({ id: 3, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.7 })] } })
-    m.set(3, cand)
-    scores.push(makeScore({ songId: 3, levelIndex: 3, levelValue: 13.7, achievements: 90.0 }))
+    for (let i = 0; i < 20; i++) {
+      const id = 1 + i
+      m.set(id, makeSong({ id, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.5 })] } }))
+      scores.push(makeScore({ songId: id, levelIndex: 3, levelValue: 13.5, achievements: 98.0 }))
+    }
+    for (let i = 0; i < 15; i++) {
+      const id = 21 + i
+      m.set(id, makeSong({ id, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.3 })] } }))
+      scores.push(makeScore({ songId: id, levelIndex: 3, levelValue: 13.3, achievements: 97.5 }))
+    }
+    const cand = makeSong({ id: 100, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.8 })] } })
+    m.set(100, cand)
 
     const b50 = computeB50(scores, m)
-    const sug = computePushSuggestions(scores, m, b50)
-    expect(sug.find(s => s.songId === 3)).toBeDefined()
+    const result = computePushSuggestions(b50, m, { allScores: undefined })
+    expect(result.suggestions.length).toBeGreaterThan(0)
+    expect(result.suggestions.some(s => s.precision === 'estimated')).toBe(true)
   })
 })

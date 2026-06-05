@@ -124,7 +124,7 @@ export default function DimensionAnalysis() {
   const pushRoute = useMemo(() => {
     if (!localB50 || songs.length === 0) return null
     const songMap = new Map(songs.map(s => [s.id, s]))
-    const suggestions = computePushSuggestions(scores, songMap, localB50, getChartStats)
+    const suggestions = computePushSuggestions(localB50, songMap, { allScores: scores, getStats: getChartStats }).suggestions
     return generatePushRoute(localB50, suggestions, getChartStats)
   }, [localB50, scores, songs])
 

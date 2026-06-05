@@ -340,7 +340,7 @@ export default function PlayerInfo() {
                 输入 Diving-Fish 查分器的玩家名称，查询 B50 数据和总 DX Rating
               </p>
               <p className="text-sm text-text-secondary mt-3">
-                需要导入全量成绩？请前往
+                需要导入完整成绩？请前往
                 {' '}
                 <Link to="/songs" className="text-primary hover:text-primary-dark underline">
                   曲目查询页
@@ -430,9 +430,6 @@ export default function PlayerInfo() {
                 )}
               </div>
 
-              {/* Push suggestions */}
-              <PushSuggestions theoreticalMax={theoreticalMax} />
-
               {/* Strategy advice */}
               {localB50 && localB50.best35.length + localB50.best15.length > 0 && (
                 <StrategyPanel b50={localB50} scores={scores} songs={songs} theoreticalMax={theoreticalMax} />
@@ -480,6 +477,9 @@ export default function PlayerInfo() {
           )}
         </>
       )}
+
+      {/* Push suggestions — visible for both Diving-Fish and Local tabs */}
+      <PushSuggestions theoreticalMax={theoreticalMax} />
     </div>
   )
 }

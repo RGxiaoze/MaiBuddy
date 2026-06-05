@@ -27,15 +27,18 @@ describe('realisticTargetAch', () => {
   })
 
   it('中度伸展应返回 100.0 (SSS)', () => {
-    expect(realisticTargetAch(14.4, 14.0)).toBe(100.0)
+    // gap = 0.6 (> 0.5, ≤ 1.0) → TARGET_GAP_MODERATE
+    expect(realisticTargetAch(14.6, 14.0)).toBe(100.0)
   })
 
-  it('远伸展应返回 99.0 (SS)', () => {
-    expect(realisticTargetAch(14.8, 14.0)).toBe(99.0)
+  it('远伸展应返回 99.0 (SS+)', () => {
+    // gap = 1.2 (> 1.0, ≤ 1.5) → TARGET_GAP_FAR
+    expect(realisticTargetAch(15.2, 14.0)).toBe(99.0)
   })
 
-  it('超远应返回 98.5 (SS+)', () => {
-    expect(realisticTargetAch(15.5, 14.0)).toBe(98.5)
+  it('超远应返回 98.5 (SS)', () => {
+    // gap = 1.6 (> 1.5) → fallback
+    expect(realisticTargetAch(15.6, 14.0)).toBe(98.5)
   })
 
   it('舒适区为 0 时鸿沟极大应返回回退值', () => {
@@ -75,5 +78,41 @@ describe('classifyDifficulty', () => {
   it('高 SSS+ 率可将 hard 提升至 medium', () => {
     const s = makeScore({ levelValue: 14.0 })
     expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0.2, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 14 })).toBe('medium')
+  })
+
+  // ---- 加权模式（有 targetAchievements） ----
+
+  it('小gap(2%)+水分曲(diff=+2.5) → easy', () => {
+    const s = makeScore({ levelValue: 14.0, achievements: 98.5 })
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14 }, 100.5)).toBe('easy')
+  })
+
+  it('中gap(6%)+平均谱(diff=0) → medium', () => {
+    const s = makeScore({ levelValue: 14.0, achievements: 94.5 })
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14 }, 100.5)).toBe('medium')
+  })
+
+  it('大gap(12%)+水分曲(diff=+2.5) → medium（被gap拖低）', () => {
+    const s = makeScore({ levelValue: 14.0, achievements: 88.5 })
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14 }, 100.5)).toBe('medium')
+  })
+
+  it('大gap(12%)+硬谱(diff=-2) → hard', () => {
+    const s = makeScore({ levelValue: 14.0, achievements: 88.5 })
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 14 }, 100.5)).toBe('hard')
+  })
+
+  // ---- 无 chart_stats + targetAchievements（gap 修正） ----
+
+  it('无 stats：99.5% → easy（gap=1 ≤5, 不降级）', () => {
+    expect(classifyDifficulty(makeScore({ achievements: 99.5 }), undefined, 100.5)).toBe('easy')
+  })
+
+  it('无 stats：98.0% → medium（gap=2.5 ≤5, 不降级）', () => {
+    expect(classifyDifficulty(makeScore({ achievements: 98.0 }), undefined, 100.5)).toBe('medium')
+  })
+
+  it('无 stats：<98.0% → hard（gap 修正不适用，已为 hard）', () => {
+    expect(classifyDifficulty(makeScore({ achievements: 93.0 }), undefined, 100.5)).toBe('hard')
   })
 })

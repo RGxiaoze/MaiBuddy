@@ -31,7 +31,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       {/* Logo area */}
       <div className={`px-4 py-5 border-b border-border ${collapsed ? 'text-center' : ''}`}>
         {collapsed ? (
-          <span className="text-xl">💎</span>
+          <span className="text-xl font-semibold text-text-secondary">DX</span>
         ) : (
           <>
             <h1 className="text-base font-semibold text-text m-0">舞萌DX 伴侣</h1>
@@ -89,7 +89,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                        cursor-pointer border-none bg-transparent"
             title="关于"
           >
-            <span className="text-sm">💎</span>
+            <span className="text-sm font-semibold text-text-secondary">DX</span>
           </button>
         )}
 

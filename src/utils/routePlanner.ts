@@ -68,7 +68,7 @@ export function generatePushRoute(
   })
 
   // Sort: boost priority → rating gain desc
-  scored.sort((a, b) => b._boost - a._boost || b.ratingGain - a.ratingGain)
+  scored.sort((a, b) => b._boost - a._boost || (b.gains[2]?.ratingGain ?? 0) - (a.gains[2]?.ratingGain ?? 0))
 
   // Define tier boundaries
   const tiers = [
@@ -93,7 +93,7 @@ export function generatePushRoute(
     const top = tierSongs.slice(0, MAX_PER_PHASE)
     for (const s of top) usedIds.add(`${s.songId}-${s.levelIndex}`)
 
-    const estimatedGain = top.reduce((sum, s) => sum + s.ratingGain, 0)
+    const estimatedGain = top.reduce((sum, s) => sum + (s.gains[2]?.ratingGain ?? 0), 0)
 
     // Dynamic target: use chart_stats when available to make realistic targets
     const statsSamples = top

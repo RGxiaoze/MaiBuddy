@@ -25,7 +25,6 @@ export default function MobileHeader({ onMenuToggle }: MobileHeaderProps) {
 
       {/* Logo */}
       <div className="flex items-center gap-2">
-        <span className="text-sm">💎</span>
         <span className="text-sm font-semibold text-text">舞萌DX 伴侣</span>
       </div>
 

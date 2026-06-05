@@ -543,7 +543,7 @@ export default function SongList() {
           {/* Modal card */}
           <div className="relative bg-surface rounded-xl border border-border shadow-lg p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-text">导入全量成绩</h3>
+              <h3 className="text-base font-semibold text-text">导入完整成绩</h3>
               <button
                 onClick={() => setShowImport(false)}
                 className="p-1 rounded text-text-tertiary hover:text-text hover:bg-surface-light transition-colors cursor-pointer border-none bg-transparent"
@@ -572,7 +572,7 @@ export default function SongList() {
                            hover:bg-primary-dark transition-colors cursor-pointer
                            disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               >
-                {importing ? '导入中...' : '导入全量成绩'}
+                {importing ? '导入中...' : '导入完整成绩'}
               </button>
             </div>
 
@@ -614,7 +614,7 @@ export default function SongList() {
                   )}
                 </div>
                 <p className="text-text-secondary text-xs mt-2">
-                  全量成绩已保存到本地，可前往「B50 一览」查看
+                  完整成绩已保存到本地，可前往「B50 一览」查看
                 </p>
               </div>
             )}

@@ -1,5 +1,6 @@
 // ============================================================
-// Push suggestions — generate improvement recommendations for B50
+// Push suggestions v2 — scan song DB instead of player scores
+// Three-target gain calculation per suggestion
 // ============================================================
 
 import type { ScoreRecord } from '@/db/database'
@@ -8,42 +9,52 @@ import type { ChartStatSummary } from '@/services/statsService'
 import { type B50Result } from './b50'
 import { computeRating } from './rating'
 import { classifyDifficulty, realisticTargetAch } from './difficultyTier'
+import { predictLevelToAch } from './regression'
 import {
   MAX_ACHIEVEMENTS, UTAGE_ID_THRESHOLD, B35_FALLBACK_LEVEL, B35_MODE_MIN_COUNT,
   SKIP_LOW_LEVEL, SKIP_LOW_ACH,
   SSSP_SORT_WEIGHT, SUGGESTION_SORT_TOLERANCE,
 } from '@/config/algorithms'
 
-/** A single push suggestion — a score that can replace a B50 floor entry */
+// ---- Types ----
+
+/** Three target achievement levels */
+export const TARGET_LEVELS = [99, 100, 100.5] as const
+
+/** A single target's gain info */
+export interface PushGain {
+  targetAch: number
+  targetRating: number
+  ratingGain: number
+}
+
+/** A push suggestion with three columns of gains + precision flag */
 export interface PushSuggestion {
   songId: number
   songTitle: string
   levelIndex: number
   level: string
   levelValue: number
+  /** Actual achievement (precise) or predicted (estimated) */
   currentAchievements: number
   currentRating: number
-  /** Target achievement to reach */
-  targetAchievements: number
-  /** Rating at target achievement */
-  targetRating: number
-  /** Total rating gain if this suggestion is achieved */
-  ratingGain: number
   pool: 'b35' | 'b15'
-  /** How hard it is to achieve the gain */
   difficulty: 'easy' | 'medium' | 'hard'
-  /** SSS+ rate from chart stats (0 if unavailable) */
   sssPlusRate: number
+  /** Three gains: [SS+(99%), SSS(100%), SSS+(100.5%)] */
+  gains: [PushGain, PushGain, PushGain]
+  /** Precision: 'precise' when player achievement is known; 'estimated' otherwise */
+  precision: 'precise' | 'estimated'
 }
 
-/**
- * Find the most frequent level value in an array (mode), rounded to given precision.
- * Tie-breaking: picks the higher level value when multiple values have equal frequency.
- *
- * @param levels - 定数数组
- * @param precision - 舍入精度（默认 0.1）
- * @returns 众数定数值，空数组返回 0
- */
+export interface PushSuggestionsResult {
+  suggestions: PushSuggestion[]
+  /** Non-empty for B50-only data (no full scores imported) */
+  precisionNote?: string
+}
+
+// ---- Internal helpers ----
+
 function computeLevelMode(levels: number[], precision: number = 0.1): number {
   if (levels.length === 0) return 0
   const freq = new Map<number, number>()
@@ -63,166 +74,233 @@ function computeLevelMode(levels: number[], precision: number = 0.1): number {
 }
 
 function makeSuggestion(
-  score: ScoreRecord, currentRating: number, targetRating: number,
-  gain: number, pool: 'b35' | 'b15',
-  chartStats?: ChartStatSummary,
-  targetAch: number = MAX_ACHIEVEMENTS,
+  songId: number, songTitle: string,
+  levelIndex: number, level: string, levelValue: number,
+  currentAch: number, currentRating: number,
+  pool: 'b35' | 'b15',
+  difficulty: 'easy' | 'medium' | 'hard',
+  sssPlusRate: number,
+  precision: 'precise' | 'estimated',
+  floorRating: number,
+  targetLevels: readonly number[],
+  mode: number,
 ): PushSuggestion {
+  const gains: PushGain[] = targetLevels.map((targetAch) => {
+    const cappedTarget = Math.min(realisticTargetAch(levelValue, mode), targetAch)
+    const targetRating = computeRating(levelValue, Math.min(cappedTarget, MAX_ACHIEVEMENTS))
+    const ratingGain = targetRating - floorRating
+    return { targetAch, targetRating, ratingGain: Math.max(0, ratingGain) }
+  })
+
   return {
-    songId: score.songId,
-    songTitle: score.songTitle,
-    levelIndex: score.levelIndex,
-    level: score.level,
-    levelValue: score.levelValue,
-    currentAchievements: score.achievements,
+    songId, songTitle, levelIndex, level, levelValue,
+    currentAchievements: currentAch,
     currentRating,
-    targetAchievements: targetAch,
-    targetRating,
-    ratingGain: gain,
     pool,
-    difficulty: classifyDifficulty(score, chartStats),
-    sssPlusRate: chartStats?.sssPlusRate ?? 0,
+    difficulty,
+    sssPlusRate,
+    gains: gains as [PushGain, PushGain, PushGain],
+    precision,
   }
 }
 
+// ---- Main export ----
+
 /**
- * Generate push suggestions based on improvement potential.
+ * Generate push suggestions.
  *
- * 算法步骤：
- * 1. 确定 B35/B15 两池的地板分（最低 Rating 的成绩）
- * 2. 对每首谱面取最高达成率的成绩，跳过宴会场
- * 3. 计算 B35 定数众数作为玩家舒适区，推荐伸展区（众数+0.1 到 +0.5）
- * 4. 不在 B50 中的谱面：若目标 Rating > 地板分且落在伸展区内 → 生成建议
- * 5. 已是 B50 地板曲目的谱面：若提升达成率能涨分 → 生成建议
- * 6. 排除"随便打打"的低定数低达成率成绩（定数 < 14 且达成率 < 97%）
- * 7. 按加权分排序：ratingGain × (1 + sssPlusRate × 2)，优先水分曲
+ * Scans the full song database for charts in the player's stretch zone
+ * (mode+0.1 to mode+0.5), computes three-target gains, and marks precision.
  *
- * @param allScores - 所有本地成绩
- * @param songMap - Map<songId, Song> 用于查 isNew
- * @param currentB50 - 当前 B50 结果
- * @param getStats - 可选的全服统计查询回调
- * @returns 推分建议列表（按优先级排序）
+ * @param currentB50 - B50 data (from local compute or Diving-Fish query)
+ * @param songMap - full song database Map<songId, Song>
+ * @param options.allScores - optional: extends precise layer beyond B50
+ * @param options.getStats - optional: chart stats for difficulty classification
+ * @returns { suggestions, precisionNote }
  */
 export function computePushSuggestions(
-  allScores: ScoreRecord[],
-  songMap: Map<number, Song>,
   currentB50: B50Result,
-  getStats?: (songId: number, level: string) => ChartStatSummary | undefined,
-  targetAch?: number,
-): PushSuggestion[] {
+  songMap: Map<number, Song>,
+  options?: {
+    allScores?: ScoreRecord[]
+    getStats?: (songId: number, level: string) => ChartStatSummary | undefined
+  },
+): PushSuggestionsResult {
+  const allScores = options?.allScores
+  const getStats = options?.getStats
+
   if (currentB50.best35.length === 0 && currentB50.best15.length === 0) {
-    return []
+    return { suggestions: [] }
   }
 
-  const userTargetAch = targetAch ?? MAX_ACHIEVEMENTS
-
+  // 1. B50 floors
   const floor35 = currentB50.best35.length > 0
     ? currentB50.best35[currentB50.best35.length - 1].dxRating : 0
   const floor15 = currentB50.best15.length > 0
     ? currentB50.best15[currentB50.best15.length - 1].dxRating : 0
 
-  // Build set of charts already in B50 + their floor entry for floor detection
+  // 2. Build inB50 + floorKeys
   const inB50 = new Set<string>()
   const floorKeys = new Set<string>()
   if (currentB50.best35.length > 0) {
-    const floor = currentB50.best35[currentB50.best35.length - 1]
-    floorKeys.add(`${floor.songId}-${floor.levelIndex}`)
+    floorKeys.add(`${currentB50.best35[currentB50.best35.length - 1].songId}-${currentB50.best35[currentB50.best35.length - 1].levelIndex}`)
   }
   if (currentB50.best15.length > 0) {
-    const floor = currentB50.best15[currentB50.best15.length - 1]
-    floorKeys.add(`${floor.songId}-${floor.levelIndex}`)
+    floorKeys.add(`${currentB50.best15[currentB50.best15.length - 1].songId}-${currentB50.best15[currentB50.best15.length - 1].levelIndex}`)
   }
   for (const e of currentB50.best35) inB50.add(`${e.songId}-${e.levelIndex}`)
   for (const e of currentB50.best15) inB50.add(`${e.songId}-${e.levelIndex}`)
 
-  // Dedup: keep highest achievement per chart
-  const bestByChart = new Map<string, ScoreRecord>()
-  for (const s of allScores) {
-    if (s.songId >= UTAGE_ID_THRESHOLD) continue
-    const key = `${s.songId}-${s.levelIndex}`
-    const existing = bestByChart.get(key)
-    if (!existing || s.achievements > existing.achievements) {
-      bestByChart.set(key, s)
-    }
+  // 3. Regression: predict achievement from B50 level values
+  const b50Scores = [
+    ...currentB50.best35.map(e => ({ levelValue: e.levelValue, achievements: e.achievements })),
+    ...currentB50.best15.map(e => ({ levelValue: e.levelValue, achievements: e.achievements })),
+  ]
+  const predictFn = predictLevelToAch(b50Scores)
+
+  // 4. Build precise layer set: B50 entries always precise + allScores within 2%
+  const PRECISE_TOLERANCE = 2.0
+  const preciseScores = new Map<string, number>() // key → achievements
+  for (const e of currentB50.best35) {
+    preciseScores.set(`${e.songId}-${e.levelIndex}`, e.achievements)
   }
-
-  // ---- Compute recommendation level range from B35 mode ----
-  const b35Levels = currentB50.best35.map(e => e.levelValue)
-  const mode = b35Levels.length >= B35_MODE_MIN_COUNT
-    ? computeLevelMode(b35Levels)
-    : (b35Levels.length > 0 ? b35Levels.reduce((s, l) => s + l, 0) / b35Levels.length : B35_FALLBACK_LEVEL)
-  // Recommend charts from mode+0.1 to mode+0.5 (stretch zone just above comfort)
-  const MIN_RECOMMEND_LEVEL = mode > 0 ? mode + 0.1 : 0
-  const MAX_RECOMMEND_LEVEL = mode > 0 ? mode + 0.5 : B35_FALLBACK_LEVEL
-
-  const suggestions: PushSuggestion[] = []
-
-  for (const [key, score] of bestByChart) {
-    const currentRating = score.dxRating > 0
-      ? score.dxRating
-      : computeRating(score.levelValue, score.achievements)
-    if (currentRating <= 0) continue
-
-    // Non-B50 charts: only suggest within the stretch zone (mode+0.1 to mode+0.5)
-    if (!inB50.has(key)) {
-      if (score.levelValue < MIN_RECOMMEND_LEVEL || score.levelValue > MAX_RECOMMEND_LEVEL) {
-        continue
-      }
-    }
-
-    // Exclusion: skip sub-97% scores on sub-14 charts (likely "just playing around")
-    if (score.levelValue < SKIP_LOW_LEVEL && score.achievements < SKIP_LOW_ACH && !inB50.has(key)) {
-      continue
-    }
-
-    const song = songMap.get(score.songId)
-    const songIsNew = song?.isNew ?? false
-
-    // Use realistic target achievement based on player's B50 ceiling, capped by user preference
-    const realisticTarget = Math.min(realisticTargetAch(score.levelValue, mode), userTargetAch)
-    const targetRating = computeRating(score.levelValue, Math.min(realisticTarget, MAX_ACHIEVEMENTS))
-    const stats = getStats?.(score.songId, score.level)
-
-    if (!inB50.has(key)) {
-      // Chart NOT in B50 — only suggest for its version's pool
-      if (songIsNew) {
-        checkPool(floor15, 'b15')
-      } else {
-        checkPool(floor35, 'b35')
-      }
-    } else if (floorKeys.has(key)) {
-      // This chart IS the floor — suggest improving it
-      if (targetRating > currentRating) {
-        const gain = targetRating - currentRating
-        const pool = currentB50.best35.some(e => `${e.songId}-${e.levelIndex}` === key) ? 'b35' as const : 'b15' as const
-        suggestions.push(makeSuggestion(score, currentRating, targetRating, gain, pool, stats, realisticTarget))
-      }
-    }
-
-    function checkPool(floor: number, pool: 'b35' | 'b15') {
-      if (floor > 0 && targetRating > floor) {
-        const gain = targetRating - floor
-        // Only add if better than existing suggestion for this chart
-        const existing = suggestions.find(s => s.songId === score.songId && s.levelIndex === score.levelIndex)
-        if (!existing || gain > existing.ratingGain) {
-          if (existing) {
-            const idx = suggestions.indexOf(existing)
-            suggestions.splice(idx, 1)
-          }
-          suggestions.push(makeSuggestion(score, currentRating, targetRating, gain, pool, stats, realisticTarget))
+  for (const e of currentB50.best15) {
+    preciseScores.set(`${e.songId}-${e.levelIndex}`, e.achievements)
+  }
+  if (allScores) {
+    for (const s of allScores) {
+      const key = `${s.songId}-${s.levelIndex}`
+      if (inB50.has(key)) continue  // skip B50 entries (already in preciseScores)
+      const predicted = predictFn(s.levelValue)
+      if (Math.abs(s.achievements - predicted) <= PRECISE_TOLERANCE) {
+        const existing = preciseScores.get(key)
+        if (existing === undefined || s.achievements > existing) {
+          preciseScores.set(key, s.achievements)
         }
       }
     }
   }
 
-  // Weighted sort: boost charts that are "水分曲" (high SSS+ rate = easier than level suggests)
+  // 5. Compute mode and stretch zone
+  const b35Levels = currentB50.best35.map(e => e.levelValue)
+  const mode = b35Levels.length >= B35_MODE_MIN_COUNT
+    ? computeLevelMode(b35Levels)
+    : (b35Levels.length > 0 ? b35Levels.reduce((s, l) => s + l, 0) / b35Levels.length : B35_FALLBACK_LEVEL)
+  const STRETCH_UPPER = mode > 0 ? mode + 0.5 : B35_FALLBACK_LEVEL
+  // Unified lower bound: mode - 1.0 (covers both B35 optimization and B15 floor replacement)
+  const STRETCH_LOWER = mode > 0 ? Math.max(0, mode - 1.0) : 0
+  // B15 special: when B15 has empty slots (version reset), tighten lower to avoid green/yellow chart noise
+  const B15_FULL_COUNT = 15
+  const b15NotFull = currentB50.best15.length < B15_FULL_COUNT
+  const B15_STRETCH_LOWER = b15NotFull ? Math.max(0, mode - 0.5) : STRETCH_LOWER
+
+  // 6. Scan song DB for candidates
+  const suggestions: PushSuggestion[] = []
+  const seenChart = new Set<string>()
+
+  for (const song of songMap.values()) {
+    for (const diff of song.difficulties.dx) {
+      const key = `${song.id}-${diff.levelIndex}`
+      // Skip utage
+      if (song.id >= UTAGE_ID_THRESHOLD) continue
+      if (seenChart.has(key)) continue
+      seenChart.add(key)
+
+      const lv = diff.levelValue
+      const isNew = song.isNew
+
+      // Filter: in stretch zone OR already in B50
+      if (inB50.has(key)) {
+      } else {
+        const minZ = isNew ? B15_STRETCH_LOWER : STRETCH_LOWER
+        if (lv < minZ || lv > STRETCH_UPPER) continue
+      }
+
+      // Determine precision + current achievements
+      let currentAch: number
+      let precision: 'precise' | 'estimated'
+      const preciseAch = preciseScores.get(key)
+
+      if (preciseAch !== undefined) {
+        // B50 entries: filter low-ach noise for non-floor non-B50 entries
+        if (!inB50.has(key) && lv < SKIP_LOW_LEVEL && preciseAch < SKIP_LOW_ACH) continue
+        currentAch = preciseAch
+        precision = 'precise'
+      } else {
+        currentAch = predictFn(lv)
+        precision = 'estimated'
+      }
+
+      const currentRating = computeRating(lv, currentAch)
+      if (currentRating <= 0) continue
+
+      const stats = getStats?.(song.id, diff.level)
+
+      if (!inB50.has(key)) {
+        // Chart NOT in B50 — suggest for its version's pool
+        const pool = isNew ? 'b15' as const : 'b35' as const
+        const floorRating = pool === 'b15' ? floor15 : floor35
+
+        const cand = makeSuggestion(
+          song.id, song.title, diff.levelIndex, diff.level, lv,
+          currentAch, currentRating, pool,
+          classifyDifficulty({ levelValue: lv, achievements: currentAch } as ScoreRecord, stats, 100.5),
+          stats?.sssPlusRate ?? 0,
+          precision,
+          floorRating,
+          TARGET_LEVELS,
+          mode,
+        )
+        // Only add if at least one gain > 0
+        if (cand.gains.some(g => g.ratingGain > 0)) {
+          suggestions.push(cand)
+        }
+      } else if (floorKeys.has(key)) {
+        // This is the B50 floor — suggest improving it
+        const pool = currentB50.best35.some(e => `${e.songId}-${e.levelIndex}` === key) ? 'b35' as const : 'b15' as const
+
+        // Calculate gains against current rating (improving this score)
+        const lifts: PushGain[] = TARGET_LEVELS.map((targetAch) => {
+          const cappedTarget = Math.min(realisticTargetAch(lv, mode), targetAch)
+          const targetRating = computeRating(lv, Math.min(cappedTarget, MAX_ACHIEVEMENTS))
+          const ratingGain = Math.max(0, targetRating - currentRating)
+          return { targetAch, targetRating, ratingGain }
+        })
+
+        if (lifts.some(g => g.ratingGain > 0)) {
+          suggestions.push({
+            songId: song.id, songTitle: song.title,
+            levelIndex: diff.levelIndex, level: diff.level, levelValue: lv,
+            currentAchievements: currentAch,
+            currentRating,
+            pool,
+            difficulty: classifyDifficulty({ levelValue: lv, achievements: currentAch } as ScoreRecord, stats),
+            sssPlusRate: stats?.sssPlusRate ?? 0,
+            gains: lifts as [PushGain, PushGain, PushGain],
+            precision,
+          })
+        }
+      }
+    }
+  }
+
+  // 7. Sort by SSS+ gain descending (weighted by SSS+ rate for "水分曲" boost)
   suggestions.sort((a, b) => {
-    const aScore = a.ratingGain * (1 + a.sssPlusRate * SSSP_SORT_WEIGHT)
-    const bScore = b.ratingGain * (1 + b.sssPlusRate * SSSP_SORT_WEIGHT)
+    const aGain = a.gains[2].ratingGain  // SSS+ gain
+    const bGain = b.gains[2].ratingGain
+    const aScore = aGain * (1 + a.sssPlusRate * SSSP_SORT_WEIGHT)
+    const bScore = bGain * (1 + b.sssPlusRate * SSSP_SORT_WEIGHT)
     if (Math.abs(bScore - aScore) < SUGGESTION_SORT_TOLERANCE) {
       return b.levelValue - a.levelValue
     }
     return bScore - aScore
   })
-  return suggestions
+
+  // 8. Precision note
+  const hasEstimated = suggestions.some(s => s.precision === 'estimated')
+  const precisionNote = !allScores && hasEstimated
+    ? '推分建议基于 B50 数据 + 社区统计生成（未导入完整成绩）。导入完整成绩可获得更精准的个人化推荐。'
+    : undefined
+
+  return { suggestions, precisionNote }
 }
