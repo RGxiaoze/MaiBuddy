@@ -116,14 +116,17 @@ export default function Guide() {
       {/* 五维分析 */}
       <Section icon={<Radar size={20} />} title="五维分析">
         <div className="space-y-3 text-sm text-text-secondary leading-relaxed">
-          <p>从五个能力维度量化评估谱面表现：<strong>底力 / 体力 / 爆发 / 定位 / 技巧</strong>。</p>
+          <p>从五个能力维度量化评估谱面表现：<strong>底力 / 体力 / 爆发 / 技巧 / 定位</strong>。</p>
           <ul className="list-disc list-inside space-y-1 ml-1">
             <li>ECharts 雷达图 + 统计指标卡片（AP/SSS+ 计数、Rating 进度、定数分布）</li>
             <li>谱面类型适应性分析（仅展示需要关注的定数区间）</li>
             <li>4 阶段推分路线规划</li>
             <li>定数阶梯策略（每个 Rating 段的练习方向建议）</li>
           </ul>
-          <p className="text-text-tertiary text-xs">五维算法正在重构中，计划基于谱面分析知识库进行更精准的分类和难度评价。</p>
+          <p className="text-text-tertiary text-xs">
+            五维算法正在重构为位移驱动模型——基于 simai 谱面数据的逐帧位移分析，结合机台布局几何（按钮正八边形 + 触摸区偏移），
+            从"物量统计"升级为"手臂运动量评估"。新的底力/体力/爆发/技巧/定位定义已完成，实现管线开发中。
+          </p>
         </div>
       </Section>
 

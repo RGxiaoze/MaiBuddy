@@ -276,7 +276,7 @@ export default function PlayerInfo() {
                 </button>
                 )}
                 {/* Local B15 empty notice */}
-                {localB50.best15.length === 0 && localB50.best35.length > 0 && (
+                {localB50 && localB50.best15.length === 0 && localB50.best35.length > 0 && (
                   <div className="bg-surface border border-border rounded-lg p-4">
                     <h3 className="text-sm font-semibold text-text mb-2">新版本 Best 0</h3>
                     <p className="text-xs text-warning bg-warning/5 rounded px-3 py-2">

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head><meta charset="UTF-8"><title>maimai DX 完整布局 v5 — 含按键模型</title>
+<style>
+  body { margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#1a1a2e; font-family:system-ui,sans-serif; }
+</style></head>
+<body>
+<canvas id="c" width="660" height="660"></canvas>
+<script>
+const c = document.getElementById('c')
+const ctx = c.getContext('2d')
+const W = 660, H = 660
+const cx = W/2, cy = H/2
+const R = 200 // 屏幕半径（缩小留空间给按键）
+
+const btnAngles = { 1:22.5, 2:67.5, 3:112.5, 4:157.5, 5:202.5, 6:247.5, 7:292.5, 8:337.5 }
+function polarXY(angleDeg, r) {
+  const rad = angleDeg * Math.PI / 180
+  return { x: cx + Math.sin(rad) * r, y: cy - Math.cos(rad) * r }
+}
+
+ctx.fillStyle = '#16213e'; ctx.fillRect(0,0,W,H)
+
+// ===== 参数 =====
+const A_HALF = 16
+const GAP = 45 - A_HALF*2
+const D_HALF = GAP/2
+const R_OUTER = 1.0
+const R_INNER = 0.67
+const B_RADIUS = 0.14
+const B_CENTER_R = 0.42
+const E_R = 0.60
+const E_SIZE = 26
+const C_R = 33
+
+// 按键参数
+const BTN_INNER = R * 1.04      // 内径 = A区外径多一点
+const BTN_OUTER = R * 1.30      // 外径 ≈ B区直径 (0.28*R)
+const BTN_HALF = A_HALF * 2/3 * 3/4 * 1.2 * 7/8   // 张角 ≈ 8.4°
+
+// ===== 屏幕圆 =====
+ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2)
+ctx.strokeStyle = '#ffffff15'; ctx.lineWidth = 2; ctx.stroke()
+
+// ===== 按键（外环扇环形，最底层） =====
+for (const [btn, ba] of Object.entries(btnAngles)) {
+  ctx.beginPath()
+  ctx.arc(cx, cy, BTN_OUTER, ((ba - BTN_HALF)*Math.PI)/180, ((ba + BTN_HALF)*Math.PI)/180)
+  ctx.arc(cx, cy, BTN_INNER, ((ba + BTN_HALF)*Math.PI)/180, ((ba - BTN_HALF)*Math.PI)/180, true)
+  ctx.closePath()
+  ctx.fillStyle = '#ff6b6b18'; ctx.fill()
+  ctx.strokeStyle = '#ff6b6bcc'; ctx.lineWidth = 2.5; ctx.stroke()
+}
+
+// 按键编号（画在按键中间）
+for (const [btn, ba] of Object.entries(btnAngles)) {
+  const p = polarXY(ba, (BTN_INNER + BTN_OUTER) / 2)
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 14px system-ui'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.fillText(btn, p.x, p.y)
+}
+
+// 按键间隙填充（互补扇环，纯装饰）
+for (const [btn, ba] of Object.entries(btnAngles)) {
+  const da = (ba + 22.5) % 360
+  const fillHalf = 22.5 - BTN_HALF
+  ctx.beginPath()
+  ctx.arc(cx, cy, BTN_OUTER, ((da - fillHalf)*Math.PI)/180, ((da + fillHalf)*Math.PI)/180)
+  ctx.arc(cx, cy, BTN_INNER, ((da + fillHalf)*Math.PI)/180, ((da - fillHalf)*Math.PI)/180, true)
+  ctx.closePath()
+  ctx.fillStyle = '#ffffff08'; ctx.fill()
+  ctx.strokeStyle = '#ffffff20'; ctx.lineWidth = 1; ctx.stroke()
+}
+
+// ===== A 区 =====
+for (const [btn, ba] of Object.entries(btnAngles)) {
+  ctx.beginPath()
+  ctx.arc(cx, cy, R * R_OUTER, ((ba - A_HALF)*Math.PI)/180, ((ba + A_HALF)*Math.PI)/180)
+  ctx.arc(cx, cy, R * R_INNER,  ((ba + A_HALF)*Math.PI)/180, ((ba - A_HALF)*Math.PI)/180, true)
+  ctx.closePath()
+  ctx.fillStyle = '#ffd93d22'; ctx.fill()
+  ctx.strokeStyle = '#ffd93d88'; ctx.lineWidth = 1.5; ctx.stroke()
+}
+
+// ===== D 区 =====
+for (const [btn, ba] of Object.entries(btnAngles)) {
+  const da = (ba + 22.5) % 360
+  ctx.beginPath()
+  ctx.arc(cx, cy, R * R_OUTER, ((da - D_HALF)*Math.PI)/180, ((da + D_HALF)*Math.PI)/180)
+  ctx.arc(cx, cy, R * R_INNER,  ((da + D_HALF)*Math.PI)/180, ((da - D_HALF)*Math.PI)/180, true)
+  ctx.closePath()
+  ctx.fillStyle = '#4d96ff22'; ctx.fill()
+  ctx.strokeStyle = '#4d96ff99'; ctx.lineWidth = 1.5; ctx.stroke()
+}
+
+// ===== E 区 =====
+for (const [btn, ba] of Object.entries(btnAngles)) {
+  const da = (ba + 22.5) % 360
+  const p = polarXY(da, R * E_R)
+  ctx.save()
+  ctx.translate(p.x, p.y)
+  ctx.rotate(((da + 45) * Math.PI) / 180)
+  ctx.fillStyle = '#c084fc55'; ctx.fillRect(-E_SIZE/2, -E_SIZE/2, E_SIZE, E_SIZE)
+  ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 1.5
+  ctx.strokeRect(-E_SIZE/2, -E_SIZE/2, E_SIZE, E_SIZE)
+  ctx.restore()
+}
+
+// ===== B 区 =====
+for (const [btn, ba] of Object.entries(btnAngles)) {
+  const p = polarXY(ba, R * B_CENTER_R)
+  ctx.beginPath(); ctx.arc(p.x, p.y, R * B_RADIUS, 0, Math.PI * 2)
+  ctx.fillStyle = '#6bcb7722'; ctx.fill()
+  ctx.strokeStyle = '#6bcb77aa'; ctx.lineWidth = 1.5; ctx.stroke()
+}
+
+// ===== C 区 =====
+const cPts = []
+for (let i = 0; i < 8; i++) {
+  const a = (22.5 + i * 45) * Math.PI / 180
+  cPts.push({ x: cx + Math.sin(a) * C_R, y: cy - Math.cos(a) * C_R })
+}
+ctx.beginPath(); ctx.moveTo(cPts[0].x, cPts[0].y)
+cPts.slice(1).forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath()
+ctx.fillStyle = '#ffffff10'; ctx.fill()
+ctx.strokeStyle = '#ffffff88'; ctx.lineWidth = 1.5; ctx.stroke()
+ctx.beginPath(); ctx.moveTo(cx, cy - C_R); ctx.lineTo(cx, cy + C_R)
+ctx.strokeStyle = '#ffffff44'; ctx.setLineDash([2,3]); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([])
+ctx.fillStyle = '#fff'; ctx.font = 'bold 9px system-ui'; ctx.textAlign = 'center'
+ctx.fillText('C1', cx + C_R + 16, cy - 2)
+ctx.fillText('C2', cx - C_R - 16, cy - 2)
+
+// ===== 八边形连线 =====
+ctx.beginPath()
+const pts = Object.entries(btnAngles).sort((a,b)=>a[1]-b[1]).map(([,a])=>polarXY(a,R*R_OUTER))
+ctx.moveTo(pts[0].x, pts[0].y); pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.closePath()
+ctx.strokeStyle='#ffffff10'; ctx.setLineDash([5,5]); ctx.lineWidth=1; ctx.stroke(); ctx.setLineDash([])
+
+// ===== 角度 =====
+for (let a=0; a<360; a+=45) {
+  const p = polarXY(a, R*R_OUTER+14)
+  ctx.fillStyle='#ffffff33'; ctx.font='9px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'
+  ctx.fillText(a+'°',p.x,p.y)
+}
+
+// ===== 方向 =====
+ctx.fillStyle = '#ffffff55'; ctx.font = '11px system-ui'; ctx.textAlign = 'center'
+ctx.fillText('上', polarXY(0, R+BTN_OUTER-R-10).x, polarXY(0, R+BTN_OUTER-R-10).y-15)
+ctx.fillText('下 (玩家)', polarXY(180, R + 10).x, polarXY(180, R + 10).y+14)
+
+// ===== 图例 =====
+const ly = 640
+const legend = [
+  { color:'#ff6b6bcc', label:'按键 扇环' },
+  { color:'#ffd93d88', label:'A区' },
+  { color:'#4d96ff99', label:'D区' },
+  { color:'#c084fc',   label:'E区' },
+  { color:'#6bcb77aa', label:'B区' },
+  { color:'#ffffff88', label:'C区' },
+]
+legend.forEach((item, i) => {
+  const lx = 8 + i * 108
+  ctx.beginPath(); ctx.arc(lx+4, ly, 5, 0, Math.PI*2)
+  ctx.fillStyle = item.color; ctx.fill()
+  ctx.fillStyle = '#ccc'; ctx.font = '10px system-ui'; ctx.textAlign = 'left'
+  ctx.fillText(item.label, lx+15, ly+4)
+})
+</script>
+</body>
+</html>
