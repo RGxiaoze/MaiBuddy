@@ -274,8 +274,17 @@ export default function PlayerInfo() {
                 >
                   清除
                 </button>
-              )}
-            </div>
+                )}
+                {/* Local B15 empty notice */}
+                {localB50.best15.length === 0 && localB50.best35.length > 0 && (
+                  <div className="bg-surface border border-border rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-text mb-2">新版本 Best 0</h3>
+                    <p className="text-xs text-warning bg-warning/5 rounded px-3 py-2">
+                      新版本暂无成绩，还差 <strong>15</strong> 首填满 B15。去推分建议看看哪些曲目值得练习吧！
+                    </p>
+                  </div>
+                )}
+              </div>
           </div>
 
           {/* Error */}
@@ -327,6 +336,11 @@ export default function PlayerInfo() {
                       <h3 className="text-sm font-semibold text-text mb-3">
                         新版本 Best {dfBest15.length}
                       </h3>
+                      {dfBest15.length < 15 && (
+                        <p className="text-xs text-warning mb-3 bg-warning/5 rounded px-3 py-2">
+                          新版本还差 <strong>{15 - dfBest15.length}</strong> 首填满 B15，继续加油！
+                        </p>
+                      )}
                       <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>
                         {dfBest15.map((entry, i) => (
                           <B50Row key={`new-${entry.songId}-${entry.levelIndex}-${i}`}
@@ -384,6 +398,15 @@ export default function PlayerInfo() {
                           totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />
                         ))}
                       </div>
+                    </div>
+                  )}
+                  {/* B15 empty notice — new version has no scores yet */}
+                  {dfBest15.length === 0 && dfBest35.length > 0 && (
+                    <div className="bg-surface border border-border rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-text mb-2">新版本 Best 0</h3>
+                      <p className="text-xs text-warning bg-warning/5 rounded px-3 py-2">
+                        新版本暂无成绩，还差 <strong>15</strong> 首填满 B15。去推分建议看看哪些曲目值得练习吧！
+                      </p>
                     </div>
                   )}
                 </div>
@@ -453,6 +476,11 @@ export default function PlayerInfo() {
                     <h3 className="text-sm font-semibold text-text mb-3">
                       新版本 Best {localB50.best15.length}
                     </h3>
+                    {localB50.best15.length < 15 && (
+                      <p className="text-xs text-warning mb-3 bg-warning/5 rounded px-3 py-2">
+                        新版本还差 <strong>{15 - localB50.best15.length}</strong> 首填满 B15，继续加油！
+                      </p>
+                    )}
                     <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>
                       {localB50.best15.map((entry, i) => (
                         <B50Row key={`loc-new-${entry.songId}-${entry.levelIndex}-${i}`}

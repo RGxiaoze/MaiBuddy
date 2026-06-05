@@ -24,7 +24,7 @@ interface ScoreState {
   updateScore: (id: number, updates: Partial<ScoreRecord>) => Promise<void>
   deleteScore: (id: number) => Promise<void>
   getScoresBySong: (songId: number) => ScoreRecord[]
-  bulkImportScores: (scores: Score[]) => Promise<{
+  bulkImportScores: (scores: Score[], onProgress?: (current: number, total: number) => void) => Promise<{
     total: number; imported: number; updated: number; skipped: number
   }>
   clearAllScores: () => Promise<void>
@@ -71,9 +71,9 @@ export const useScoreStore = create<ScoreState>((set, get) => ({
     return get().scores.filter((s) => s.songId === songId)
   },
 
-  bulkImportScores: async (scores) => {
+  bulkImportScores: async (scores, onProgress) => {
     const records = scores.map((s) => toScoreRecord(s))
-    const result = await bulkUpsertScores(records)
+    const result = await bulkUpsertScores(records, onProgress)
     // Refetch all scores to sync local array with DB (includes id, createdAt)
     const allScores = await getAllScores()
     set({ scores: allScores })

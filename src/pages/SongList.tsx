@@ -122,6 +122,7 @@ export default function SongList() {
   }
   const fetchAllScores = useScoreStore((s) => s.fetchAllScores)
   const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [importResult, setImportResult] = useState<{
     total: number; imported: number; updated: number; skipped: number; nickname: string
@@ -205,8 +206,11 @@ export default function SongList() {
     setImporting(true)
     setImportError(null)
     setImportResult(null)
+    setImportProgress(null)
     try {
-      const stats = await importDivingFishScores(importToken.trim())
+      const stats = await importDivingFishScores(importToken.trim(), (current, total) => {
+        setImportProgress({ current, total })
+      })
       setImportResult(stats)
     } catch (err) {
       setImportError(err instanceof Error ? err.message : '导入失败')
@@ -587,9 +591,26 @@ export default function SongList() {
 
             {/* Import progress */}
             {importing && (
-              <div className="mt-4 text-center">
-                <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-sm text-text-secondary mt-3">正在从 Diving-Fish 导入全部成绩...</p>
+              <div className="mt-4">
+                {importProgress ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-text-secondary">
+                      <span>正在写入本地数据库...</span>
+                      <span className="tabular-nums">{importProgress.current} / {importProgress.total}</span>
+                    </div>
+                    <div className="w-full bg-bg-gray rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 rounded-full bg-primary transition-all duration-200"
+                        style={{ width: `${Math.round((importProgress.current / importProgress.total) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-sm text-text-secondary mt-3">正在从 Diving-Fish 获取成绩列表...</p>
+                  </div>
+                )}
               </div>
             )}
 

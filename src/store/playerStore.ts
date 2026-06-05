@@ -34,7 +34,7 @@ interface PlayerActions {
   /** Compute B50 from local IndexedDB scores */
   computeLocalB50: () => void
   /** Import ALL scores from Diving-Fish into IndexedDB using Import-Token, then refresh B50 */
-  importDivingFishScores: (importToken: string) => Promise<{
+  importDivingFishScores: (importToken: string, onProgress?: (current: number, total: number) => void) => Promise<{
     total: number; imported: number; updated: number; skipped: number; nickname: string
   }>
   /** Force B50 recompute (call after updateScore which doesn't change length) */
@@ -85,7 +85,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>((set, get) => 
     set({ localB50: result })
   },
 
-  importDivingFishScores: async (importToken: string) => {
+  importDivingFishScores: async (importToken: string, onProgress?: (current: number, total: number) => void) => {
     const trimmed = importToken.trim()
     if (!trimmed) throw new Error('Import-Token 不能为空')
 
@@ -97,7 +97,7 @@ export const usePlayerStore = create<PlayerState & PlayerActions>((set, get) => 
     const scores = result.records.map(toInternalScore)
 
     // 3. Bulk upsert into IndexedDB
-    const stats = await useScoreStore.getState().bulkImportScores(scores)
+    const stats = await useScoreStore.getState().bulkImportScores(scores, onProgress)
 
     // 4. Update player info + trigger B50 recompute
     set({

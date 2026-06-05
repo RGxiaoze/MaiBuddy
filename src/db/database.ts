@@ -183,7 +183,8 @@ export async function clearAllScores(): Promise<void> {
  * Runs in a single transaction for atomicity.
  */
 export async function bulkUpsertScores(
-  scores: Omit<ScoreRecord, 'id' | 'createdAt'>[]
+  scores: Omit<ScoreRecord, 'id' | 'createdAt'>[],
+  onProgress?: (current: number, total: number) => void,
 ): Promise<{ total: number; imported: number; updated: number; skipped: number }> {
   const allExisting = await db.scores.toArray()
   const existingMap = new Map<string, ScoreRecord>()
@@ -199,8 +200,10 @@ export async function bulkUpsertScores(
   let updated = 0
   let skipped = 0
 
+  const total = scores.length
   await db.transaction('rw', db.scores, async () => {
-    for (const score of scores) {
+    for (let i = 0; i < scores.length; i++) {
+      const score = scores[i]
       const key = `${score.songId}-${score.levelIndex}`
       const existing = existingMap.get(key)
 
@@ -213,8 +216,16 @@ export async function bulkUpsertScores(
       } else {
         skipped++
       }
+
+      // Report progress every 50 items
+      if (onProgress && i % 50 === 0) {
+        onProgress(i + 1, total)
+      }
     }
   })
+
+  // Final progress report
+  if (onProgress) onProgress(total, total)
 
   return { total: scores.length, imported, updated, skipped }
 }
