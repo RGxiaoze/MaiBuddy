@@ -4,7 +4,8 @@
 
 import { useState, useEffect } from 'react'
 import type { Song, LevelIndex, RateType, FCType, FSType, Score } from '@/types'
-import { LEVEL_LABELS, RATE_COLORS, RATE_DISPLAY, FC_LABELS, FS_LABELS, achievementsToRate } from '@/data/constants'
+import { LEVEL_LABELS, FC_LABELS, FS_LABELS, achievementsToRate } from '@/data/constants'
+import GradeBadge from '@/components/shared/GradeBadge'
 import { useScoreStore } from '@/store/scoreStore'
 import { computeRating } from '@/utils/rating'
 
@@ -165,14 +166,7 @@ export default function ScoreForm({ song, defaultLevelIndex = 3, onClose, existi
               className="flex-1 px-3 py-2 rounded-md border border-border text-sm focus:outline-none focus:border-primary"
             />
             <span className="text-text-secondary text-xs">%</span>
-            {derivedRate && (
-              <span
-                className="px-2 py-1 rounded text-xs font-bold text-white"
-                style={{ backgroundColor: (RATE_COLORS as Record<string, string>)[derivedRate] || '#999' }}
-              >
-                {RATE_DISPLAY[derivedRate]}
-              </span>
-            )}
+            {derivedRate && <GradeBadge rate={derivedRate} className="text-xs px-2 py-1" />}
           </div>
         </label>
 

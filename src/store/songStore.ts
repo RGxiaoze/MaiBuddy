@@ -5,11 +5,20 @@
 import { create } from 'zustand'
 import type { Song } from '@/types'
 import { fetchMusicData } from '@/services/divingFishApi'
-import { getCachedSongs, setCachedSongs } from '@/db/database'
+import { getCachedSongs, setCachedSongs, db, getSetting, setSetting, SONG_CACHE_TTL_MS } from '@/db/database'
 import { searchAliases, getAliasIndex } from '@/data/aliases'
 import { VERSION_ORDER } from '@/data/versions'
+import { forceRefreshStats } from '@/services/statsService'
 
-export type SortBy = 'default' | 'levelValue' | 'bpm' | 'version'
+/** Extract max version sorting value from song list as cache fingerprint */
+function computeVersionFingerprint(songs: Song[]): number {
+  let max = 0
+  for (const s of songs) {
+    const v = VERSION_ORDER.get(s.from) ?? 0
+    if (v > max) max = v
+  }
+  return max
+}
 export type SortOrder = 'asc' | 'desc'
 
 export const SORT_OPTIONS: { value: SortBy; label: string }[] = [
@@ -63,24 +72,41 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
   fetchSongs: async () => {
     set({ loading: true, error: null })
     try {
-      // Try cache first
+      // Try fresh cache first
       const cached = await getCachedSongs()
       if (cached && cached.length > 0) {
         set({ songs: cached, loading: false })
-        // Refresh in background
+        // Background refresh with version fingerprint check
         fetchMusicData()
-          .then((fresh) => {
+          .then(async (fresh) => {
+            const oldVersion = await getSetting<number>('cache_version', 0)
+            const newVersion = computeVersionFingerprint(fresh)
             set({ songs: fresh })
             setCachedSongs(fresh)
+            if (newVersion > oldVersion) {
+              await setSetting('cache_version', newVersion)
+              // New songs detected → refresh stats as well
+              forceRefreshStats()
+            }
           })
           .catch(() => { /* keep cached version */ })
         return
       }
-      // No cache — fetch from API
+      // No fresh cache — fetch from API
       const songs = await fetchMusicData()
       set({ songs, loading: false })
       setCachedSongs(songs)
+      setSetting('cache_version', computeVersionFingerprint(songs))
     } catch (err) {
+      // Try stale cache as fallback (extend by 1 hour)
+      try {
+        const entry = await db.songCache.get(1)
+        if (entry && entry.data?.length > 0) {
+          await db.songCache.put({ id: 1, data: entry.data, updatedAt: Date.now() - SONG_CACHE_TTL_MS + 3600_000 })
+          set({ songs: entry.data, loading: false })
+          return
+        }
+      } catch { /* no stale cache either */ }
       const message = err instanceof Error ? err.message : '未知错误'
       set({ error: message, loading: false })
     }

@@ -503,23 +503,22 @@ export default function SongList() {
                   <div className="text-xs text-text-secondary truncate">{song.artist}</div>
                 </div>
 
-                {/* Difficulty badges */}
-                <div className="flex gap-1 shrink-0">
-                  {levelLabels.map(({ idx, label, color }) => (
-                    <span
-                      key={idx}
-                      className="px-1.5 py-0.5 rounded text-[11px] font-medium text-white leading-tight"
-                      style={{ backgroundColor: color }}
-                    >
-                      {label}
-                    </span>
-                  ))}
+                {/* Difficulty badges + BPM + version */}
+                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                  <div className="flex gap-1">
+                    {levelLabels.map(({ idx, label, color }) => (
+                      <span
+                        key={idx}
+                        className="px-1.5 py-0.5 rounded text-[11px] font-medium text-white leading-tight"
+                        style={{ backgroundColor: color }}
+                      >
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-xs text-text-secondary tabular-nums w-14 text-right">{song.bpm}</span>
+                  <span className="text-[10px] text-text-tertiary w-16 text-right hidden sm:inline">{song.from}</span>
                 </div>
-
-                {/* BPM */}
-                <span className="text-xs text-text-secondary w-14 text-right shrink-0">
-                  {song.bpm}
-                </span>
               </button>
             ))}
           </div>

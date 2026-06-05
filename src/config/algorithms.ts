@@ -104,11 +104,17 @@ export const DIFF_WEIGHT_COMMUNITY = 0.6
 /** gap 维度权重（(目标−当前) 归一化后） */
 export const DIFF_WEIGHT_GAP = 0.4
 
-/** 复合分 ≥ 此值 → easy */
+/** 复合分 ≥ 此值 → easy（基础值，实际阈值随定数线性上浮） */
 export const DIFF_COMPOSITE_EASY = 0.65
 
-/** 复合分 ≥ 此值 → medium（低于此值 → hard） */
+/** 复合分 ≥ 此值 → medium（基础值，实际阈值随定数线性上浮） */
 export const DIFF_COMPOSITE_MEDIUM = 0.35
+
+/** 定数每高于 base 一级，easy/medium 阈值上浮此值 */
+export const DIFF_LEVEL_PENALTY = 0.05
+
+/** 定数 ≤ 此值时阈值不变（12 级及以下保持基准） */
+export const DIFF_LEVEL_BASE = 12
 
 /** gap 归一化分母（超出此值 gap 分归零） */
 export const DIFF_GAP_NORM_MAX = 15

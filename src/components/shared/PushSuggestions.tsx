@@ -27,7 +27,7 @@ const DIFF_LABELS: Record<string, { label: string; color: string; desc: string }
 }
 
 export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax?: number }) {
-  const { localB50, dfBest35, dfBest15, dfRating } = usePlayerStore()
+  const { localB50, dfBest35, dfBest15, dfRating, dfPlayerName } = usePlayerStore()
   const { scores } = useScoreStore()
   const { songs } = useSongStore()
 
@@ -48,9 +48,12 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
     }
   }, [statsReady])
 
-  // Build effective B50: prefer local, fall back to Diving-Fish data
+  // Build effective B50: DF data takes priority when user explicitly queried a player
   const effectiveB50 = useMemo<B50Result | null>(() => {
-    if (localB50) return localB50
+    // When user explicitly queried a DF player → prefer DF data over local
+    const useDF = dfPlayerName && (dfBest35.length > 0 || dfBest15.length > 0)
+
+    if (!useDF && localB50) return localB50
     if (dfBest35.length === 0 && dfBest15.length === 0) return null
 
     // Convert Diving-Fish scores to B50Result format
@@ -76,20 +79,20 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
     const best15Total = best15.reduce((sum, e) => sum + e.dxRating, 0)
 
     return { best35, best15, best35Total, best15Total, totalRating: best35Total + best15Total }
-  }, [localB50, dfBest35, dfBest15])
+  }, [localB50, dfBest35, dfBest15, dfPlayerName])
 
   const b50Rating = effectiveB50?.totalRating ?? dfRating
 
   const result = useMemo(() => {
     if (!effectiveB50 || songs.length === 0) return null
     const songMap = new Map(songs.map(s => [s.id, s]))
-    // When using DF data (no local B50), pass no allScores to get pure regression estimates
-    const hasLocal = !!localB50
+    // Only pass allScores when effective data source is local (not DF query)
+    const isDfSource = dfPlayerName && (dfBest35.length > 0 || dfBest15.length > 0)
     return computePushSuggestions(effectiveB50, songMap, {
-      allScores: hasLocal ? scores : undefined,
+      allScores: isDfSource ? undefined : scores,
       getStats: getChartStats,
     })
-  }, [effectiveB50, localB50, scores, songs, statsReady])
+  }, [effectiveB50, localB50, scores, songs, statsReady, dfPlayerName, dfBest35, dfBest15])
 
   const suggestions = result?.suggestions ?? null
   const precisionNote = result?.precisionNote
@@ -145,7 +148,8 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="text-text-secondary border-b border-border/50">
@@ -166,6 +170,57 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile card layout */}
+      <div className="md:hidden space-y-2">
+        {displayed.length === 0 && (
+          <p className="text-xs text-text-secondary text-center py-4">暂无可推分曲目</p>
+        )}
+        {displayed.map((item, i) => {
+          const diff = DIFF_LABELS[item.difficulty]
+          return (
+            <div key={`${item.songId}-${item.levelIndex}`} className="bg-bg-gray rounded-lg p-3 space-y-1.5">
+              {/* Row 1: rank + title + level + external link */}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-text-tertiary text-xs tabular-nums shrink-0">{i + 1}.</span>
+                <Link to={`/songs/${item.songId}`} className="font-medium text-xs truncate hover:text-primary hover:underline min-w-0">
+                  {item.songTitle}
+                </Link>
+                <span className="text-text-tertiary text-[10px] shrink-0">{LEVEL_LABELS[item.levelIndex as LevelIndex]}</span>
+                <a href={bilibiliSearchUrl(item.songTitle, item.level)}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center text-text-tertiary hover:text-primary shrink-0"
+                  onClick={(e) => e.stopPropagation()}>
+                  <ExternalLink size={11} />
+                </a>
+                {item.precision === 'estimated' && (
+                  <span className="text-[10px] text-text-tertiary shrink-0 cursor-help" title="达成率为基于 B50 定数回归的估算值">?</span>
+                )}
+              </div>
+
+              {/* Row 2: level value + current + diff tag + pool */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="tabular-nums font-medium">{item.levelValue.toFixed(1)}</span>
+                <span className="tabular-nums text-text-secondary">
+                  {item.precision === 'estimated' ? `估 ${item.currentAchievements.toFixed(1)}%` : `${item.currentAchievements.toFixed(1)}%`}
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: diff.color + '20', color: diff.color }}>{diff.label}</span>
+                <span className="text-text-secondary text-[10px]">{POOL_LABELS[item.pool]}</span>
+              </div>
+
+              {/* Row 3: three target gains */}
+              <div className="flex gap-3 text-xs">
+                {item.gains.map((gain, gi) => (
+                  <span key={gi} className="text-text-secondary" title={`目标 ${gain.targetAch}% → 增益 +${gain.ratingGain}`}>
+                    <span className="font-medium text-text">{gain.ratingGain > 0 ? `+${gain.ratingGain}` : '—'}</span>
+                    <span className="text-[10px] ml-0.5">{['SS+ 99%', 'SSS 100%', 'SSS+ 100.5%'][gi]}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       {suggestions.length > 5 && (
@@ -189,7 +244,7 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
           ：达成率基于 B50 回归估算，非实际成绩（导入完整成绩后可获得精准数据）
         </p>
         <p className="text-xs text-text-tertiary">
-          难度：综合全服统计数据（60%）与当前→SSS+ 差距（40%）加权评估。
+          难度：综合全服统计数据（60%）与当前→SSS+ 差距（40%）加权，且定数越高阈值越严格（12 级以下不变，13 起每级上浮 0.05）。
           轻松=水分曲且差距小，适中=同级平均或差距适中，挑战=硬谱或差距大（15级固定为挑战）。
           无全服数据时按当前达成率分级。
         </p>

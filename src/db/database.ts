@@ -109,7 +109,7 @@ export const db = new MaimaiDB()
 // ---- Song cache helpers ----
 
 const SONG_CACHE_KEY = 1
-const SONG_CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
+export const SONG_CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 /** Get cached songs if still fresh */
 export async function getCachedSongs(): Promise<Song[] | null> {

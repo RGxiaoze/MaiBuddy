@@ -115,4 +115,42 @@ describe('classifyDifficulty', () => {
   it('无 stats：<98.0% → hard（gap 修正不适用，已为 hard）', () => {
     expect(classifyDifficulty(makeScore({ achievements: 93.0 }), undefined, 100.5)).toBe('hard')
   })
+
+  // ---- 定数梯度：高级别阈值更严 ----
+
+  it('14.5 水分曲+小gap(2%) → easy（过 0.775 线）', () => {
+    const s = makeScore({ levelValue: 14.5, achievements: 98.5 })
+    // composite=0.797, easyThreshold=0.65+0.05×2.5=0.775
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14.5 }, 100.5)).toBe('easy')
+  })
+
+  it('14.5 平均谱+中gap(6%) → medium（未达 0.775 easy 线）', () => {
+    const s = makeScore({ levelValue: 14.5, achievements: 94.5 })
+    // composite=0.54, easyThreshold=0.775, mediumThreshold=0.475 → medium
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.5 }, 100.5)).toBe('medium')
+  })
+
+  it('14.5 硬谱+大gap(12%) → hard（未达 0.475 medium 线）', () => {
+    const s = makeScore({ levelValue: 14.5, achievements: 88.5 })
+    // composite=0.26, mediumThreshold=0.475 → hard
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 14.5 }, 100.5)).toBe('hard')
+  })
+
+  it('13.0 水分曲+中gap(6%) → easy（阈值不变，0.54 >= 0.65？不，0.54 < 0.65 → medium）', () => {
+    const s = makeScore({ levelValue: 13.0, achievements: 94.5 })
+    // composite=0.54, easyThreshold=0.65+0=0.65, mediumThreshold=0.35+0=0.35 → medium
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 13.0 }, 100.5)).toBe('medium')
+  })
+
+  it('13.0 水分曲+小gap(2%) → easy（阈值不变）', () => {
+    const s = makeScore({ levelValue: 13.0, achievements: 98.5 })
+    // composite=0.797, easyThreshold=0.65 → easy
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 13.0 }, 100.5)).toBe('easy')
+  })
+
+  it('12.0 硬谱+大gap → hard（阈值完全不调整）', () => {
+    const s = makeScore({ levelValue: 12.0, achievements: 88.5 })
+    // composite=0.26, mediumThreshold=0.35 → hard
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 12.0 }, 100.5)).toBe('hard')
+  })
 })

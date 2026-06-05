@@ -43,12 +43,19 @@
   --color-diff-master: #A855F7;
   --color-diff-remaster: #EC4899;
 
-  /* ── 评级色 ── */
-  --color-grade-sssp: #FFD700;
-  --color-grade-sss: #C0C0C0;
-  --color-grade-ss: #CD7F32;
-  --color-grade-s: #22C55E;
-  --color-grade-aaa: #3B82F6;
+  /* ── 评级色（纯文字无背景）── */
+  /* SSS/SSS+ 彩虹色：每个 S 从左到右为黄→蓝→红，+ 号黄色 */
+  --color-grade-rainbow-s1: #FFD700;
+  --color-grade-rainbow-s2: #3B82F6;
+  --color-grade-rainbow-s3: #EF4444;
+  --color-grade-rainbow-plus: #FFD700;
+  /* SS+ / SS / S+ / S：黄色 */
+  --color-grade-ss: #FFD700;
+  --color-grade-s: #FFD700;
+  /* A / AA / AAA：红色 */
+  --color-grade-aaa: #EF4444;
+  /* BBB 及以下：蓝色 */
+  --color-grade-bbb: #3B82F6;
 
   /* ── 字体 ── */
   --font-sans: 'M PLUS Rounded 1c', 'Inter', 'Noto Sans SC', -apple-system, sans-serif;

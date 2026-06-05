@@ -32,11 +32,11 @@ export const RATE_DISPLAY: Record<RateType, string> = {
 }
 
 export const RATE_COLORS: Record<RateType, string> = {
-  sssp: '#FFD700', sss: '#C0C0C0', ssp: '#CD7F32', ss: '#CD7F32',
-  sp: '#22C55E',   s: '#22C55E',
-  aaa: '#3B82F6',  aa: '#3B82F6',  a: '#3B82F6',
-  bbb: '#D97706',  bb: '#6B7280',  b: '#6B7280',
-  c: '#6B7280',    d: '#6B7280',
+  sssp: '#FFD700', sss: '#C0C0C0', ssp: '#FFD700', ss: '#FFD700',
+  sp: '#FFD700',   s: '#FFD700',
+  aaa: '#EF4444',  aa: '#EF4444',  a: '#EF4444',
+  bbb: '#3B82F6',  bb: '#3B82F6',  b: '#3B82F6',
+  c: '#3B82F6',    d: '#3B82F6',
 }
 
 // ---- FC/FS labels ----

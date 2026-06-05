@@ -13,6 +13,7 @@ import {
   DIFF_COMPOSITE_EASY, DIFF_COMPOSITE_MEDIUM,
   DIFF_GAP_NORM_MAX, DIFF_COMMUNITY_NORM_OFFSET,
   DIFF_FALLBACK_GAP_THRESHOLD,
+  DIFF_LEVEL_PENALTY, DIFF_LEVEL_BASE,
 } from '@/config/algorithms'
 
 /** Clamp value to [0, 1] */
@@ -97,10 +98,15 @@ export function classifyDifficulty(
       const gapScore = clamp01(1 - gap / DIFF_GAP_NORM_MAX)
       const composite = DIFF_WEIGHT_COMMUNITY * communityScore + DIFF_WEIGHT_GAP * gapScore
 
+      // Level-adjusted thresholds: higher level → stricter bar
+      const levelPenalty = DIFF_LEVEL_PENALTY * Math.max(0, score.levelValue - DIFF_LEVEL_BASE)
+      const easyThreshold = DIFF_COMPOSITE_EASY + levelPenalty
+      const mediumThreshold = DIFF_COMPOSITE_MEDIUM + levelPenalty
+
       let difficulty: 'easy' | 'medium' | 'hard'
-      if (composite >= DIFF_COMPOSITE_EASY) {
+      if (composite >= easyThreshold) {
         difficulty = 'easy'
-      } else if (composite >= DIFF_COMPOSITE_MEDIUM) {
+      } else if (composite >= mediumThreshold) {
         difficulty = 'medium'
       } else {
         difficulty = 'hard'

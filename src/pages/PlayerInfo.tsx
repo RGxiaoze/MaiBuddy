@@ -7,7 +7,8 @@ import { Link } from 'react-router'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
-import { LEVEL_INDEX_MAP, LEVEL_LABELS, RATE_COLORS, RATE_DISPLAY } from '@/data/constants'
+import { LEVEL_INDEX_MAP, LEVEL_LABELS } from '@/data/constants'
+import GradeBadge from '@/components/shared/GradeBadge'
 import { FC_LABELS, FS_LABELS } from '@/data/constants'
 import { computeDxStar, renderStars } from '@/utils/dxStar'
 import PushSuggestions from '@/components/shared/PushSuggestions'
@@ -31,7 +32,6 @@ function B50Row({ levelIndex, level, title, achievements, rate, dxRating, fcType
   totalNotes?: number
   songId: number
 }) {
-  const rateColor = RATE_COLORS[rate as keyof typeof RATE_COLORS] || '#999'
   const levelColors = LEVEL_INDEX_MAP[levelIndex as LevelIndex]
 
   const dxStar = dxScore != null && totalNotes && totalNotes > 0 ? computeDxStar(dxScore, totalNotes) : null
@@ -60,11 +60,8 @@ function B50Row({ levelIndex, level, title, achievements, rate, dxRating, fcType
       </span>
 
       {/* Rate */}
-      <span
-        className="px-1.5 py-0.5 rounded text-[11px] font-bold justify-self-center"
-        style={{ backgroundColor: rateColor, color: '#fff' }}
-      >
-        {RATE_DISPLAY[rate as keyof typeof RATE_DISPLAY] || rate}
+      <span className="justify-self-center">
+        <GradeBadge rate={rate as import('@/types').RateType} />
       </span>
 
       {/* FC/FS — always render placeholder for column alignment */}
@@ -83,6 +80,45 @@ function B50Row({ levelIndex, level, title, achievements, rate, dxRating, fcType
       <span className="tabular-nums font-semibold text-xs justify-self-end">
         {dxRating}
       </span>
+    </div>
+  )
+}
+
+/** Mobile card version of B50Row — shows as a card instead of grid row */
+function B50MobileCard({ levelIndex, level, title, achievements, rate, dxRating, fcType, fsType, dxScore, totalNotes, songId }: {
+  levelIndex: number, level: string, title: string, achievements: number, rate: string, dxRating: number,
+  fcType?: string | null, fsType?: string | null, dxScore?: number, totalNotes?: number, songId: number
+}) {
+  const levelColors = LEVEL_INDEX_MAP[levelIndex as LevelIndex]
+  const dxStar = dxScore != null && totalNotes && totalNotes > 0 ? computeDxStar(dxScore, totalNotes) : null
+
+  return (
+    <div className="bg-bg-gray rounded-lg p-3 space-y-1.5">
+      {/* Row 1: difficulty badge + level + song title */}
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium text-white shrink-0"
+              style={{ backgroundColor: levelColors.color }}>
+          {LEVEL_LABELS[levelIndex as LevelIndex]}
+        </span>
+        <span className="text-xs font-medium shrink-0" style={{ color: levelColors.color }}>{level}</span>
+        <Link to={`/songs/${songId}`} className="text-sm font-medium truncate hover:text-primary hover:underline min-w-0">
+          {title}
+        </Link>
+      </div>
+
+      {/* Row 2: achievement + rate + FC/FS + DX stars + DX rating */}
+      <div className="flex items-center gap-2 text-xs flex-wrap">
+        <span className="tabular-nums font-medium">{achievements.toFixed(4)}%</span>
+        <GradeBadge rate={rate as import('@/types').RateType} />
+        {fcType && <span className="text-success font-medium">{FC_LABELS[fcType]}</span>}
+        {fsType && <span className="text-success font-medium">{FS_LABELS[fsType]}</span>}
+        {dxStar && (
+          <span className="text-text-secondary tabular-nums text-[11px]">
+            {renderStars(dxStar.stars) || '☆'} {dxStar.ratio.toFixed(2)}%
+          </span>
+        )}
+        <span className="tabular-nums font-semibold ml-auto">{dxRating}</span>
+      </div>
     </div>
   )
 }
@@ -291,9 +327,21 @@ export default function PlayerInfo() {
                       <h3 className="text-sm font-semibold text-text mb-3">
                         新版本 Best {dfBest15.length}
                       </h3>
-                      <div className="grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>
+                      <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>
                         {dfBest15.map((entry, i) => (
                           <B50Row key={`new-${entry.songId}-${entry.levelIndex}-${i}`}
+                          songId={entry.songId}
+                          levelIndex={entry.levelIndex} level={entry.level}
+                          title={entry.title} achievements={entry.achievements}
+                          rate={entry.rate} dxRating={entry.dxRating}
+                          fcType={entry.fcType} fsType={entry.fsType}
+                          dxScore={entry.dxScore}
+                          totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />
+                        ))}
+                      </div>
+                      <div className="md:hidden space-y-1.5">
+                        {dfBest15.map((entry, i) => (
+                          <B50MobileCard key={`new-m-${entry.songId}-${entry.levelIndex}-${i}`}
                           songId={entry.songId}
                           levelIndex={entry.levelIndex} level={entry.level}
                           title={entry.title} achievements={entry.achievements}
@@ -312,9 +360,21 @@ export default function PlayerInfo() {
                       <h3 className="text-sm font-semibold text-text mb-3">
                         旧版本 Best {dfBest35.length}
                       </h3>
-                      <div className="grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>
+                      <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>
                         {dfBest35.map((entry, i) => (
                           <B50Row key={`old-${entry.songId}-${entry.levelIndex}-${i}`}
+                          songId={entry.songId}
+                          levelIndex={entry.levelIndex} level={entry.level}
+                          title={entry.title} achievements={entry.achievements}
+                          rate={entry.rate} dxRating={entry.dxRating}
+                          fcType={entry.fcType} fsType={entry.fsType}
+                          dxScore={entry.dxScore}
+                          totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />
+                        ))}
+                      </div>
+                      <div className="md:hidden space-y-1.5">
+                        {dfBest35.map((entry, i) => (
+                          <B50MobileCard key={`old-m-${entry.songId}-${entry.levelIndex}-${i}`}
                           songId={entry.songId}
                           levelIndex={entry.levelIndex} level={entry.level}
                           title={entry.title} achievements={entry.achievements}
@@ -393,9 +453,21 @@ export default function PlayerInfo() {
                     <h3 className="text-sm font-semibold text-text mb-3">
                       新版本 Best {localB50.best15.length}
                     </h3>
-                    <div className="grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>
+                    <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>
                       {localB50.best15.map((entry, i) => (
                         <B50Row key={`loc-new-${entry.songId}-${entry.levelIndex}-${i}`}
+                          songId={entry.songId}
+                          levelIndex={entry.levelIndex} level={entry.level}
+                          title={entry.songTitle} achievements={entry.achievements}
+                          rate={entry.rate} dxRating={entry.dxRating}
+                          fcType={entry.fcType} fsType={entry.fsType}
+                          dxScore={entry.dxScore}
+                          totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />
+                      ))}
+                    </div>
+                    <div className="md:hidden space-y-1.5">
+                      {localB50.best15.map((entry, i) => (
+                        <B50MobileCard key={`loc-new-m-${entry.songId}-${entry.levelIndex}-${i}`}
                           songId={entry.songId}
                           levelIndex={entry.levelIndex} level={entry.level}
                           title={entry.songTitle} achievements={entry.achievements}
@@ -414,9 +486,21 @@ export default function PlayerInfo() {
                     <h3 className="text-sm font-semibold text-text mb-3">
                       旧版本 Best {localB50.best35.length}
                     </h3>
-                    <div className="grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>
+                    <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>
                       {localB50.best35.map((entry, i) => (
                         <B50Row key={`loc-old-${entry.songId}-${entry.levelIndex}-${i}`}
+                          songId={entry.songId}
+                          levelIndex={entry.levelIndex} level={entry.level}
+                          title={entry.songTitle} achievements={entry.achievements}
+                          rate={entry.rate} dxRating={entry.dxRating}
+                          fcType={entry.fcType} fsType={entry.fsType}
+                          dxScore={entry.dxScore}
+                          totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />
+                      ))}
+                    </div>
+                    <div className="md:hidden space-y-1.5">
+                      {localB50.best35.map((entry, i) => (
+                        <B50MobileCard key={`loc-old-m-${entry.songId}-${entry.levelIndex}-${i}`}
                           songId={entry.songId}
                           levelIndex={entry.levelIndex} level={entry.level}
                           title={entry.songTitle} achievements={entry.achievements}

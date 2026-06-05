@@ -6,7 +6,8 @@ import { useState, useEffect, useMemo, memo } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useSongStore } from '@/store/songStore'
 import { useScoreStore } from '@/store/scoreStore'
-import { FC_LABELS, FS_LABELS, LEVEL_INDEX_MAP, LEVEL_LABELS, RATE_COLORS, RATE_DISPLAY } from '@/data/constants'
+import { FC_LABELS, FS_LABELS, LEVEL_INDEX_MAP, LEVEL_LABELS } from '@/data/constants'
+import GradeBadge from '@/components/shared/GradeBadge'
 import type { ChartDifficulty, LevelIndex, Score } from '@/types'
 import type { ScoreRecord } from '@/db/database'
 import { computeRating } from '@/utils/rating'
@@ -419,7 +420,6 @@ function ScoreHeader() {
 
 /** Single score row display — React.memo avoids re-rendering unchanged rows */
 const ScoreRow = memo(function ScoreRow({ score, allDiffs, onEdit, onDelete }: { score: ScoreRecord; allDiffs: ChartDifficulty[]; onEdit: () => void; onDelete: () => void }) {
-  const rateColor = RATE_COLORS[score.rate as keyof typeof RATE_COLORS] || '#999'
   const levelColors = LEVEL_INDEX_MAP[score.levelIndex as LevelIndex]
 
   // Compute DX star rating from dxScore and chart note count
@@ -441,11 +441,8 @@ const ScoreRow = memo(function ScoreRow({ score, allDiffs, onEdit, onDelete }: {
       <span className="tabular-nums font-medium justify-self-end">{score.achievements.toFixed(4)}%</span>
 
       {/* Grade */}
-      <span
-        className="px-1.5 py-0.5 rounded text-[11px] font-bold justify-self-center"
-        style={{ backgroundColor: rateColor, color: '#fff' }}
-      >
-        {RATE_DISPLAY[score.rate as keyof typeof RATE_DISPLAY] || score.rate}
+      <span className="justify-self-center">
+        <GradeBadge rate={score.rate as import('@/types').RateType} />
       </span>
 
       {/* FC/FS — always render placeholder for column alignment */}
