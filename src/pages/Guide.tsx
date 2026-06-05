@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Radar,
   BookOpen,
+  Heart,
 } from 'lucide-react'
 
 const Section = ({
@@ -123,6 +124,40 @@ export default function Guide() {
             <li>定数阶梯策略（每个 Rating 段的练习方向建议）</li>
           </ul>
           <p className="text-text-tertiary text-xs">五维算法正在重构中，计划基于谱面分析知识库进行更精准的分类和难度评价。</p>
+        </div>
+      </Section>
+
+      {/* 致谢 */}
+      <Section icon={<Heart size={20} />} title="致谢与参考">
+        <div className="space-y-3 text-sm text-text-secondary leading-relaxed">
+          <div className="space-y-2">
+            <p className="font-medium text-text">数据来源</p>
+            <ul className="list-disc list-inside space-y-1 ml-1">
+              <li><strong>Diving-Fish API</strong> — 曲目元数据、全服统计、玩家成绩查询（maimaidx-prober）</li>
+              <li><strong>Yuzu-ChaN 社区别名</strong> — maimaiDX 社区别名数据库</li>
+            </ul>
+          </div>
+          <div className="space-y-2">
+            <p className="font-medium text-text">参考项目</p>
+            <ul className="list-disc list-inside space-y-1 ml-1">
+              <li>maimaidx-prober (Diving-Fish) — Rating/B50 核心算法</li>
+              <li>maimaiDX (Yuri-YuzuChaN) — API 封装与数据处理</li>
+              <li>MaimaiData (PaperPig) — 版本判定与本地存储</li>
+              <li>落雪咖啡屋 (Lxns-Network) — 类型枚举体系</li>
+            </ul>
+          </div>
+          <div className="space-y-2">
+            <p className="font-medium text-text">算法参考</p>
+            <ul className="list-disc list-inside space-y-1 ml-1">
+              <li>RemyWiki — Rating/B50 算法公式</li>
+              <li>beatmania IIDX 非公式難易度表 — 底力/体力/爆发三层区分</li>
+              <li>SOUND VOLTEX Effect Radar — 多维雷达图可视化</li>
+            </ul>
+          </div>
+          <p className="text-text-tertiary text-xs">
+            舞萌 / maimai DX 为 SEGA 商标。本项目为非官方社区工具，与 SEGA 无关。
+            封面图版权归 SEGA 所有。全服统计数据由 Diving-Fish 社区汇总。
+          </p>
         </div>
       </Section>
     </div>

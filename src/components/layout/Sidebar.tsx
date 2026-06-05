@@ -94,18 +94,36 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         )}
 
         {aboutOpen && (
-          <div className={`px-4 pb-3 space-y-2 text-[11px] text-text-tertiary ${collapsed ? 'text-center px-1' : ''}`}>
+          <div className={`px-4 pb-3 space-y-3 text-[11px] text-text-tertiary overflow-y-auto max-h-[50vh] ${collapsed ? 'text-center px-1' : ''}`}>
             {!collapsed ? (
               <>
                 <div className="leading-relaxed">
-                  <p className="text-text-secondary font-medium mb-1">致谢</p>
-                  <p>Diving-Fish API · Yuzu-ChaN 别名</p>
-                  <p>舞萌 DX 社区数据支持</p>
+                  <p className="text-text-secondary font-medium mb-1">数据来源</p>
+                  <p>Diving-Fish API</p>
+                  <p className="text-[10px]">maimaidxprober · 曲目/成绩/统计</p>
+                  <p>Yuzu-ChaN 社区别名</p>
+                  <p className="text-[10px]">maimaiDX 社区别名数据库</p>
+                </div>
+                <div className="leading-relaxed">
+                  <p className="text-text-secondary font-medium mb-1">参考项目</p>
+                  <p>maimaidx-prober (Diving-Fish)</p>
+                  <p>maimaiDX (Yuri-YuzuChaN)</p>
+                  <p>MaimaiData (PaperPig)</p>
+                  <p>落雪咖啡屋 (Lxns-Network)</p>
+                </div>
+                <div className="leading-relaxed">
+                  <p className="text-text-secondary font-medium mb-1">算法参考</p>
+                  <p>RemyWiki Rating 算法</p>
+                  <p>IIDX 非公式難易度表</p>
+                  <p>SDVX Effect Radar</p>
                 </div>
                 <div className="leading-relaxed">
                   <p className="text-text-secondary font-medium mb-1">技术栈</p>
-                  <p>React · TypeScript · Vite · TailwindCSS</p>
+                  <p>React · TypeScript · Vite</p>
+                  <p>TailwindCSS · Zustand · Dexie</p>
+                  <p>ECharts · Lucide · marked</p>
                 </div>
+                <p>舞萌 / maimai DX © SEGA</p>
                 <p>版本 v0.4.0</p>
                 <div className="flex items-center gap-3 pt-1">
                   <Link
