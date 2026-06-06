@@ -88,6 +88,15 @@ export function computeTheoreticalMaxRating(songs: Song[]): number {
 }
 
 /**
+ * 理论最高 DX Rating（含 AP 加成）。
+ * 在 SSS+ 天花板基础上，每首谱面再 +1（AP 判定），
+ * 合计抬升 B50 理论值约 50 分。
+ */
+export function computeTheoreticalMaxRatingAP(songs: Song[]): number {
+  return computeTheoreticalMaxRating(songs) + Math.min(songs.length, 50)
+}
+
+/**
  * Compute B50 from local scores + song metadata.
  *
  * 算法步骤：
@@ -124,7 +133,7 @@ export function computeB50(scores: ScoreRecord[], songMap: Map<number, Song>): B
     // For scores that already have a pre-computed dxRating, use it
     // Otherwise compute from levelValue + achievements
     const levelValue = s.levelValue
-    const dxRating = s.dxRating > 0 ? s.dxRating : computeRating(levelValue, s.achievements)
+    const dxRating = s.dxRating > 0 ? s.dxRating : computeRating(levelValue, s.achievements, s.fcType)
 
     if (dxRating <= 0) continue
 

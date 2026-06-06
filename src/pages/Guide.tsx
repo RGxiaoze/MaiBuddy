@@ -116,16 +116,17 @@ export default function Guide() {
       {/* 五维分析 */}
       <Section icon={<Radar size={20} />} title="五维分析">
         <div className="space-y-3 text-sm text-text-secondary leading-relaxed">
-          <p>从五个能力维度量化评估谱面表现：<strong>底力 / 体力 / 爆发 / 技巧 / 定位</strong>。</p>
+          <p>从<span className="font-medium text-text">底力/体力/爆发/定位/技巧</span>五个维度，基于手臂位移量客观评估谱面表现。</p>
           <ul className="list-disc list-inside space-y-1 ml-1">
-            <li>ECharts 雷达图 + 统计指标卡片（AP/SSS+ 计数、Rating 进度、定数分布）</li>
-            <li>谱面类型适应性分析（仅展示需要关注的定数区间）</li>
-            <li>4 阶段推分路线规划</li>
-            <li>定数阶梯策略（每个 Rating 段的练习方向建议）</li>
+            <li><strong>底力</strong>：贯穿全程的基本功——让你在交互、双押、扫键等基础配置中游刃有余</li>
+            <li><strong>体力</strong>：长时间高密度不掉速的耐力——扛住消耗、稳扎稳打出成绩</li>
+            <li><strong>爆发</strong>：处理瞬时高密度的能力——从容面对超高速配置</li>
+            <li><strong>定位</strong>：手臂移动中准确击中判定——应对变换位置的配置</li>
+            <li><strong>技巧</strong>：利用协调与记忆力处理星星和 Touch 等非常规配置</li>
           </ul>
           <p className="text-text-tertiary text-xs">
-            五维算法正在重构为位移驱动模型——基于 simai 谱面数据的逐帧位移分析，结合机台布局几何（按钮正八边形 + 触摸区偏移），
-            从"物量统计"升级为"手臂运动量评估"。新的底力/体力/爆发/技巧/定位定义已完成，实现管线开发中。
+            五维算法基于 simai 谱面数据的逐帧位移分析，结合机台布局几何（按钮正八边形 + 触摸区偏移），
+            从"物量统计"升级为"手臂运动量评估"。
           </p>
         </div>
       </Section>

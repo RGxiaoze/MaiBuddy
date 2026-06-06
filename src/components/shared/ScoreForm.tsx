@@ -102,7 +102,7 @@ export default function ScoreForm({ song, defaultLevelIndex = 3, onClose, existi
       fcType: fcType || null,
       fsType: fsType || null,
       dxScore: dxAchieved ? parseInt(dxAchieved, 10) : 0,
-      dxRating: computeRating(currentDiff.levelValue, achievementNum),
+      dxRating: computeRating(currentDiff.levelValue, achievementNum, fcType),
       playDate: new Date(playDate).toISOString(),
       dxScoreDetail: dxMax || dxAchieved || dxMissed ? {
         maxDx: parseInt(dxMax, 10) || 0,
