@@ -41,7 +41,7 @@ export default function App() {
   useDarkMode()
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.DEV ? '/' : '/MaiBuddy'}>
       <Routes>
         <Route element={<MainLayout />}>
           <Route index element={<Navigate to="/songs" replace />} />
