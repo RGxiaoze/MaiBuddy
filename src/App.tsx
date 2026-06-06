@@ -47,7 +47,7 @@ export default function App() {
           <Route index element={<Navigate to="/songs" replace />} />
           <Route path="/songs" element={<Suspense fallback={<PageLoader />}><SongList /></Suspense>} />
           <Route path="/songs/:songId" element={<Suspense fallback={<PageLoader />}><SongDetail /></Suspense>} />
-          <Route path="/player" element={<Suspense fallback={<PageLoader />}><PlayerInfo /></Suspense>} />
+          <Route path="/player" element={<Suspense fallback={<PageLoader />}><ErrorBoundary title="B50 一览页面渲染出错"><PlayerInfo /></ErrorBoundary></Suspense>} />
           <Route path="/analysis" element={<Suspense fallback={<PageLoader />}><ErrorBoundary title="五维分析页面渲染出错"><DimensionAnalysis /></ErrorBoundary></Suspense>} />
           <Route path="/guide" element={<Suspense fallback={<PageLoader />}><Guide /></Suspense>} />
           <Route path="/changelog" element={<Suspense fallback={<PageLoader />}><Changelog /></Suspense>} />

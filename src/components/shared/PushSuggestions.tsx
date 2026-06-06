@@ -21,9 +21,24 @@ const POOL_LABELS: Record<string, string> = {
 }
 
 const DIFF_LABELS: Record<string, { label: string; color: string; desc: string }> = {
-  easy:   { label: '轻松', color: '#22C55E', desc: '全服达成率远高于同级平均水平（水分曲/个人差较小的谱面）' },
+  easy:   { label: '轻松', color: '#22C55E', desc: '全服达成率远高于同级平均水平' },
   medium: { label: '适中', color: '#D97706', desc: '全服达成率与同级平均水平相近' },
-  hard:   { label: '挑战', color: '#DC2626', desc: '全服达成率显著低于同级平均水平（硬谱/个人差大）；15级谱面固定为挑战' },
+  hard:   { label: '挑战', color: '#DC2626', desc: '全服达成率显著低于同级平均水平；15级固定为挑战' },
+}
+
+const CONFIG_TAGS: Record<string, { label: string; color: string; desc: string }> = {
+  stamina:  { label: '底力', color: '#22C55E', desc: '持续高密度交互为主的耐力型谱面' },
+  burst:    { label: '爆发', color: '#DC2626', desc: '含极高瞬时密度的爆发型谱面' },
+  tech:     { label: '技巧', color: '#A855F7', desc: 'Slide多样或Touch密集的技巧型谱面' },
+  balanced: { label: '综合', color: '#6B7280', desc: '多项配置均衡的综合型谱面' },
+}
+
+/** Heuristic config type based on song metadata */
+function guessConfigType(levelValue: number, bpm?: number): keyof typeof CONFIG_TAGS {
+  if (bpm && bpm >= 195 && levelValue >= 14.5) return 'burst'
+  if (bpm && bpm >= 180 && levelValue >= 14) return 'stamina'
+  if (bpm && bpm <= 170) return 'tech'
+  return 'balanced'
 }
 
 export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax?: number }) {
@@ -178,7 +193,9 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
           <p className="text-xs text-text-secondary text-center py-4">暂无可推分曲目</p>
         )}
         {displayed.map((item, i) => {
-          const diff = DIFF_LABELS[item.difficulty]
+          const diff = DIFF_LABELS[item.difficulty] || DIFF_LABELS.medium
+          const configType = guessConfigType(item.levelValue)
+          const configTag = CONFIG_TAGS[configType]
           return (
             <div key={`${item.songId}-${item.levelIndex}`} className="bg-bg-gray rounded-lg p-3 space-y-1.5">
               {/* Row 1: rank + title + level + external link */}
@@ -206,6 +223,7 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
                   {item.precision === 'estimated' ? `估 ${item.currentAchievements.toFixed(1)}%` : `${item.currentAchievements.toFixed(1)}%`}
                 </span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: diff.color + '20', color: diff.color }}>{diff.label}</span>
+                <span className="px-1 py-0.5 rounded text-[9px] font-medium" style={{ backgroundColor: configTag.color + '20', color: configTag.color }} title={configTag.desc}>{configTag.label}</span>
                 <span className="text-text-secondary text-[10px]">{POOL_LABELS[item.pool]}</span>
               </div>
 
@@ -241,15 +259,13 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
         )}
         <p className="text-xs text-text-tertiary">
           <span className="cursor-help" title="达成率基于 B50 定数回归估算，非实际成绩">?</span>
-          ：达成率基于 B50 回归估算，非实际成绩（导入完整成绩后可获得精准数据）
+          ：达成率基于 B50 回归估算，导入完整成绩后可获得更精准的推荐，加油！
         </p>
         <p className="text-xs text-text-tertiary">
-          难度：综合全服统计数据（60%）与当前→SSS+ 差距（40%）加权，且定数越高阈值越严格（12 级以下不变，13 起每级上浮 0.05）。
-          轻松=水分曲且差距小，适中=同级平均或差距适中，挑战=硬谱或差距大（15级固定为挑战）。
-          无全服数据时按当前达成率分级。
+          难度标签：轻松=水分曲，适合冲分；适中=同级平均水平；挑战=硬核谱面，攻克后成就感满满。定数越高越严格哦。
         </p>
         <p className="text-xs text-text-tertiary">
-          🔗：跳转 B 站搜索该曲目手元，辅助判断谱面难度。
+          🔗 跳转 B 站搜索该曲目手元，看看大佬们是怎么打的，享受音乐和进步的过程吧！
         </p>
       </div>
     </div>
@@ -259,6 +275,8 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
 /** Single suggestion row — React.memo for performance */
 function PushRow({ item, index }: { item: PushSuggestion; index: number }) {
   const diff = DIFF_LABELS[item.difficulty] || DIFF_LABELS.medium
+  const configType = guessConfigType(item.levelValue, 200) // BPM not available in PushSuggestion, use heuristic
+  const configTag = CONFIG_TAGS[configType]
 
   return (
     <tr className="border-b border-border/20 hover:bg-bg-gray/50">
@@ -312,6 +330,13 @@ function PushRow({ item, index }: { item: PushSuggestion; index: number }) {
           title={diff.desc}
         >
           {diff.label}
+        </span>
+        <span
+          className="px-1 py-0.5 rounded text-[9px] font-medium cursor-help ml-0.5"
+          style={{ backgroundColor: configTag.color + '20', color: configTag.color }}
+          title={configTag.desc}
+        >
+          {configTag.label}
         </span>
       </td>
       <td className="py-1.5 pl-2 text-text-secondary text-[10px]">
