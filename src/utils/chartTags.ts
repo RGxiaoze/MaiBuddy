@@ -11,18 +11,20 @@ import {
   STREAM_TAP_MIN, STREAM_BPM_MIN,
 } from '@/config/algorithms'
 
-export type ChartTag = '交互' | '纵连' | '星星' | '跳拍' | '体力' | '技巧' | '综合'
+export type ChartTag = '交互' | '纵连' | '星星' | '跳拍' | '体力' | '技巧' | '综合' | '扫键' | 'Touch'
 
-export const ALL_TAGS: ChartTag[] = ['交互', '纵连', '星星', '跳拍', '体力', '技巧', '综合']
+export const ALL_TAGS: ChartTag[] = ['交互', '纵连', '星星', '跳拍', '体力', '技巧', '综合', '扫键', 'Touch']
 
 const TAG_META: Record<ChartTag, { label: string; desc: string }> = {
-  '交互': { label: '交互', desc: 'TAP 占比高、BPM 快的交互密集型谱面' },
-  '纵连': { label: '纵连', desc: 'TAP+HOLD 密集、BREAK 较多的纵向连接谱面' },
-  '星星': { label: '星星', desc: 'SLIDE 占比高的滑星密集型谱面' },
+  '交互': { label: '交互', desc: '双手交替击打不同键位的交互密集型谱面' },
+  '纵连': { label: '纵连', desc: '同键位快速连击或二纵配置突出的谱面' },
+  '星星': { label: '星星', desc: 'SLIDE 占比高、路径复杂的滑星密集型谱面' },
   '跳拍': { label: '跳拍', desc: 'SLIDE/TOUCH 少、BREAK 占比高的跳跃拍击型谱面' },
-  '体力': { label: '体力', desc: '总物量大、BPM 高的耐力型谱面' },
-  '技巧': { label: '技巧', desc: 'TOUCH/SLIDE 占比很高的非标准配置技巧型谱面' },
+  '体力': { label: '体力', desc: '长时间高密度、大幅位移的耐力消耗型谱面' },
+  '技巧': { label: '技巧', desc: '非常规配置或保护套不足的技巧考验型谱面' },
   '综合': { label: '综合', desc: '各项均衡、无明显偏向的综合型谱面' },
+  '扫键': { label: '扫键', desc: '连续单向位移或圈配置突出的扫键型谱面' },
+  'Touch': { label: 'Touch', desc: 'Touch 传感器使用频繁的触摸型谱面' },
 }
 
 export function getTagMeta(tag: ChartTag) {
@@ -60,6 +62,12 @@ export function classifyChart(chart: ChartDifficulty, bpm: number): ChartTag {
 
   // 交互: TAP dominant + high BPM
   if (tapPct > STREAM_TAP_MIN && bpm > STREAM_BPM_MIN) return '交互'
+
+  // 扫键: high TAP + high total (dense tap patterns suggest sweeps)
+  if (tapPct > 0.55 && total > 800) return '扫键'
+
+  // Touch: significant touch presence
+  if (touchPct > 0.08) return 'Touch'
 
   return '综合'
 }

@@ -106,11 +106,11 @@ export default function DimensionAnalysis() {
   const { localB50 } = usePlayerStore()
 
   // Achievement metrics (only when local B50 is available)
+  const theoryMax = useMemo(() => songs.length > 0 ? computeTheoreticalMaxRating(songs) : 0, [songs])
   const metrics = useMemo(() => {
     if (!localB50 || songs.length === 0) return null
-    const theoryMax = computeTheoreticalMaxRating(songs)
     return computeAchievementMetrics(scores, localB50.totalRating, theoryMax)
-  }, [localB50, scores, songs])
+  }, [localB50, scores, songs, theoryMax])
 
   // Weakness analysis (benchmarked against chart_stats)
   const weakness = useMemo(() => {
@@ -124,7 +124,7 @@ export default function DimensionAnalysis() {
     if (!localB50 || songs.length === 0) return null
     const songMap = new Map(songs.map(s => [s.id, s]))
     const suggestions = computePushSuggestions(localB50, songMap, { allScores: scores, getStats: getChartStats }).suggestions
-    return generatePushRoute(localB50, suggestions, getChartStats)
+    return generatePushRoute(localB50, suggestions, getChartStats, theoryMax)
   }, [localB50, scores, songs])
 
   // Current ladder strategy
@@ -275,7 +275,7 @@ export default function DimensionAnalysis() {
           {/* Weakness analysis */}
           {weakness && (
             <div className="bg-surface border border-border rounded-lg p-5 mb-4">
-              <h3 className="text-sm font-semibold text-text mb-3">谱面类型适应性分析</h3>
+              <h3 className="text-sm font-semibold text-text mb-3">擅长的配置</h3>
 
               {!weakness.hasStatsData ? (
                 <div className="bg-bg-gray rounded-lg p-4 text-center">

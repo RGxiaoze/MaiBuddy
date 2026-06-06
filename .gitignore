@@ -31,3 +31,5 @@ public/docs-index.json
 .narrafork/
 .worktrees/
 *.adx
+*.zip
+参考谱面/

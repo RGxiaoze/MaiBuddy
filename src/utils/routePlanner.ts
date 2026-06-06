@@ -47,6 +47,7 @@ export function generatePushRoute(
   b50: B50Result,
   suggestions: PushSuggestion[],
   getStats?: (songId: number, level: string) => ChartStatSummary | undefined,
+  theoreticalMax?: number,
 ): PushRoute | null {
   if (suggestions.length === 0) return null
 
@@ -70,12 +71,15 @@ export function generatePushRoute(
   // Sort: boost priority → rating gain desc
   scored.sort((a, b) => b._boost - a._boost || (b.gains[2]?.ratingGain ?? 0) - (a.gains[2]?.ratingGain ?? 0))
 
-  // Define tier boundaries
+  // Define tiers using official grade labels
   const tiers = [
-    { min: 10.0, max: LEVEL_TIER_LOW, title: '低定数区 (10.0~12.5)', defaultAch: 'SSS+ (100.5%)' },
-    { min: LEVEL_TIER_LOW, max: LEVEL_TIER_MID, title: '中定数区 (12.5~13.5)', defaultAch: 'SSS (100.0%)' },
-    { min: LEVEL_TIER_MID, max: LEVEL_TIER_HIGH, title: '高定数区 (13.5~14.0)', defaultAch: 'SS+ (99.5%)' },
-    { min: LEVEL_TIER_ULTRA, max: 99.0, title: '超高定数区 (14.0+)', defaultAch: 'SS (99.0%)+' },
+    { min: 10.0, max: 12.0, title: '10~12',     defaultAch: 'SSS+ (100.5%)' },
+    { min: 12.0, max: 12.7, title: '12+',        defaultAch: 'SSS (100.0%)' },
+    { min: 12.7, max: 13.0, title: '13',         defaultAch: 'SSS (100.0%)' },
+    { min: 13.0, max: 13.7, title: '13+',        defaultAch: 'SS+ (99.5%)' },
+    { min: 13.7, max: 14.0, title: '14',         defaultAch: 'SS+ (99.5%)' },
+    { min: 14.0, max: 15.0, title: '14+',        defaultAch: 'SS (99.0%)' },
+    { min: 15.0, max: 99.0, title: '15',         defaultAch: 'SS (99.0%)' },
   ]
 
   const phases: RoutePhase[] = []
@@ -119,11 +123,28 @@ export function generatePushRoute(
   }
 
   const totalGain = phases.reduce((s, p) => s + p.estimatedGain, 0)
+  const remainingToTheory = (theoreticalMax ?? 0) > 0 ? (theoreticalMax ?? 0) - b50.totalRating : 0
+
+  let summary = `按此路线分 ${phases.length} 个阶段推分，预估可提升 ${totalGain} 分（${b50.totalRating} → ${b50.totalRating + totalGain}）。`
+
+  if (phases.length === 0) {
+    summary = '暂无推分建议，B50 地板分已接近理论最高值。'
+  }
+
+  // Near theoretical: playful nudge
+  if (remainingToTheory > 0 && remainingToTheory <= 100) {
+    summary += `距离理论 Rating 仅差 ${remainingToTheory} 分——几乎触摸到天花板了！剩下的交给时间和运气吧 🎉`
+  }
+
+  // 10-12 beginner: enjoy the game
+  if (phases.length > 0 && phases[0].title === '10~12') {
+    summary += '这个阶段的核心是享受游戏、积累曲目经验，Rating 会自然增长。'
+  }
 
   return {
     currentRating: b50.totalRating,
     targetRating: b50.totalRating + totalGain,
     phases,
-    summary: `按此路线分 ${phases.length} 个阶段推分，预估可提升 ${totalGain} 分（${b50.totalRating} → ${b50.totalRating + totalGain}）。优先推 B15 新曲、优先推定数高但拟合难度低的谱面。`,
+    summary,
   }
 }
