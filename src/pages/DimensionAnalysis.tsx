@@ -23,11 +23,11 @@ import ErrorBoundary from '@/components/shared/ErrorBoundary'
 const DIM_ORDER: (keyof DimensionScores)[] = ['processing', 'stamina', 'burst', 'positioning', 'technique']
 
 const DIM_META: Record<keyof DimensionScores, { name: string; color: string; desc: string }> = {
-  processing:  { name: '底力', color: '#DC2626', desc: '高速高密度谱面的即时读谱与执行能力。主要由 BPM × 总物量决定。' },
-  stamina:     { name: '体力', color: '#D97706', desc: '长时间持续高负荷不掉速不掉准的耐力。主要由总物量 × 曲长决定。' },
-  burst:       { name: '爆发', color: '#A855F7', desc: '极高峰值密度段的冲击处理能力。主要由 BPM × 峰值密度决定。' },
-  positioning: { name: '定位', color: '#22C55E', desc: '宽广屏幕范围准确触击目标位置。主要由 TOUCH+SLIDE+HOLD 占比决定。' },
-  technique:   { name: '技巧', color: '#3B82F6', desc: 'SLIDE折返/TOUCH阵/HOLD复杂度等非标准配置。主要由 SLIDE+BREAK+TOUCH 占比决定。' },
+  processing:  { name: '底力', color: '#DC2626', desc: '贯穿全程的基本功——良好的节奏感、协调与发力，让你在交互、双押、扫键、纵连等基础配置中游刃有余。底力越强，越能从容应对高 BPM 谱面，下位谱面的难点也不再棘手。' },
+  stamina:     { name: '体力', color: '#D97706', desc: '身体素质的体现——支持你长时间处理高密度配置而不掉速。体力越好，越能在反复推分中保持状态，扛住高难度谱面的持续消耗，稳扎稳打出成绩。' },
+  burst:       { name: '爆发', color: '#A855F7', desc: '手速与协调的体现——处理瞬时高密度音符的能力。爆发越高，越能从容面对当前水平谱面的超高速配置。' },
+  positioning: { name: '定位', color: '#22C55E', desc: '手臂在不断移动中准确击中判定点的能力。定位越准，越能从容应对反复变换位置的配置，处理一般的星星配置也更稳定。' },
+  technique:   { name: '技巧', color: '#3B82F6', desc: '协调与记忆的博弈——处理星星、Touch 以及各类非常规配置的能力。技巧越强，越能驾驭围绕星星和 Touch 展开的复合难点，甚至可以通过对判定的理解，用巧妙的非常规方式化解常规配置的棘手之处。' },
 }
 
 export default function DimensionAnalysis() {
