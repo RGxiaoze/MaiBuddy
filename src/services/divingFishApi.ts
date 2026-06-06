@@ -7,7 +7,9 @@ import { getCoverUrl } from '@/data/constants'
 import { toInternalSong, toInternalDfScore } from './adapter'
 import type { DfScore } from './adapter'
 
-const API_BASE = '/api/maimaidxprober'
+const API_BASE = import.meta.env.DEV
+  ? '/api/maimaidxprober'
+  : 'https://www.diving-fish.com/api/maimaidxprober'
 const TIMEOUT_MS = 10_000
 
 // ---- Internal helpers ----
