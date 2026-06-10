@@ -184,14 +184,14 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
             ℹ️ {precisionNote}
           </p>
         )}
-        <p className="text-xs text-text-tertiary">
+        <p className="text-xs text-text-secondary">
           <span className="cursor-help" title="达成率基于 B50 定数回归估算，非实际成绩">?</span>
           ：达成率基于 B50 回归估算，导入完整成绩后可获得更精准的推荐，加油！
         </p>
-        <p className="text-xs text-text-tertiary">
+        <p className="text-xs text-text-secondary">
           难度标签：轻松=水分曲，适合冲分；适中=同级平均水平；挑战=硬核谱面，攻克后成就感满满。定数越高越严格哦。
         </p>
-        <p className="text-xs text-text-tertiary">
+        <p className="text-xs text-text-secondary">
           <ExternalLink size={12} className="inline mr-1" />跳转 B 站搜索该曲目手元，看看大佬们是怎么打的，享受音乐和进步的过程吧！
         </p>
       </div>
@@ -221,7 +221,7 @@ function SuggestionSection({
         <div className="py-2 px-2">
           <div className="flex items-center gap-2 min-w-0">
             <h4 className="text-xs font-semibold text-text-secondary truncate">{title}</h4>
-            <span className="text-[10px] text-text-tertiary">暂无建议</span>
+            <span className="text-[10px] text-text-secondary">暂无建议</span>
           </div>
         </div>
       ) : (
@@ -232,12 +232,12 @@ function SuggestionSection({
           >
             <div className="flex items-center gap-2 min-w-0">
               <h4 className="text-xs font-semibold text-text-secondary truncate">{title}</h4>
-              <span className="text-[10px] text-text-tertiary tabular-nums shrink-0">
+              <span className="text-[10px] text-text-secondary tabular-nums shrink-0">
                 +{totalGain} 分
                 {apCount > 0 && <span className="text-success ml-1">AP ×{apCount}</span>}
               </span>
             </div>
-            <span className="text-xs text-text-tertiary shrink-0">
+            <span className="text-xs text-text-secondary shrink-0">
               {expanded ? `收起 ▲` : `${items.length} 条 ▶`}
             </span>
           </button>
@@ -287,16 +287,16 @@ function SuggestionSection({
                     }}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-text-tertiary text-xs tabular-nums shrink-0">{i + 1}.</span>
+                      <span className="text-text-secondary text-xs tabular-nums shrink-0">{i + 1}.</span>
                       <Link to={`/songs/${item.songId}`} className="font-medium text-xs truncate hover:text-primary hover:underline min-w-0">
                         {item.songTitle}
                       </Link>
-                      <span className="text-text-tertiary text-[10px] shrink-0">{LEVEL_LABELS[item.levelIndex as LevelIndex]}</span>
-                      <a href={bilibiliSearchUrl(item.songTitle, item.level)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-text-tertiary hover:text-primary shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <span className="text-text-secondary text-[10px] shrink-0">{LEVEL_LABELS[item.levelIndex as LevelIndex]}</span>
+                      <a href={bilibiliSearchUrl(item.songTitle, item.level)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-text-secondary hover:text-primary shrink-0" onClick={(e) => e.stopPropagation()}>
                         <ExternalLink size={11} />
                       </a>
                       {item.precision === 'estimated' && (
-                        <span className="text-[10px] text-text-tertiary shrink-0 cursor-help" title="达成率为基于 B50 定数回归的估算值">?</span>
+                        <span className="text-[10px] text-text-secondary shrink-0 cursor-help" title="达成率为基于 B50 定数回归的估算值">?</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-xs">
@@ -314,7 +314,7 @@ function SuggestionSection({
                           <span className="text-[10px] ml-0.5">{['SS+ 99%', 'SSS 100%', 'SSS+ 100.5%'][gi]}</span>
                         </span>
                       ))}
-                      <span className={`text-xs ${item.apGain && item.apGain.ratingGain > 0 ? 'text-success font-medium' : 'text-text-tertiary'}`} title={item.apGain ? `AP 判定额外 +${item.apGain.ratingGain} Rating` : 'SSS+ 后再冲击 AP 可额外 +1'}>
+                      <span className={`text-xs ${item.apGain && item.apGain.ratingGain > 0 ? 'text-success font-medium' : 'text-text-secondary'}`} title={item.apGain ? `AP 判定额外 +${item.apGain.ratingGain} Rating` : 'SSS+ 后再冲击 AP 可额外 +1'}>
                         {item.apGain && item.apGain.ratingGain > 0 ? `+${item.apGain.ratingGain}` : '—'}
                         <span className="text-[10px] ml-0.5">AP +1</span>
                       </span>
@@ -351,19 +351,19 @@ function PushRow({ item, index, faded }: { item: PushSuggestion; index: number; 
 
   return (
     <tr className={`border-b border-border/20 hover:bg-bg-gray/50 transition-opacity ${faded ? 'opacity-40' : ''}`}>
-      <td className="py-1.5 pr-2 text-text-tertiary tabular-nums">{index}</td>
+      <td className="py-1.5 pr-2 text-text-secondary tabular-nums">{index}</td>
       <td className="py-1.5 pr-2 font-medium truncate max-w-40">
         <Link to={"/songs/" + item.songId} className="hover:text-primary hover:underline">
           {item.songTitle}
         </Link>
-        <span className="text-text-tertiary ml-1">
+        <span className="text-text-secondary ml-1">
           {LEVEL_LABELS[item.levelIndex as LevelIndex]}
         </span>
         <a
           href={bilibiliSearchUrl(item.songTitle, item.level)}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center ml-1 text-text-tertiary hover:text-primary transition-colors"
+          className="inline-flex items-center ml-1 text-text-secondary hover:text-primary transition-colors"
           title="在 B站搜索此曲目手元"
           onClick={(e) => e.stopPropagation()}
         >
@@ -371,7 +371,7 @@ function PushRow({ item, index, faded }: { item: PushSuggestion; index: number; 
         </a>
         {item.precision === 'estimated' && (
           <span
-            className="text-[10px] text-text-tertiary ml-1 cursor-help"
+            className="text-[10px] text-text-secondary ml-1 cursor-help"
             title="达成率为基于 B50 定数回归的估算值，非玩家实际成绩。导入完整成绩后可获得精准数据。"
           >
             ?
@@ -402,7 +402,7 @@ function PushRow({ item, index, faded }: { item: PushSuggestion; index: number; 
           +{item.apGain.ratingGain}
         </td>
       ) : (
-        <td className="py-1.5 px-1 text-right tabular-nums text-text-tertiary">—</td>
+        <td className="py-1.5 px-1 text-right tabular-nums text-text-secondary">—</td>
       )}
       <td className="py-1.5 px-1 text-center">
         <span
