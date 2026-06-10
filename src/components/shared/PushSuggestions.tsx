@@ -130,8 +130,6 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
     )
   }
 
-  const hasAnyAP = suggestions.some(s => s.apGain && s.apGain.ratingGain > 0)
-
   const b35Suggestions = suggestions.filter(s => s.pool === 'b35')
   const b15Suggestions = suggestions.filter(s => s.pool === 'b15')
 
@@ -171,14 +169,12 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
       <SuggestionSection
         title={`旧版本 Best 35 推分建议 (${b35Suggestions.length})`}
         items={b35Suggestions}
-        hasAnyAP={hasAnyAP}
       />
 
       {/* ---- B15 table ---- */}
       <SuggestionSection
         title={`新版本 Best 15 推分建议 (${b15Suggestions.length})`}
         items={b15Suggestions}
-        hasAnyAP={hasAnyAP}
       />
 
       {/* Algorithm footnotes */}
@@ -205,11 +201,10 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
 
 /** Section: a single pool's suggestion table + mobile cards */
 function SuggestionSection({
-  title, items, hasAnyAP,
+  title, items,
 }: {
   title: string
   items: PushSuggestion[]
-  hasAnyAP: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const isEmpty = items.length === 0
@@ -261,15 +256,13 @@ function SuggestionSection({
                     <th className="text-right py-1.5 px-1 font-medium w-12">SS+<span className="text-[10px] opacity-75"> 99%</span></th>
                     <th className="text-right py-1.5 px-1 font-medium w-12">SSS<span className="text-[10px] opacity-75"> 100%</span></th>
                     <th className="text-right py-1.5 px-1 font-medium w-12">SSS+<span className="text-[10px] opacity-75"> 100.5%</span></th>
-                    {hasAnyAP && (
-                      <th className="text-right py-1.5 px-1 font-medium w-12 text-success">AP<span className="text-[10px] opacity-75"> +1</span></th>
-                    )}
+                    <th className="text-right py-1.5 px-1 font-medium w-12 text-success">AP<span className="text-[10px] opacity-75"> +1</span></th>
                     <th className="text-center py-1.5 px-1 font-medium w-10">难度</th>
                   </tr>
                 </thead>
                 <tbody>
                   {displayed.map((item, i) => (
-                    <PushRow key={`${item.songId}-${item.levelIndex}`} item={item} index={i + 1} hasAnyAP={hasAnyAP}
+                    <PushRow key={`${item.songId}-${item.levelIndex}`} item={item} index={i + 1}
                       faded={hasMore && i === 4}
                     />
                   ))}
@@ -321,12 +314,10 @@ function SuggestionSection({
                           <span className="text-[10px] ml-0.5">{['SS+ 99%', 'SSS 100%', 'SSS+ 100.5%'][gi]}</span>
                         </span>
                       ))}
-                      {item.apGain && item.apGain.ratingGain > 0 && (
-                        <span className="text-success font-medium" title={`AP 判定额外 +${item.apGain.ratingGain} Rating`}>
-                          +{item.apGain.ratingGain}
-                          <span className="text-[10px] ml-0.5">AP +1</span>
-                        </span>
-                      )}
+                      <span className={`text-xs ${item.apGain && item.apGain.ratingGain > 0 ? 'text-success font-medium' : 'text-text-tertiary'}`} title={item.apGain ? `AP 判定额外 +${item.apGain.ratingGain} Rating` : 'SSS+ 后再冲击 AP 可额外 +1'}>
+                        {item.apGain && item.apGain.ratingGain > 0 ? `+${item.apGain.ratingGain}` : '—'}
+                        <span className="text-[10px] ml-0.5">AP +1</span>
+                      </span>
                     </div>
                   </div>
                 )
@@ -353,7 +344,7 @@ function SuggestionSection({
 }
 
 /** Single suggestion row — React.memo for performance */
-function PushRow({ item, index, hasAnyAP, faded }: { item: PushSuggestion; index: number; hasAnyAP: boolean; faded?: boolean }) {
+function PushRow({ item, index, faded }: { item: PushSuggestion; index: number; faded?: boolean }) {
   const diff = DIFF_LABELS[item.difficulty] || DIFF_LABELS.medium
   const configType = guessConfigType(item.levelValue, 200) // BPM not available in PushSuggestion, use heuristic
   const configTag = CONFIG_TAGS[configType]
@@ -410,9 +401,9 @@ function PushRow({ item, index, hasAnyAP, faded }: { item: PushSuggestion; index
         >
           +{item.apGain.ratingGain}
         </td>
-      ) : hasAnyAP ? (
-        <td className="py-1.5 px-1" />
-      ) : null}
+      ) : (
+        <td className="py-1.5 px-1 text-right tabular-nums text-text-tertiary">—</td>
+      )}
       <td className="py-1.5 px-1 text-center">
         <span
           className="px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help"
