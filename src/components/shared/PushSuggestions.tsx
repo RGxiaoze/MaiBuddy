@@ -12,7 +12,7 @@ import { computeTheoreticalMaxBoth, type B50Result } from '@/utils/b50'
 import { loadStats, getChartStats, isStatsLoaded } from '@/services/statsService'
 import { bilibiliSearchUrl } from '@/utils/bilibiliSearch'
 import { ExternalLink, TrendingUp } from 'lucide-react'
-import { LEVEL_LABELS } from '@/data/constants'
+import { LEVEL_LABELS, LEVEL_INDEX_MAP } from '@/data/constants'
 import type { LevelIndex } from '@/types'
 
 const DIFF_LABELS: Record<string, { label: string; color: string; desc: string }> = {
@@ -253,9 +253,18 @@ function SuggestionSection({
                     <th className="text-left py-1.5 pr-2 font-medium">曲目</th>
                     <th className="text-center py-1.5 px-1 font-medium w-12">定数</th>
                     <th className="text-right py-1.5 px-1 font-medium w-16">当前</th>
-                    <th className="text-right py-1.5 px-1 font-medium w-12">SS+<span className="text-[10px] opacity-75 ml-0.5" style={{ color: '#FFD700' }}>99%</span></th>
-                    <th className="text-right py-1.5 px-1 font-medium w-12">SSS<span className="text-[10px] opacity-75 ml-0.5" style={{ color: '#EF4444' }}>100%</span></th>
-                    <th className="text-right py-1.5 px-1 font-medium w-12">SSS+<span className="text-[10px] opacity-75 ml-0.5" style={{ color: '#FFD700' }}>100.5%</span></th>
+                    <th className="text-right py-1.5 px-1 font-medium w-12">
+                      <span style={{ color: '#FFD700' }}>S</span><span style={{ color: '#FFD700' }}>S</span>+
+                      <span className="text-[10px] ml-0.5 text-text-secondary">99%</span>
+                    </th>
+                    <th className="text-right py-1.5 px-1 font-medium w-12">
+                      <span style={{ color: '#FFD700' }}>S</span><span style={{ color: '#3B82F6' }}>S</span><span style={{ color: '#EF4444' }}>S</span>
+                      <span className="text-[10px] ml-0.5 text-text-secondary">100%</span>
+                    </th>
+                    <th className="text-right py-1.5 px-1 font-medium w-12">
+                      <span style={{ color: '#FFD700' }}>S</span><span style={{ color: '#3B82F6' }}>S</span><span style={{ color: '#EF4444' }}>S</span><span style={{ color: '#FFD700' }}>+</span>
+                      <span className="text-[10px] ml-0.5 text-text-secondary">100.5%</span>
+                    </th>
                     <th className="text-right py-1.5 px-1 font-medium w-12 text-success">AP<span className="text-[10px] opacity-75 ml-0.5" style={{ color: '#1E9E4A' }}>+1</span></th>
                     <th className="text-center py-1.5 px-1 font-medium w-10">难度</th>
                   </tr>
@@ -291,7 +300,7 @@ function SuggestionSection({
                       <Link to={`/songs/${item.songId}`} className="font-medium text-xs truncate hover:text-primary hover:underline min-w-0">
                         {item.songTitle}
                       </Link>
-                      <span className="text-text-secondary text-[10px] shrink-0">{LEVEL_LABELS[item.levelIndex as LevelIndex]}</span>
+                      <span className="px-1 py-0.5 rounded text-[9px] font-medium text-white shrink-0" style={{ backgroundColor: LEVEL_INDEX_MAP[item.levelIndex as LevelIndex]?.color || '#6B7280' }}>{LEVEL_LABELS[item.levelIndex as LevelIndex]}</span>
                       <a href={bilibiliSearchUrl(item.songTitle, item.level)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-text-secondary hover:text-primary shrink-0" onClick={(e) => e.stopPropagation()}>
                         <ExternalLink size={11} />
                       </a>
@@ -356,7 +365,7 @@ function PushRow({ item, index, faded }: { item: PushSuggestion; index: number; 
         <Link to={"/songs/" + item.songId} className="hover:text-primary hover:underline">
           {item.songTitle}
         </Link>
-        <span className="text-text-secondary ml-1">
+        <span className="px-1 py-0.5 rounded text-[10px] font-medium text-white ml-1" style={{ backgroundColor: LEVEL_INDEX_MAP[item.levelIndex as LevelIndex]?.color || '#6B7280' }}>
           {LEVEL_LABELS[item.levelIndex as LevelIndex]}
         </span>
         <a
