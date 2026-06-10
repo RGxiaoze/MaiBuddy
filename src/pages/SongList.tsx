@@ -87,12 +87,14 @@ function LoginToGetToken({ onToken, onLoginAndImport }: { onToken: (token: strin
           className="flex-1 px-3 py-2 rounded-md border border-border text-sm
                      focus:outline-none focus:border-primary bg-surface"
         />
+      </div>
+      <div className="mb-2">
         <button
           onClick={handleLogin}
           disabled={loginLoading || !loginUser.trim() || !loginPass.trim()}
-          className="px-4 py-2 rounded-md bg-primary text-white text-sm font-medium
+          className="w-full sm:w-auto px-4 py-2 rounded-md bg-primary text-white text-sm font-medium
                      hover:bg-primary-dark transition-colors cursor-pointer
-                     disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                     disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loginLoading ? '登录并导入中...' : '登录并导入'}
         </button>
@@ -143,6 +145,14 @@ export default function SongList() {
       setShowImport(true)
     }
   }, [searchParams])
+
+  // Lock body scroll when import modal is open
+  useEffect(() => {
+    if (showImport) {
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = '' }
+    }
+  }, [showImport])
 
   const closeImport = () => {
     setShowImport(false)
