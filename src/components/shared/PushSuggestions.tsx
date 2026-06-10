@@ -253,10 +253,10 @@ function SuggestionSection({
                     <th className="text-left py-1.5 pr-2 font-medium">曲目</th>
                     <th className="text-center py-1.5 px-1 font-medium w-12">定数</th>
                     <th className="text-right py-1.5 px-1 font-medium w-16">当前</th>
-                    <th className="text-right py-1.5 px-1 font-medium w-12">SS+<span className="text-[10px] opacity-75"> 99%</span></th>
-                    <th className="text-right py-1.5 px-1 font-medium w-12">SSS<span className="text-[10px] opacity-75"> 100%</span></th>
-                    <th className="text-right py-1.5 px-1 font-medium w-12">SSS+<span className="text-[10px] opacity-75"> 100.5%</span></th>
-                    <th className="text-right py-1.5 px-1 font-medium w-12 text-success">AP<span className="text-[10px] opacity-75"> +1</span></th>
+                    <th className="text-right py-1.5 px-1 font-medium w-12">SS+<span className="text-[10px] opacity-75 ml-0.5" style={{ color: '#FFD700' }}>99%</span></th>
+                    <th className="text-right py-1.5 px-1 font-medium w-12">SSS<span className="text-[10px] opacity-75 ml-0.5" style={{ color: '#EF4444' }}>100%</span></th>
+                    <th className="text-right py-1.5 px-1 font-medium w-12">SSS+<span className="text-[10px] opacity-75 ml-0.5" style={{ color: '#FFD700' }}>100.5%</span></th>
+                    <th className="text-right py-1.5 px-1 font-medium w-12 text-success">AP<span className="text-[10px] opacity-75 ml-0.5" style={{ color: '#1E9E4A' }}>+1</span></th>
                     <th className="text-center py-1.5 px-1 font-medium w-10">难度</th>
                   </tr>
                 </thead>
@@ -300,7 +300,7 @@ function SuggestionSection({
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="tabular-nums font-medium" style={{ color: item.levelValue >= 14.5 ? '#DC2626' : item.levelValue >= 13.5 ? '#D97706' : item.levelValue >= 12 ? '#5BA4CF' : '#22C55E' }}>{item.levelValue.toFixed(1)}</span>
+                      <span className="tabular-nums font-medium">{item.levelValue.toFixed(1)}</span>
                       <span className="tabular-nums">
                         {item.precision === 'estimated' ? <><span className="text-text-secondary">估 </span>{item.currentAchievements.toFixed(1)}%</> : `${item.currentAchievements.toFixed(1)}%`}
                       </span>
@@ -378,7 +378,7 @@ function PushRow({ item, index, faded }: { item: PushSuggestion; index: number; 
           </span>
         )}
       </td>
-      <td className="py-1.5 px-1 text-center tabular-nums font-medium" style={{ color: item.levelValue >= 14.5 ? '#DC2626' : item.levelValue >= 13.5 ? '#D97706' : item.levelValue >= 12 ? '#5BA4CF' : '#22C55E' }}>{item.levelValue.toFixed(1)}</td>
+      <td className="py-1.5 px-1 text-center tabular-nums font-medium">{item.levelValue.toFixed(1)}</td>
       <td className="py-1.5 px-1 text-right tabular-nums whitespace-nowrap">
         {item.precision === 'estimated'
           ? <><span className="text-text-secondary">估 </span>{item.currentAchievements.toFixed(1)}%</>
