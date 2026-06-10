@@ -69,53 +69,57 @@ function LoginToGetToken({ onToken, onLoginAndImport }: { onToken: (token: strin
   }, [loginUser, loginPass, onToken, onLoginAndImport, remember])
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row gap-2 mb-2">
+    <div className="space-y-3">
+      <div>
+        <label className="block text-xs text-text-secondary mb-1 font-medium">Diving-Fish 用户名</label>
         <input
           type="text"
           value={loginUser}
           onChange={(e) => setLoginUser(e.target.value)}
-          placeholder="Diving-Fish 用户名"
-          className="flex-1 px-3 py-2 rounded-md border border-border text-sm
-                     focus:outline-none focus:border-primary bg-surface"
+          placeholder="输入 Diving-Fish 用户名"
+          className="w-full px-3 py-2 rounded-md border border-border text-sm
+                     focus:outline-none focus:border-primary bg-surface transition-colors"
         />
+      </div>
+      <div>
+        <label className="block text-xs text-text-secondary mb-1 font-medium">密码</label>
         <input
           type="password"
           value={loginPass}
           onChange={(e) => setLoginPass(e.target.value)}
-          placeholder="密码"
-          className="flex-1 px-3 py-2 rounded-md border border-border text-sm
-                     focus:outline-none focus:border-primary bg-surface"
+          placeholder="输入 Diving-Fish 密码"
+          className="w-full px-3 py-2 rounded-md border border-border text-sm
+                     focus:outline-none focus:border-primary bg-surface transition-colors"
         />
       </div>
-      <div className="mb-2">
-        <button
-          onClick={handleLogin}
-          disabled={loginLoading || !loginUser.trim() || !loginPass.trim()}
-          className="w-full sm:w-auto px-4 py-2 rounded-md bg-primary text-white text-sm font-medium
-                     hover:bg-primary-dark transition-colors cursor-pointer
-                     disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loginLoading ? '登录并导入中...' : '登录并导入'}
-        </button>
-      </div>
-      <label className="flex items-center gap-1.5 mb-2 cursor-pointer text-xs text-text-secondary">
+      <label className="flex items-center gap-2 cursor-pointer text-xs text-text-secondary select-none">
         <input
           type="checkbox"
           checked={remember}
           onChange={(e) => setRemember(e.target.checked)}
-          className="w-3.5 h-3.5 rounded border-border cursor-pointer"
+          className="w-3.5 h-3.5 rounded border-border cursor-pointer accent-primary"
         />
         记住账号
       </label>
-      {loginLoading && (
-        <p className="text-xs text-text-secondary">正在登录并拉取成绩...</p>
-      )}
+      <button
+        onClick={handleLogin}
+        disabled={loginLoading || !loginUser.trim() || !loginPass.trim()}
+        className="w-full px-4 py-2.5 rounded-md bg-primary text-white text-sm font-semibold
+                   hover:bg-primary-dark active:scale-[0.98] transition-all cursor-pointer
+                   disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+      >
+        {loginLoading ? (
+          <span className="inline-flex items-center gap-2">
+            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            登录并导入中...
+          </span>
+        ) : '登录并导入'}
+      </button>
       {loginError && (
-        <p className="text-xs text-error">{loginError}</p>
+        <p className="text-xs text-error bg-error/5 rounded-md px-3 py-2">{loginError}</p>
       )}
       {loginSuccess && (
-        <p className="text-xs text-success">Token 已获取并自动填入上方输入框 ✓</p>
+        <p className="text-xs text-success bg-success/5 rounded-md px-3 py-2">✓ Token 已获取，正在导入成绩...</p>
       )}
     </div>
   )
@@ -749,43 +753,44 @@ export default function SongList() {
             </div>
 
             {/* Manual Token input — fallback, collapsible */}
-            <details className="text-xs text-text-secondary cursor-pointer group">
-              <summary className="hover:text-primary transition-colors select-none">备用手动导入 — 已有 Import-Token 时使用</summary>
-              <div className="mt-2 pt-2 border-t border-border/50 space-y-2">
-                <p className="text-text-tertiary">在 Diving-Fish 网站「编辑个人资料」中生成 Token 后粘贴到下方</p>
-                <div className="flex flex-col sm:flex-row gap-2">
+            <details className="text-xs text-text-secondary cursor-pointer group mt-3">
+              <summary className="hover:text-primary transition-colors select-none py-1">备用手动导入 — 已有 Import-Token 时使用</summary>
+              <div className="mt-3 pt-3 border-t border-border/50 space-y-3">
+                <p className="text-text-tertiary leading-relaxed">在 Diving-Fish 网站「编辑个人资料」中生成 Token 后粘贴到下方</p>
+                <div>
+                  <label className="block text-xs text-text-secondary mb-1 font-medium">Import-Token</label>
                   <input
                     type="password"
                     value={importToken}
                     onChange={(e) => saveImportToken(e.target.value)}
                     placeholder="粘贴 Import-Token"
-                    className="flex-1 px-3 py-2 rounded-md border border-border text-sm font-mono
-                               focus:outline-none focus:border-primary bg-surface"
+                    className="w-full px-3 py-2 rounded-md border border-border text-sm font-mono
+                               focus:outline-none focus:border-primary bg-surface transition-colors"
                   />
-                  <button
-                    onClick={() => handleLoginAndImport(importToken.trim())}
-                    disabled={importing || !importToken.trim()}
-                    className="px-4 py-2 rounded-md bg-surface border border-border text-text-secondary text-sm font-medium
-                               hover:border-primary hover:text-primary transition-colors cursor-pointer
-                               disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                    {importing ? '导入中...' : '导入'}
-                  </button>
                 </div>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={rememberToken}
-                    onChange={(e) => {
-                      setRememberToken(e.target.checked)
-                      if (!e.target.checked) { try { localStorage.removeItem('maimai-df-import-token') } catch {} }
-                      else if (importToken.trim()) { try { localStorage.setItem('maimai-df-import-token', importToken.trim()) } catch {} }
-                    }}
-                    className="w-3.5 h-3.5 rounded border-border cursor-pointer"
-                  />
-                  记住 Token
-                </label>
+                <button
+                  onClick={() => handleLoginAndImport(importToken.trim())}
+                  disabled={importing || !importToken.trim()}
+                  className="w-full px-4 py-2.5 rounded-md bg-surface border border-border text-text-secondary text-sm font-medium
+                             hover:border-primary hover:text-primary transition-all cursor-pointer
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {importing ? '导入中...' : '导入'}
+                </button>
               </div>
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-text-secondary select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberToken}
+                  onChange={(e) => {
+                    setRememberToken(e.target.checked)
+                    if (!e.target.checked) { try { localStorage.removeItem('maimai-df-import-token') } catch {} }
+                    else if (importToken.trim()) { try { localStorage.setItem('maimai-df-import-token', importToken.trim()) } catch {} }
+                  }}
+                  className="w-3.5 h-3.5 rounded border-border cursor-pointer accent-primary"
+                />
+                记住 Token
+              </label>
             </details>
 
             {/* Import progress */}
