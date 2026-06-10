@@ -294,14 +294,23 @@ export function resetStats(): void {
 
 /**
  * Force-refresh chart stats — fetch from API, update IndexedDB cache,
- * and reset in-memory state so next loadStats() uses fresh data.
+ * and rebuild in-memory state atomically. Unlike resetStats(), this
+ * keeps _loaded=true so existing components don't lose their data.
  * Used when song library version changes (new songs added).
  */
 export async function forceRefreshStats(): Promise<void> {
   try {
     const data = await fetchChartStats()
     await setCachedStats(data)
-    resetStats()
+    // Rebuild in-memory from fresh data (atomic replacement)
+    _chartStats = buildChartStats(data)
+    _levelAvgs = buildLevelAvgs(data)
+    _fitDiffAvgs = buildFitDiffAvgs(data)
+    // _officialLevelAvgs depends on external officialLevelMap — clear so
+    // next loadStats() call with a map will rebuild it
+    _officialLevelAvgs = null
+    _loaded = true
+    _loadPromise = null
   } catch {
     // Best-effort: keep existing stats if refresh fails
   }

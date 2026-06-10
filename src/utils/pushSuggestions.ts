@@ -14,7 +14,7 @@ import {
   MAX_ACHIEVEMENTS, UTAGE_ID_THRESHOLD, B35_FALLBACK_LEVEL, B35_MODE_MIN_COUNT,
   SKIP_LOW_LEVEL, SKIP_LOW_ACH,
   SSSP_SORT_WEIGHT, SUGGESTION_SORT_TOLERANCE,
-  B15_SIZE, MAX_SUGGESTIONS,
+  B15_SIZE, MAX_SUGGESTIONS_PER_POOL,
 } from '@/config/algorithms'
 
 // ---- Types ----
@@ -359,10 +359,13 @@ export function computePushSuggestions(
     return bScore - aScore
   })
 
-  // Cap total suggestions
-  if (suggestions.length > MAX_SUGGESTIONS) {
-    suggestions.length = MAX_SUGGESTIONS
-  }
+  // Cap per pool (B35 and B15 each get their own budget)
+  const b35Pool = suggestions.filter(s => s.pool === 'b35')
+  const b15Pool = suggestions.filter(s => s.pool === 'b15')
+  if (b35Pool.length > MAX_SUGGESTIONS_PER_POOL) b35Pool.length = MAX_SUGGESTIONS_PER_POOL
+  if (b15Pool.length > MAX_SUGGESTIONS_PER_POOL) b15Pool.length = MAX_SUGGESTIONS_PER_POOL
+  suggestions.length = 0
+  suggestions.push(...b35Pool, ...b15Pool)
 
   // 8. Precision note
   const hasEstimated = suggestions.some(s => s.precision === 'estimated')

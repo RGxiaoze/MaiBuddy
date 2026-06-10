@@ -58,8 +58,8 @@ export const LEVEL_TIER_ULTRA = 14.0
 /** 每阶段最多推荐的曲目数 */
 export const MAX_PER_PHASE = 5
 
-/** 推分建议总条数上限 */
-export const MAX_SUGGESTIONS = 38
+/** 推分建议每池条数上限 */
+export const MAX_SUGGESTIONS_PER_POOL = 30
 
 /** 练习推荐每级最多曲目数 */
 export const MAX_PRACTICE_PER_LEVEL = 2
