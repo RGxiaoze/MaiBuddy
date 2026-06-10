@@ -254,7 +254,7 @@ function SuggestionSection({
                     <th className="text-center py-1.5 px-1 font-medium w-12">定数</th>
                     <th className="text-right py-1.5 px-1 font-medium w-16">当前</th>
                     <th className="text-right py-1.5 px-1 font-medium w-12">
-                      <span style={{ color: '#FFD700' }}>S</span><span style={{ color: '#FFD700' }}>S</span>+
+                      <span style={{ color: '#FFD700' }}>S</span><span style={{ color: '#FFD700' }}>S</span><span style={{ color: '#FFD700' }}>+</span>
                       <span className="text-[10px] ml-0.5 text-text-secondary">99%</span>
                     </th>
                     <th className="text-right py-1.5 px-1 font-medium w-12">
@@ -317,15 +317,22 @@ function SuggestionSection({
                       <span className="px-1 py-0.5 rounded text-[9px] font-medium" style={{ backgroundColor: configTag.color + '20', color: configTag.color }} title={configTag.desc}>{configTag.label}</span>
                     </div>
                     <div className="flex gap-3 text-xs">
-                      {item.gains.map((gain, gi) => (
-                        <span key={gi} className={gain.ratingGain > 0 ? 'text-success' : 'text-text-secondary'} title={`目标 ${gain.targetAch}% → 增益 +${gain.ratingGain}`}>
-                          <span className={`font-medium ${gain.ratingGain > 0 ? 'text-success' : 'text-text'}`}>{gain.ratingGain > 0 ? `+${gain.ratingGain}` : '—'}</span>
-                          <span className="text-[10px] ml-0.5">{['SS+ 99%', 'SSS 100%', 'SSS+ 100.5%'][gi]}</span>
-                        </span>
-                      ))}
+                      {item.gains.map((gain, gi) => {
+                        const labels = [
+                          <><span style={{ color: '#FFD700' }}>SS+</span> <span className="text-text-secondary">99%</span></>,
+                          <><span style={{ color: '#FFD700' }}>S</span><span style={{ color: '#3B82F6' }}>S</span><span style={{ color: '#EF4444' }}>S</span> <span className="text-text-secondary">100%</span></>,
+                          <><span style={{ color: '#FFD700' }}>S</span><span style={{ color: '#3B82F6' }}>S</span><span style={{ color: '#EF4444' }}>S</span><span style={{ color: '#FFD700' }}>+</span> <span className="text-text-secondary">100.5%</span></>,
+                        ]
+                        return (
+                          <span key={gi} className={gain.ratingGain > 0 ? 'text-success' : 'text-text-secondary'} title={`目标 ${gain.targetAch}% → 增益 +${gain.ratingGain}`}>
+                            <span className={`font-medium ${gain.ratingGain > 0 ? 'text-success' : 'text-text'}`}>{gain.ratingGain > 0 ? `+${gain.ratingGain}` : '—'}</span>
+                            <span className="text-[10px] ml-0.5">{labels[gi]}</span>
+                          </span>
+                        )
+                      })}
                       <span className={`text-xs ${item.apGain && item.apGain.ratingGain > 0 ? 'text-success font-medium' : 'text-text-secondary'}`} title={item.apGain ? `AP 判定额外 +${item.apGain.ratingGain} Rating` : 'SSS+ 后再冲击 AP 可额外 +1'}>
                         {item.apGain && item.apGain.ratingGain > 0 ? `+${item.apGain.ratingGain}` : '—'}
-                        <span className="text-[10px] ml-0.5">AP +1</span>
+                        <span className="text-[10px] ml-0.5"><span style={{ color: '#1E9E4A' }}>AP +1</span></span>
                       </span>
                     </div>
                   </div>
