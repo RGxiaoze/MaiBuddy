@@ -205,17 +205,24 @@ export function computePushSuggestions(
   const STRETCH_UPPER = mode > 14 ? mode + 0.3 : (mode > 0 ? mode + 0.5 : B35_FALLBACK_LEVEL)
   // Unified lower bound: mode - 1.0 (covers both B35 optimization and B15 floor replacement)
   const STRETCH_LOWER = mode > 0 ? Math.max(0, mode - 1.0) : 0
-  // B15 special: when B15 has very few entries (version reset), progressively
-  // widen the lower bound to ensure enough new song suggestions.
+  // Progressive widening: when a pool has few entries, widen its lower bound to capture more candidates.
   const b15NotFull = currentB50.best15.length < B15_SIZE
+  const b35NotFull = currentB50.best35.length < 35
   let B15_STRETCH_LOWER: number
+  let B35_STRETCH_LOWER: number
   if (!b15NotFull) {
     B15_STRETCH_LOWER = STRETCH_LOWER
   } else if (currentB50.best15.length >= 5) {
     B15_STRETCH_LOWER = Math.max(0, mode - 0.5)
   } else {
-    // B15 is nearly empty — no lower bound, accept all new songs
     B15_STRETCH_LOWER = 0
+  }
+  if (!b35NotFull) {
+    B35_STRETCH_LOWER = STRETCH_LOWER
+  } else if (currentB50.best35.length >= 5) {
+    B35_STRETCH_LOWER = Math.max(0, mode - 0.5)
+  } else {
+    B35_STRETCH_LOWER = 0
   }
 
   // 6. Scan song DB for candidates
@@ -223,7 +230,9 @@ export function computePushSuggestions(
   const seenChart = new Set<string>()
 
   for (const song of songMap.values()) {
-    for (const diff of song.difficulties.dx) {
+    // Scan both DX and standard charts to cover old-version (B35) and new-version (B15) pools
+    const allDiffs = [...song.difficulties.dx, ...song.difficulties.standard]
+    for (const diff of allDiffs) {
       const key = `${song.id}-${diff.levelIndex}`
       // Skip utage
       if (song.id >= UTAGE_ID_THRESHOLD) continue
@@ -231,12 +240,13 @@ export function computePushSuggestions(
       seenChart.add(key)
 
       const lv = diff.levelValue
+      if (lv <= 0) continue
       const isNew = song.isNew
 
       // Filter: in stretch zone OR already in B50
       if (inB50.has(key)) {
       } else {
-        const minZ = isNew ? B15_STRETCH_LOWER : STRETCH_LOWER
+        const minZ = isNew ? B15_STRETCH_LOWER : B35_STRETCH_LOWER
         if (lv < minZ || lv > STRETCH_UPPER) continue
       }
 

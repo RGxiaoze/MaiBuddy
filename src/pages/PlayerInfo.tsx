@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router'
-import { Target, ChevronDown, ChevronUp } from 'lucide-react'
+import { Target } from 'lucide-react'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
@@ -85,6 +85,8 @@ export default function PlayerInfo() {
   const [clearing, setClearing] = useState(false)
   const [b15Collapsed, setB15Collapsed] = useState(true)
   const [b35Collapsed, setB35Collapsed] = useState(true)
+  const [dfB15Collapsed, setDfB15Collapsed] = useState(true)
+  const [dfB35Collapsed, setDfB35Collapsed] = useState(true)
 
   const { scores, loaded: scoresLoaded, fetchAllScores, clearAllScores } = useScoreStore()
   const { songs, fetchSongs } = useSongStore()
@@ -141,8 +143,43 @@ export default function PlayerInfo() {
             <div className="flex gap-6 mt-3 text-xs text-text-secondary"><span>旧版本 Best 35：<strong className="text-text">{dfBest35.reduce((s, e) => s + e.dxRating, 0)}</strong></span><span>新版本 Best 15：<strong className="text-text">{dfBest15.reduce((s, e) => s + e.dxRating, 0)}</strong></span></div>
           </div>
           {dfBest35.length + dfBest15.length === 0 ? <div className="bg-surface border border-border rounded-lg p-8 text-center text-text-secondary text-sm">该玩家暂无 B50 数据</div> : <div className="flex flex-col gap-4">
-            {dfBest15.length > 0 && <div className="bg-surface border border-border rounded-lg p-4"><h3 className="text-sm font-semibold text-text mb-3">新版本 Best {dfBest15.length}</h3>{dfBest15.length < 15 && <p className="text-xs text-warning mb-3 bg-warning/5 rounded px-3 py-2">新版本还差 <strong>{15 - dfBest15.length}</strong> 首填满 B15，继续加油！</p>}<div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>{dfBest15.map((entry, i) => <B50Row key={`new-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div><div className="md:hidden space-y-1.5">{dfBest15.map((entry, i) => <B50MobileCard key={`new-m-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div></div>}
-            {dfBest35.length > 0 && <div className="bg-surface border border-border rounded-lg p-4"><h3 className="text-sm font-semibold text-text mb-3">旧版本 Best {dfBest35.length}</h3><div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>{dfBest35.map((entry, i) => <B50Row key={`old-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div><div className="md:hidden space-y-1.5">{dfBest35.map((entry, i) => <B50MobileCard key={`old-m-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div></div>}
+            {dfBest15.length > 0 && <div className="bg-surface border border-border rounded-lg p-4">
+              <button onClick={() => setDfB15Collapsed(!dfB15Collapsed)} className="w-full flex items-center justify-between cursor-pointer border-none bg-transparent p-0 mb-2"><h3 className="text-sm font-semibold text-text m-0">新版本 Best {dfBest15.length}</h3><span className="text-xs text-text-tertiary shrink-0">{dfB15Collapsed ? `展开全部 ${dfBest15.length} 条 ▶` : '收起 ▲'}</span></button>
+              {dfBest15.length < 15 && <p className="text-xs text-warning mb-2 bg-warning/5 rounded px-3 py-2">新版本还差 <strong>{15 - dfBest15.length}</strong> 首填满 B15，继续加油！</p>}
+              {(() => {
+                const displayed = dfB15Collapsed ? dfBest15.slice(0, 5) : dfBest15
+                const hasMore = dfB15Collapsed && dfBest15.length > 5
+                return <>
+                  <div className="relative">
+                    <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>{displayed.map((entry, i) => <B50Row key={`new-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    <div className="md:hidden space-y-1.5">{displayed.map((entry, i) => <B50MobileCard key={`new-m-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    {hasMore && (
+                      <button onClick={() => setDfB15Collapsed(false)} className="absolute bottom-0 left-0 right-0 flex items-end justify-center pb-2 pt-12 cursor-pointer border-none bg-transparent w-full" style={{ background: 'linear-gradient(to top, var(--color-bg-surface, #fff) 20%, transparent 100%)' }}>
+                        <span className="text-xs text-primary font-medium hover:underline">展开全部 {dfBest15.length} 条 ▾</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              })()}
+            </div>}
+            {dfBest35.length > 0 && <div className="bg-surface border border-border rounded-lg p-4">
+              <button onClick={() => setDfB35Collapsed(!dfB35Collapsed)} className="w-full flex items-center justify-between cursor-pointer border-none bg-transparent p-0 mb-2"><h3 className="text-sm font-semibold text-text m-0">旧版本 Best {dfBest35.length}</h3><span className="text-xs text-text-tertiary shrink-0">{dfB35Collapsed ? `展开全部 ${dfBest35.length} 条 ▶` : '收起 ▲'}</span></button>
+              {(() => {
+                const displayed = dfB35Collapsed ? dfBest35.slice(0, 5) : dfBest35
+                const hasMore = dfB35Collapsed && dfBest35.length > 5
+                return <>
+                  <div className="relative">
+                    <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>{displayed.map((entry, i) => <B50Row key={`old-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    <div className="md:hidden space-y-1.5">{displayed.map((entry, i) => <B50MobileCard key={`old-m-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    {hasMore && (
+                      <button onClick={() => setDfB35Collapsed(false)} className="absolute bottom-0 left-0 right-0 flex items-end justify-center pb-2 pt-12 cursor-pointer border-none bg-transparent w-full" style={{ background: 'linear-gradient(to top, var(--color-bg-surface, #fff) 20%, transparent 100%)' }}>
+                        <span className="text-xs text-primary font-medium hover:underline">展开全部 {dfBest35.length} 条 ▾</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              })()}
+            </div>}
             {dfBest15.length === 0 && dfBest35.length > 0 && <div className="bg-surface border border-border rounded-lg p-4"><h3 className="text-sm font-semibold text-text mb-2">新版本 Best 0</h3><p className="text-xs text-warning bg-warning/5 rounded px-3 py-2">新版本暂无成绩，还差 <strong>15</strong> 首填满 B15。去推分建议看看哪些曲目值得练习吧！</p></div>}
           </div>}
         </>)}
@@ -160,19 +197,41 @@ export default function PlayerInfo() {
           <div className="flex flex-col gap-4">
             {localB50.best15.length === 0 && localB50.best35.length > 0 && <div className="bg-surface border border-border rounded-lg p-4"><h3 className="text-sm font-semibold text-text mb-2">新版本 Best 0</h3><p className="text-xs text-warning bg-warning/5 rounded px-3 py-2">新版本暂无成绩，还差 <strong>15</strong> 首填满 B15。去推分建议看看哪些曲目值得练习吧！</p></div>}
             {localB50.best15.length > 0 && <div className="bg-surface border border-border rounded-lg p-4">
-              <button onClick={() => setB15Collapsed(!b15Collapsed)} className="w-full flex items-center justify-between cursor-pointer border-none bg-transparent p-0 mb-2"><div className="flex items-center gap-2"><h3 className="text-sm font-semibold text-text m-0">新版本 Best {localB50.best15.length}</h3><span className="text-[10px] text-text-tertiary tabular-nums">计 {localB50.best15Total} 分</span></div>{b15Collapsed ? <ChevronDown size={16} className="text-text-tertiary" /> : <ChevronUp size={16} className="text-text-tertiary" />}</button>
+              <button onClick={() => setB15Collapsed(!b15Collapsed)} className="w-full flex items-center justify-between cursor-pointer border-none bg-transparent p-0 mb-2"><div className="flex items-center gap-2"><h3 className="text-sm font-semibold text-text m-0">新版本 Best {localB50.best15.length}</h3><span className="text-[10px] text-text-tertiary tabular-nums">计 {localB50.best15Total} 分</span></div><span className="text-xs text-text-tertiary shrink-0">{b15Collapsed ? `展开全部 ${localB50.best15.length} 条 ▶` : '收起 ▲'}</span></button>
               {localB50.best15.length < 15 && <p className="text-xs text-warning mb-2 bg-warning/5 rounded px-3 py-2">新版本还差 <strong>{15 - localB50.best15.length}</strong> 首填满 B15，继续加油！</p>}
-              {!b15Collapsed && <>
-                <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>{localB50.best15.map((entry, i) => <B50Row key={`loc-new-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
-                <div className="md:hidden space-y-1.5">{localB50.best15.map((entry, i) => <B50MobileCard key={`loc-new-m-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
-              </>}
+              {(() => {
+                const displayed = b15Collapsed ? localB50.best15.slice(0, 5) : localB50.best15
+                const hasMore = b15Collapsed && localB50.best15.length > 5
+                return <>
+                  <div className="relative">
+                    <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>{displayed.map((entry, i) => <B50Row key={`loc-new-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    <div className="md:hidden space-y-1.5">{displayed.map((entry, i) => <B50MobileCard key={`loc-new-m-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    {hasMore && (
+                      <button onClick={() => setB15Collapsed(false)} className="absolute bottom-0 left-0 right-0 flex items-end justify-center pb-2 pt-12 cursor-pointer border-none bg-transparent w-full" style={{ background: 'linear-gradient(to top, var(--color-bg-surface, #fff) 20%, transparent 100%)' }}>
+                        <span className="text-xs text-primary font-medium hover:underline">展开全部 {localB50.best15.length} 条 ▾</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              })()}
             </div>}
             {localB50.best35.length > 0 && <div className="bg-surface border border-border rounded-lg p-4">
-              <button onClick={() => setB35Collapsed(!b35Collapsed)} className="w-full flex items-center justify-between cursor-pointer border-none bg-transparent p-0 mb-2"><div className="flex items-center gap-2"><h3 className="text-sm font-semibold text-text m-0">旧版本 Best {localB50.best35.length}</h3><span className="text-[10px] text-text-tertiary tabular-nums">计 {localB50.best35Total} 分</span></div>{b35Collapsed ? <ChevronDown size={16} className="text-text-tertiary" /> : <ChevronUp size={16} className="text-text-tertiary" />}</button>
-              {!b35Collapsed && <>
-                <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>{localB50.best35.map((entry, i) => <B50Row key={`loc-old-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
-                <div className="md:hidden space-y-1.5">{localB50.best35.map((entry, i) => <B50MobileCard key={`loc-old-m-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
-              </>}
+              <button onClick={() => setB35Collapsed(!b35Collapsed)} className="w-full flex items-center justify-between cursor-pointer border-none bg-transparent p-0 mb-2"><div className="flex items-center gap-2"><h3 className="text-sm font-semibold text-text m-0">旧版本 Best {localB50.best35.length}</h3><span className="text-[10px] text-text-tertiary tabular-nums">计 {localB50.best35Total} 分</span></div><span className="text-xs text-text-tertiary shrink-0">{b35Collapsed ? `展开全部 ${localB50.best35.length} 条 ▶` : '收起 ▲'}</span></button>
+              {(() => {
+                const displayed = b35Collapsed ? localB50.best35.slice(0, 5) : localB50.best35
+                const hasMore = b35Collapsed && localB50.best35.length > 5
+                return <>
+                  <div className="relative">
+                    <div className="hidden md:grid gap-y-1" style={{ gridTemplateColumns: '4.5rem 2rem 1fr 5rem 2.5rem 3.5rem 6.5rem 3rem' }}>{displayed.map((entry, i) => <B50Row key={`loc-old-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    <div className="md:hidden space-y-1.5">{displayed.map((entry, i) => <B50MobileCard key={`loc-old-m-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    {hasMore && (
+                      <button onClick={() => setB35Collapsed(false)} className="absolute bottom-0 left-0 right-0 flex items-end justify-center pb-2 pt-12 cursor-pointer border-none bg-transparent w-full" style={{ background: 'linear-gradient(to top, var(--color-bg-surface, #fff) 20%, transparent 100%)' }}>
+                        <span className="text-xs text-primary font-medium hover:underline">展开全部 {localB50.best35.length} 条 ▾</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              })()}
             </div>}
           </div>
           {localB50 && localB50.best35.length + localB50.best15.length > 0 && <StrategyPanel b50={localB50} scores={scores} songs={songs} theoreticalMax={theoreticalMax} />}
