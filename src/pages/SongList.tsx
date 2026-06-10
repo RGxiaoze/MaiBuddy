@@ -160,6 +160,10 @@ export default function SongList() {
 
   const closeImport = () => {
     setShowImport(false)
+    // Reset import state on close
+    setImportResult(null)
+    setImportError(null)
+    setImportProgress(null)
     if (searchParams.get('import') === '1') {
       setSearchParams(prev => { prev.delete('import'); return prev }, { replace: true })
     }
@@ -190,6 +194,14 @@ export default function SongList() {
 
   // ---- Pagination state ----
   const [page, setPage] = useState(0)
+
+  // Auto-close import modal after successful import (2.5s delay)
+  useEffect(() => {
+    if (importResult && !importing) {
+      const timer = setTimeout(() => closeImport(), 2500)
+      return () => clearTimeout(timer)
+    }
+  }, [importResult, importing])
 
   // Fetch on first load
   useEffect(() => {
