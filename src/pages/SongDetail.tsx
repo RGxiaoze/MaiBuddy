@@ -304,7 +304,7 @@ export default function SongDetail() {
       )}
 
       {/* 全服达成分布 */}
-      {chartStats && (
+      {chartStats ? (
         <div className="bg-surface border border-border rounded-lg p-4 sm:p-5 mb-4">
           <h3 className="text-sm font-semibold text-text mb-3">全服达成分布</h3>
 
@@ -377,7 +377,12 @@ export default function SongDetail() {
             )
           })()}
         </div>
-      )}
+      ) : statsLoaded ? (
+        <div className="bg-surface border border-border rounded-lg p-4 sm:p-5 mb-4">
+          <h3 className="text-sm font-semibold text-text mb-2">全服达成分布</h3>
+          <p className="text-xs text-text-tertiary">统计数据暂不可用，请稍后重试</p>
+        </div>
+      ) : null}
 
       {/* DX Rating reference */}
       {ratingTable && (

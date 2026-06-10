@@ -66,6 +66,12 @@ let _loadPromise: Promise<void> | null = null
 // ---- Public interface ----
 
 export async function loadStats(officialLevelMap?: Map<string, number>): Promise<void> {
+  // If loaded but the data is empty (previous load failed silently), retry
+  if (_loaded && _chartStats && _chartStats.size === 0) {
+    _loaded = false
+    _loadPromise = null
+  }
+
   // If already loaded but official avgs missing (e.g. first call from DimensionAnalysis without songs),
   // and now we have the map — build official avgs from cached data and return
   if (_loaded) {
@@ -92,6 +98,15 @@ export async function loadStats(officialLevelMap?: Map<string, number>): Promise
     try {
       // Cache-first
       let data = await getCachedStats()
+
+      if (data) {
+        // Validate cache: data.charts must be a non-empty object
+        const chartCount = Object.keys(data.charts || {}).length
+        if (chartCount === 0) {
+          console.warn('statsService: 缓存数据为空，尝试从 API 重新获取')
+          data = null as unknown as ChartStatsResponse // invalidate cache
+        }
+      }
 
       if (!data) {
         data = await fetchChartStats()
