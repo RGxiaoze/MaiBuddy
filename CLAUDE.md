@@ -90,6 +90,7 @@ React + TypeScript + Vite + TailwindCSS v4 + Zustand + Dexie(IndexedDB) + EChart
 - **v0.3.0** (已完成): 结构性调整 — 多关键词搜索、别名、定数预设、分页、导入迁移、侧边栏卡
 - **阶段三** (已完成): 推分建议 — 推分算法、chart_stats 集成、知识库、策略分段、五维雷达图、推分路线
 - **v0.4.0** (已完成): 算法重构 — 配置提取、文件拆分、JSDoc、测试完善、全服达成分布卡片优化、项目结构清理
+- **v0.4.1** (已完成): 渲染修复 — ErrorBoundary/并发安全/内存泄漏/性能优化/双池算法修复/预览虚化/导入弹窗美化
 - **阶段四** (待定): 五维算法优化 — 统计指标 → 定数分组五维 → 公式修复 → 双环雷达图
 
 ## 未来计划
@@ -104,6 +105,9 @@ React + TypeScript + Vite + TailwindCSS v4 + Zustand + Dexie(IndexedDB) + EChart
 
 - **yuzuchan.moe 别名 API 响应格式**：接口返回 `{code: 0, content: AliasEntry[]}` 对象而非裸数组。解析时需先提取 `content` 字段：`const data = Array.isArray(raw) ? raw : raw.content`。仅检查 `Array.isArray()` 将静默失败——别名索引永远为 null，所有别名搜索返回 0 结果。
 - **Diving-Fish chart_stats 数据类型**：`ChartStatEntry.diff` 为 `string` 类型（如 `"14+"`、`"12"`），非 `number`。`buildChartStats()` 中构建 `diff_data` 索引时需使用 `entry.diff`（字符串 key），而非 `Math.floor(entry.fit_diff)`（数值 key）。类型声明错误将导致所有谱面的全服统计数据查找失败。`fit_diff` 是社区拟合的实际定数（`number`），与官标 `diff` 是不同字段。
+- **tsc --noEmit vs tsc -b**：`npx tsc --noEmit` 默认使用根 `tsconfig.json`（`"files": []` 空文件），实际不检查任何代码。必须使用 `npx tsc -p tsconfig.app.json --noEmit` 才能执行严格类型检查（含 `noUnusedLocals`/`noUnusedParameters`）。
+- **forceRefreshStats 不得调用 resetStats**：`forceRefreshStats` 在后台曲库刷新时调用，若调用 `resetStats()` 会清空 `_loaded` 和内存数据，但已加载的组件（如 SongDetail）不会重新触发 useEffect，导致全服达成分布卡片数据消失。正确做法是直接从新数据重建 `_chartStats`/`_levelAvgs`/`_fitDiffAvgs`。
+- **MAX_SUGGESTIONS 陷阱**：推分建议排序时 B15 增益（对比 floor15=0）远超 B35（对比 floor35），全局上限会导致 B35 全部被截断。必须使用每池独立上限 (`MAX_SUGGESTIONS_PER_POOL`)。
 
 ## UI 规范
 
