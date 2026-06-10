@@ -33,6 +33,14 @@ export interface B50Result {
   totalRating: number
 }
 
+/** Theoretical maximum rating result — both SSS+ ceiling and AP ceiling */
+export interface TheoreticalMaxResult {
+  /** 纯 SSS+ 理论天花板（所有 B50 谱面达成率 100.5%，无 AP 加成） */
+  sssPlusMax: number
+  /** AP 理论天花板（在 SSS+ 基础上每条 +1 AP 加成） */
+  apMax: number
+}
+
 /**
  * Sort B50 entries: rating desc → levelValue desc → achievements desc.
  */
@@ -43,23 +51,19 @@ export function sortByRating(a: B50Entry, b: B50Entry): number {
 }
 
 /**
- * Compute the theoretical maximum DX Rating achievable with the current song library.
- *
- * 算法步骤：
- * 1. 遍历所有曲目，跳过宴会场（ID ≥ 100000）
- * 2. 每首曲取最高定数谱面，按 isNew 分入旧曲池和新曲池
- * 3. 各池按定数降序排列，取前 B35/B15 首
- * 4. 假设每首谱面达成率为 100.5%，累加 Rating
- *
- * @param songs - 全曲库列表
- * @returns 理论最高 DX Rating
+ * Build B50 candidate pools from song list.
+ * Each song contributes its highest-difficulty chart (non-utage).
+ * @returns { oldPool, newPool } sorted by levelValue descending
  */
-export function computeTheoreticalMaxRating(songs: Song[]): number {
+function buildTheoreticalPools(songs: Song[]): {
+  oldPool: { levelValue: number }[]
+  newPool: { levelValue: number }[]
+} {
   const oldPool: { levelValue: number }[] = []
   const newPool: { levelValue: number }[] = []
 
   for (const song of songs) {
-    if (song.id >= UTAGE_ID_THRESHOLD) continue // skip utage
+    if (song.id >= UTAGE_ID_THRESHOLD) continue
     let bestLevelValue = 0
     for (const diff of [...song.difficulties.standard, ...song.difficulties.dx]) {
       if (diff.levelValue > bestLevelValue) {
@@ -76,7 +80,18 @@ export function computeTheoreticalMaxRating(songs: Song[]): number {
 
   oldPool.sort((a, b) => b.levelValue - a.levelValue)
   newPool.sort((a, b) => b.levelValue - a.levelValue)
+  return { oldPool, newPool }
+}
 
+/**
+ * Compute the theoretical maximum DX Rating achievable with the current song library
+ * at SSS+ achievement (100.5%, no AP bonus).
+ *
+ * @param songs - 全曲库列表
+ * @returns 纯 SSS+ 理论最高 DX Rating
+ */
+export function computeTheoreticalMaxRating(songs: Song[]): number {
+  const { oldPool, newPool } = buildTheoreticalPools(songs)
   const bestOld = oldPool.slice(0, B35_SIZE)
   const bestNew = newPool.slice(0, B15_SIZE)
 
@@ -89,11 +104,36 @@ export function computeTheoreticalMaxRating(songs: Song[]): number {
 
 /**
  * 理论最高 DX Rating（含 AP 加成）。
- * 在 SSS+ 天花板基础上，每首谱面再 +1（AP 判定），
- * 合计抬升 B50 理论值约 50 分。
+ * 在 SSS+ 天花板基础上，每首 B50 谱面再 +1（AP 判定）。
  */
 export function computeTheoreticalMaxRatingAP(songs: Song[]): number {
-  return computeTheoreticalMaxRating(songs) + Math.min(songs.length, 50)
+  const { oldPool, newPool } = buildTheoreticalPools(songs)
+  const bestOld = oldPool.slice(0, B35_SIZE)
+  const bestNew = newPool.slice(0, B15_SIZE)
+  const entryCount = bestOld.length + bestNew.length
+
+  let total = 0
+  for (const e of bestOld) total += computeRating(e.levelValue, MAX_ACHIEVEMENTS)
+  for (const e of bestNew) total += computeRating(e.levelValue, MAX_ACHIEVEMENTS)
+
+  return total + entryCount
+}
+
+/**
+ * 计算理论最高 Rating 两档值。
+ * @returns { sssPlusMax, apMax } — SSS+ 纯天花板 与 AP 天花板
+ */
+export function computeTheoreticalMaxBoth(songs: Song[]): TheoreticalMaxResult {
+  const { oldPool, newPool } = buildTheoreticalPools(songs)
+  const bestOld = oldPool.slice(0, B35_SIZE)
+  const bestNew = newPool.slice(0, B15_SIZE)
+  const entryCount = bestOld.length + bestNew.length
+
+  let base = 0
+  for (const e of bestOld) base += computeRating(e.levelValue, MAX_ACHIEVEMENTS)
+  for (const e of bestNew) base += computeRating(e.levelValue, MAX_ACHIEVEMENTS)
+
+  return { sssPlusMax: base, apMax: base + entryCount }
 }
 
 /**

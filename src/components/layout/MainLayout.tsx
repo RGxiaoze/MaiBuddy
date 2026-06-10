@@ -9,6 +9,7 @@ import MobileHeader from './MobileHeader'
 import MobileBottomNav from './MobileBottomNav'
 import Footer from './Footer'
 import DarkModeToggle from '@/components/shared/DarkModeToggle'
+import ErrorBoundary from '@/components/shared/ErrorBoundary'
 
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false)
@@ -41,7 +42,9 @@ export default function MainLayout() {
         {/* Scrollable content */}
         <main className="flex-1 flex flex-col p-4 md:p-6 pb-20 md:pb-6 overflow-auto">
           <div className="flex-1">
-            <Outlet />
+            <ErrorBoundary title="页面渲染出错">
+              <Outlet />
+            </ErrorBoundary>
           </div>
           <Footer />
         </main>

@@ -3,11 +3,12 @@
 // ============================================================
 
 import { NavLink } from 'react-router'
+import { Music, User, BarChart3 } from 'lucide-react'
 
 const tabs = [
-  { to: '/songs',    label: '曲目',   icon: '♪' },
-  { to: '/player',   label: 'B50',    icon: '👤' },
-  { to: '/analysis', label: '分析',   icon: '📊' },
+  { to: '/songs',    label: '曲目',   Icon: Music },
+  { to: '/player',   label: 'B50',    Icon: User },
+  { to: '/analysis', label: '分析',   Icon: BarChart3 },
 ]
 
 export default function MobileBottomNav() {
@@ -28,7 +29,7 @@ export default function MobileBottomNav() {
             }`
           }
         >
-          <span className="text-lg leading-none">{tab.icon}</span>
+          <tab.Icon size={20} />
           <span className="text-[11px]">{tab.label}</span>
         </NavLink>
       ))}

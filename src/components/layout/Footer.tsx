@@ -10,7 +10,7 @@ export default function Footer() {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
         {/* Version */}
         <span className="text-xs text-text-tertiary">
-          舞萌DX 伴侣 v0.4.0
+          舞萌DX伴侣 v0.4.0
         </span>
 
         {/* Links */}

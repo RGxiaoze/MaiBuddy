@@ -4,14 +4,15 @@
 
 import { useState } from 'react'
 import { NavLink, Link } from 'react-router'
+import { Music, User, BarChart3, BookOpen, ClipboardList } from 'lucide-react'
 import UserInfoCard from './UserInfoCard'
 
 const links = [
-  { to: '/songs',    label: '曲目检索',   icon: '♪' },
-  { to: '/player',   label: 'B50 一览',   icon: '👤' },
-  { to: '/analysis', label: '五维分析',   icon: '📊' },
-  { to: '/guide',     label: '使用指南',   icon: '📖' },
-  { to: '/changelog', label: '更新记录',   icon: '📋' },
+  { to: '/songs',    label: '曲目检索',   Icon: Music },
+  { to: '/player',   label: 'B50 一览',   Icon: User },
+  { to: '/analysis', label: '五维分析',   Icon: BarChart3 },
+  { to: '/guide',     label: '使用指南',   Icon: BookOpen },
+  { to: '/changelog', label: '更新记录',   Icon: ClipboardList },
 ]
 
 interface SidebarProps {
@@ -34,7 +35,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
           <span className="text-xl font-semibold text-text-secondary">DX</span>
         ) : (
           <>
-            <h1 className="text-base font-semibold text-text m-0">舞萌DX 伴侣</h1>
+            <h1 className="text-base font-semibold text-text m-0">舞萌DX伴侣</h1>
             <p className="text-[11px] text-text-tertiary mt-0.5">maimai DX Companion</p>
           </>
         )}
@@ -61,7 +62,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
               }
               title={collapsed ? link.label : undefined}
             >
-              <span className="text-base shrink-0">{link.icon}</span>
+              <link.Icon size={18} className="shrink-0" />
               {!collapsed && <span>{link.label}</span>}
             </NavLink>
           </li>
@@ -131,7 +132,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                     onClick={onMobileClose}
                     className="text-xs text-primary hover:underline"
                   >
-                    📖 开发文档
+                    <BookOpen size={14} className="inline mr-1" />开发文档
                   </Link>
                   <a
                     href="#"
@@ -148,7 +149,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
               <div className="space-y-1 text-[10px]">
                 <p className="font-medium text-text-secondary">v0.4.0</p>
                 <Link to="/docs" onClick={onMobileClose} className="text-primary hover:underline block">
-                  📖
+                  <BookOpen size={16} />
                 </Link>
               </div>
             )}

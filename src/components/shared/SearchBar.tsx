@@ -2,18 +2,18 @@
 // Search bar with real-time input
 // ============================================================
 
+import { Search } from 'lucide-react'
+
 interface SearchBarProps {
   value: string
   onChange: (value: string) => void
   placeholder?: string
 }
 
-export default function SearchBar({ value, onChange, placeholder = '搜索曲名或作者...' }: SearchBarProps) {
+export default function SearchBar({ value, onChange, placeholder = '搜索曲名、作者、谱师或别名...' }: SearchBarProps) {
   return (
     <div className="relative">
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-base">
-        🔍
-      </span>
+      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
       <input
         type="text"
         value={value}

@@ -61,7 +61,7 @@ let _levelAvgs: Map<string, LevelAvg> | null = null            // key: level str
 let _fitDiffAvgs: Map<number, FitDiffAvg> | null = null        // key: fit_diff 一位小数 (e.g. 14.3)
 let _officialLevelAvgs: Map<number, FitDiffAvg> | null = null  // key: 官方 levelValue 一位小数 (e.g. 14.7)
 let _loaded = false
-let _loading = false
+let _loadPromise: Promise<void> | null = null
 
 // ---- Public interface ----
 
@@ -75,43 +75,53 @@ export async function loadStats(officialLevelMap?: Map<string, number>): Promise
     }
     return
   }
-  if (_loading) {
-    // Wait for existing load
-    while (_loading) await new Promise(r => setTimeout(r, 100))
+
+  // If a load is already in progress, wait for it
+  if (_loadPromise) {
+    await _loadPromise
+    // After the existing load completes, check if official avgs need building
+    if (_loaded && officialLevelMap && officialLevelMap.size > 0 && !_officialLevelAvgs) {
+      const data = await getCachedStats()
+      if (data) _officialLevelAvgs = buildOfficialLevelAvgs(data, officialLevelMap)
+    }
     return
   }
-  _loading = true
 
-  try {
-    // Cache-first
-    let data = await getCachedStats()
+  // Start a new load
+  _loadPromise = (async () => {
+    try {
+      // Cache-first
+      let data = await getCachedStats()
 
-    if (!data) {
-      data = await fetchChartStats()
-      // Background write (don't block)
-      setCachedStats(data).catch(() => {})
-    } else {
-      // Background refresh
-      fetchChartStats().then(d => setCachedStats(d)).catch(() => {})
+      if (!data) {
+        data = await fetchChartStats()
+        // Background write (don't block)
+        setCachedStats(data).catch(() => {})
+      } else {
+        // Background refresh
+        fetchChartStats().then(d => setCachedStats(d)).catch(() => {})
+      }
+
+      _chartStats = buildChartStats(data)
+      _levelAvgs = buildLevelAvgs(data)
+      _fitDiffAvgs = buildFitDiffAvgs(data)
+      if (officialLevelMap && officialLevelMap.size > 0) {
+        _officialLevelAvgs = buildOfficialLevelAvgs(data, officialLevelMap)
+      }
+      _loaded = true
+    } catch (err) {
+      console.warn('statsService: 加载 chart_stats 失败', err)
+      if (!_chartStats) _chartStats = new Map()
+      if (!_levelAvgs) _levelAvgs = new Map()
+      if (!_fitDiffAvgs) _fitDiffAvgs = new Map()
+      if (!_officialLevelAvgs) _officialLevelAvgs = new Map()
+      _loaded = true
+    } finally {
+      _loadPromise = null
     }
+  })()
 
-    _chartStats = buildChartStats(data)
-    _levelAvgs = buildLevelAvgs(data)
-    _fitDiffAvgs = buildFitDiffAvgs(data)
-    if (officialLevelMap && officialLevelMap.size > 0) {
-      _officialLevelAvgs = buildOfficialLevelAvgs(data, officialLevelMap)
-    }
-    _loaded = true
-  } catch (err) {
-    console.warn('statsService: 加载 chart_stats 失败', err)
-    if (!_chartStats) _chartStats = new Map()
-    if (!_levelAvgs) _levelAvgs = new Map()
-    if (!_fitDiffAvgs) _fitDiffAvgs = new Map()
-    if (!_officialLevelAvgs) _officialLevelAvgs = new Map()
-    _loaded = true
-  } finally {
-    _loading = false
-  }
+  return _loadPromise
 }
 
 export function getChartStats(songId: number, level: string): ChartStatSummary | undefined {
@@ -279,6 +289,7 @@ export function resetStats(): void {
   _fitDiffAvgs = null
   _officialLevelAvgs = null
   _loaded = false
+  _loadPromise = null
 }
 
 /**

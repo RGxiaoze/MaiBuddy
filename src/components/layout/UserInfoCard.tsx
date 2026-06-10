@@ -4,6 +4,7 @@
 
 import { useNavigate } from 'react-router'
 import { usePlayerStore } from '@/store/playerStore'
+import { User } from 'lucide-react'
 
 interface UserInfoCardProps {
   collapsed: boolean
@@ -41,12 +42,12 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
     }
     return (
       <button
-        onClick={() => navigate('/songs')}
+        onClick={() => navigate('/songs?import=1')}
         className="flex justify-center py-3 border-b border-border w-full cursor-pointer border-none bg-transparent
                    hover:bg-surface-light transition-colors"
-        title="前往导入成绩"
+        title="导入完整成绩"
       >
-        <span className="text-sm">👤</span>
+        <span className="text-sm"><User size={18} /></span>
       </button>
     )
   }
@@ -64,15 +65,15 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
         </div>
       ) : (
         <button
-          onClick={() => navigate('/songs')}
+          onClick={() => navigate('/songs?import=1')}
           className="w-full text-left cursor-pointer border-none bg-transparent p-0
                      hover:opacity-80 transition-opacity"
         >
           <div className="flex items-center gap-2">
-            <span className="text-sm">👤</span>
+            <span className="text-sm"><User size={18} /></span>
             <div>
               <div className="text-sm font-medium text-text">请登录</div>
-              <div className="text-xs text-text-tertiary mt-0.5">前往导入成绩 →</div>
+              <div className="text-xs text-text-tertiary mt-0.5">导入完整成绩 →</div>
             </div>
           </div>
         </button>

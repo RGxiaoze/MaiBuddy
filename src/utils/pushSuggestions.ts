@@ -14,6 +14,7 @@ import {
   MAX_ACHIEVEMENTS, UTAGE_ID_THRESHOLD, B35_FALLBACK_LEVEL, B35_MODE_MIN_COUNT,
   SKIP_LOW_LEVEL, SKIP_LOW_ACH,
   SSSP_SORT_WEIGHT, SUGGESTION_SORT_TOLERANCE,
+  B15_SIZE, MAX_SUGGESTIONS,
 } from '@/config/algorithms'
 
 // ---- Types ----
@@ -28,7 +29,7 @@ export interface PushGain {
   ratingGain: number
 }
 
-/** A push suggestion with three columns of gains + precision flag */
+/** A push suggestion with three columns of gains + optional AP column */
 export interface PushSuggestion {
   songId: number
   songTitle: string
@@ -41,8 +42,12 @@ export interface PushSuggestion {
   pool: 'b35' | 'b15'
   difficulty: 'easy' | 'medium' | 'hard'
   sssPlusRate: number
+  /** 全服 AP 率（来自 chart_stats.fc_dist），用于 AP 推分排序 */
+  apRate: number
   /** Three gains: [SS+(99%), SSS(100%), SSS+(100.5%)] */
   gains: [PushGain, PushGain, PushGain]
+  /** Optional AP gain — only present when SSS+ gain is already 0 */
+  apGain?: PushGain
   /** Precision: 'precise' when player achievement is known; 'estimated' otherwise */
   precision: 'precise' | 'estimated'
 }
@@ -80,6 +85,7 @@ function makeSuggestion(
   pool: 'b35' | 'b15',
   difficulty: 'easy' | 'medium' | 'hard',
   sssPlusRate: number,
+  apRate: number,
   precision: 'precise' | 'estimated',
   floorRating: number,
   targetLevels: readonly number[],
@@ -92,6 +98,17 @@ function makeSuggestion(
     return { targetAch, targetRating, ratingGain: Math.max(0, ratingGain) }
   })
 
+  // AP gain: only when SSS+ gain is already 0 (no more rating from achievement)
+  let apGain: PushGain | undefined
+  if (gains[2].ratingGain === 0) {
+    const cappedTarget = Math.min(realisticTargetAch(levelValue, mode), MAX_ACHIEVEMENTS)
+    const apRating = computeRating(levelValue, cappedTarget, 'ap')
+    const apGainVal = Math.max(0, apRating - floorRating)
+    if (apGainVal > 0) {
+      apGain = { targetAch: MAX_ACHIEVEMENTS, targetRating: apRating, ratingGain: apGainVal }
+    }
+  }
+
   return {
     songId, songTitle, levelIndex, level, levelValue,
     currentAchievements: currentAch,
@@ -99,7 +116,9 @@ function makeSuggestion(
     pool,
     difficulty,
     sssPlusRate,
+    apRate,
     gains: gains as [PushGain, PushGain, PushGain],
+    apGain,
     precision,
   }
 }
@@ -158,8 +177,7 @@ export function computePushSuggestions(
   ]
   const predictFn = predictLevelToAch(b50Scores)
 
-  // 4. Build precise layer set: B50 entries always precise + allScores within 2%
-  const PRECISE_TOLERANCE = 2.0
+  // 4. Build precise layer: B50 entries + all available scores
   const preciseScores = new Map<string, number>() // key → achievements
   for (const e of currentB50.best35) {
     preciseScores.set(`${e.songId}-${e.levelIndex}`, e.achievements)
@@ -170,13 +188,10 @@ export function computePushSuggestions(
   if (allScores) {
     for (const s of allScores) {
       const key = `${s.songId}-${s.levelIndex}`
-      if (inB50.has(key)) continue  // skip B50 entries (already in preciseScores)
-      const predicted = predictFn(s.levelValue)
-      if (Math.abs(s.achievements - predicted) <= PRECISE_TOLERANCE) {
-        const existing = preciseScores.get(key)
-        if (existing === undefined || s.achievements > existing) {
-          preciseScores.set(key, s.achievements)
-        }
+      if (inB50.has(key)) continue
+      const existing = preciseScores.get(key)
+      if (existing === undefined || s.achievements > existing) {
+        preciseScores.set(key, s.achievements)
       }
     }
   }
@@ -186,13 +201,22 @@ export function computePushSuggestions(
   const mode = b35Levels.length >= B35_MODE_MIN_COUNT
     ? computeLevelMode(b35Levels)
     : (b35Levels.length > 0 ? b35Levels.reduce((s, l) => s + l, 0) / b35Levels.length : B35_FALLBACK_LEVEL)
-  const STRETCH_UPPER = mode > 0 ? mode + 0.5 : B35_FALLBACK_LEVEL
+  // Upper bound: narrower for high-level players (14+ → mode+0.3, otherwise mode+0.5)
+  const STRETCH_UPPER = mode > 14 ? mode + 0.3 : (mode > 0 ? mode + 0.5 : B35_FALLBACK_LEVEL)
   // Unified lower bound: mode - 1.0 (covers both B35 optimization and B15 floor replacement)
   const STRETCH_LOWER = mode > 0 ? Math.max(0, mode - 1.0) : 0
-  // B15 special: when B15 has empty slots (version reset), tighten lower to avoid green/yellow chart noise
-  const B15_FULL_COUNT = 15
-  const b15NotFull = currentB50.best15.length < B15_FULL_COUNT
-  const B15_STRETCH_LOWER = b15NotFull ? Math.max(0, mode - 0.5) : STRETCH_LOWER
+  // B15 special: when B15 has very few entries (version reset), progressively
+  // widen the lower bound to ensure enough new song suggestions.
+  const b15NotFull = currentB50.best15.length < B15_SIZE
+  let B15_STRETCH_LOWER: number
+  if (!b15NotFull) {
+    B15_STRETCH_LOWER = STRETCH_LOWER
+  } else if (currentB50.best15.length >= 5) {
+    B15_STRETCH_LOWER = Math.max(0, mode - 0.5)
+  } else {
+    // B15 is nearly empty — no lower bound, accept all new songs
+    B15_STRETCH_LOWER = 0
+  }
 
   // 6. Scan song DB for candidates
   const suggestions: PushSuggestion[] = []
@@ -246,13 +270,14 @@ export function computePushSuggestions(
           currentAch, currentRating, pool,
           classifyDifficulty({ levelValue: lv, achievements: currentAch } as ScoreRecord, stats, 100.5),
           stats?.sssPlusRate ?? 0,
+          stats?.apRate ?? 0,
           precision,
           floorRating,
           TARGET_LEVELS,
           mode,
         )
-        // Only add if at least one gain > 0
-        if (cand.gains.some(g => g.ratingGain > 0)) {
+        // Only add if at least one gain > 0 (or AP gain exists)
+        if (cand.gains.some(g => g.ratingGain > 0) || (cand.apGain && cand.apGain.ratingGain > 0)) {
           suggestions.push(cand)
         }
       } else if (floorKeys.has(key)) {
@@ -267,7 +292,19 @@ export function computePushSuggestions(
           return { targetAch, targetRating, ratingGain }
         })
 
-        if (lifts.some(g => g.ratingGain > 0)) {
+        // AP gain for floor entry — compute before filter check
+        let floorApGain: PushGain | undefined
+        if (lifts[2].ratingGain === 0) {
+          const cappedTarget = Math.min(realisticTargetAch(lv, mode), MAX_ACHIEVEMENTS)
+          const apRatingFloor = computeRating(lv, cappedTarget, 'ap')
+          const apGainFloor = Math.max(0, apRatingFloor - currentRating)
+          if (apGainFloor > 0) {
+            floorApGain = { targetAch: MAX_ACHIEVEMENTS, targetRating: apRatingFloor, ratingGain: apGainFloor }
+          }
+        }
+
+        // Include if any gain > 0 or AP gain exists (SSS+ already achievable)
+        if (lifts.some(g => g.ratingGain > 0) || (floorApGain && floorApGain.ratingGain > 0)) {
           suggestions.push({
             songId: song.id, songTitle: song.title,
             levelIndex: diff.levelIndex, level: diff.level, levelValue: lv,
@@ -276,7 +313,9 @@ export function computePushSuggestions(
             pool,
             difficulty: classifyDifficulty({ levelValue: lv, achievements: currentAch } as ScoreRecord, stats),
             sssPlusRate: stats?.sssPlusRate ?? 0,
+            apRate: stats?.apRate ?? 0,
             gains: lifts as [PushGain, PushGain, PushGain],
+            apGain: floorApGain,
             precision,
           })
         }
@@ -284,9 +323,23 @@ export function computePushSuggestions(
     }
   }
 
-  // 7. Sort by SSS+ gain descending (weighted by SSS+ rate for "水分曲" boost)
+  // 7. Sort: non-AP entries by SSS+ gain descending; AP entries by apRate descending
+  const DIFF_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 }
   suggestions.sort((a, b) => {
-    const aGain = a.gains[2].ratingGain  // SSS+ gain
+    const aHasAP = !!(a.apGain && a.apGain.ratingGain > 0)
+    const bHasAP = !!(b.apGain && b.apGain.ratingGain > 0)
+
+    // AP entries sort by apRate (desc) → levelValue (asc) → difficulty
+    if (aHasAP && bHasAP) {
+      if (a.apRate !== b.apRate) return b.apRate - a.apRate
+      if (a.levelValue !== b.levelValue) return a.levelValue - b.levelValue
+      return DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty]
+    }
+    // Non-AP entries come before AP entries
+    if (aHasAP !== bHasAP) return aHasAP ? 1 : -1
+
+    // Both non-AP: sort by SSS+ gain descending
+    const aGain = a.gains[2].ratingGain
     const bGain = b.gains[2].ratingGain
     const aScore = aGain * (1 + a.sssPlusRate * SSSP_SORT_WEIGHT)
     const bScore = bGain * (1 + b.sssPlusRate * SSSP_SORT_WEIGHT)
@@ -295,6 +348,11 @@ export function computePushSuggestions(
     }
     return bScore - aScore
   })
+
+  // Cap total suggestions
+  if (suggestions.length > MAX_SUGGESTIONS) {
+    suggestions.length = MAX_SUGGESTIONS
+  }
 
   // 8. Precision note
   const hasEstimated = suggestions.some(s => s.precision === 'estimated')

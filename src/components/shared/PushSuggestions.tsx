@@ -8,17 +8,12 @@ import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
 import { computePushSuggestions, type PushSuggestion } from '@/utils/pushSuggestions'
-import { computeTheoreticalMaxRating, type B50Result } from '@/utils/b50'
+import { computeTheoreticalMaxBoth, type B50Result } from '@/utils/b50'
 import { loadStats, getChartStats, isStatsLoaded } from '@/services/statsService'
 import { bilibiliSearchUrl } from '@/utils/bilibiliSearch'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, TrendingUp } from 'lucide-react'
 import { LEVEL_LABELS } from '@/data/constants'
 import type { LevelIndex } from '@/types'
-
-const POOL_LABELS: Record<string, string> = {
-  b35: '旧版本 Best 35',
-  b15: '新版本 Best 15',
-}
 
 const DIFF_LABELS: Record<string, { label: string; color: string; desc: string }> = {
   easy:   { label: '轻松', color: '#22C55E', desc: '全服达成率远高于同级平均水平' },
@@ -46,15 +41,15 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
   const { scores } = useScoreStore()
   const { songs } = useSongStore()
 
-  const [showAll, setShowAll] = useState(false)
   const [statsReady, setStatsReady] = useState(isStatsLoaded())
 
   // Compute theoretical max from songs if not provided by parent
-  const theoryMax = useMemo(() => {
-    if (theoreticalMax > 0) return theoreticalMax
-    if (songs.length === 0) return 0
-    return computeTheoreticalMaxRating(songs)
-  }, [theoreticalMax, songs])
+  const theoryMaxAll = useMemo(() => {
+    if (songs.length === 0) return { sssPlusMax: 0, apMax: 0 }
+    return computeTheoreticalMaxBoth(songs)
+  }, [songs])
+  const theoryMax = theoreticalMax > 0 ? theoreticalMax : theoryMaxAll.sssPlusMax
+  const theoryMaxAP = theoreticalMax > 0 ? theoreticalMax + 50 : theoryMaxAll.apMax
 
   // Load chart stats for difficulty classification
   useEffect(() => {
@@ -101,10 +96,8 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
   const result = useMemo(() => {
     if (!effectiveB50 || songs.length === 0) return null
     const songMap = new Map(songs.map(s => [s.id, s]))
-    // Only pass allScores when effective data source is local (not DF query)
-    const isDfSource = dfPlayerName && (dfBest35.length > 0 || dfBest15.length > 0)
     return computePushSuggestions(effectiveB50, songMap, {
-      allScores: isDfSource ? undefined : scores,
+      allScores: scores.length > 0 ? scores : undefined,
       getStats: getChartStats,
     })
   }, [effectiveB50, localB50, scores, songs, statsReady, dfPlayerName, dfBest35, dfBest15])
@@ -116,7 +109,7 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
   if (!effectiveB50) {
     return (
       <div className="bg-surface border border-border rounded-lg p-5 mt-4">
-        <h3 className="text-sm font-semibold text-text m-0">📈 推分建议</h3>
+        <h3 className="text-sm font-semibold text-text m-0"><TrendingUp size={16} className="inline mr-1" /> 推分建议</h3>
         <p className="text-xs text-text-secondary mt-1">
           暂无 B50 数据，导入成绩或查询 Diving-Fish 后自动生成推分建议。
         </p>
@@ -128,33 +121,44 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
   if (!suggestions || suggestions.length === 0) {
     return (
       <div className="bg-surface border border-border rounded-lg p-5 mt-4">
-        <h3 className="text-sm font-semibold text-text m-0">📈 推分建议</h3>
+        <h3 className="text-sm font-semibold text-text m-0"><TrendingUp size={16} className="inline mr-1" /> 推分建议</h3>
         <p className="text-xs text-text-secondary mt-1">
-          暂无推分建议。B50 地板分已接近理论最高值
-          {theoryMax > 0 ? ` (${theoryMax})` : ''}，继续保持！
+          暂无推分建议。          B50 地板分已接近理论 SSS+ 天花板
+          {theoryMaxAll.sssPlusMax > 0 ? ` (${theoryMaxAll.sssPlusMax})` : ''}，继续保持！
         </p>
       </div>
     )
   }
 
-  const displayed = showAll ? suggestions : suggestions.slice(0, 5)
+  const hasAnyAP = suggestions.some(s => s.apGain && s.apGain.ratingGain > 0)
+
+  const b35Suggestions = suggestions.filter(s => s.pool === 'b35')
+  const b15Suggestions = suggestions.filter(s => s.pool === 'b15')
 
   return (
     <div className="bg-surface border border-border rounded-lg p-5 mt-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-text m-0">
-          📈 推分建议 ({suggestions.length})
+          <TrendingUp size={16} className="inline mr-1" /> 推分建议 ({suggestions.length})
         </h3>
         <div className="flex items-center gap-3">
           {theoryMax > 0 && (
-            <span className="text-xs text-text-secondary">
-              当前 {b50Rating} / 理论最高 {theoryMax}
+            <span className="text-xs text-text-secondary hidden md:inline">
+              当前 {b50Rating} / 理论 SSS+ {theoryMax} / 理论 AP {theoryMaxAP}
             </span>
           )}
         </div>
       </div>
 
-      {/* Notice when using DF-only data (no local all-scores) */}
+      {/* Mobile-only rating summary */}
+      {theoryMax > 0 && (
+        <div className="md:hidden mb-3 text-xs text-text-secondary space-y-0.5">
+          <div>当前 {b50Rating}</div>
+          <div>理论 SSS+ {theoryMax} / 理论 AP {theoryMaxAP}</div>
+        </div>
+      )}
+
+      {/* Notice when using DF-only data */}
       {!localB50 && (
         <div className="mb-3 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-xs text-amber-700 dark:text-amber-300">
           当前仅检测到 Diving-Fish B50 数据（{dfBest35.length + dfBest15.length} 条），未导入完整成绩。
@@ -163,92 +167,19 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
         </div>
       )}
 
-      {/* Desktop table */}
-      <div className="hidden md:block overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="text-text-secondary border-b border-border/50">
-              <th className="text-left py-1.5 pr-2 font-medium w-8">#</th>
-              <th className="text-left py-1.5 pr-2 font-medium">曲目</th>
-              <th className="text-center py-1.5 px-1 font-medium w-12">定数</th>
-              <th className="text-right py-1.5 px-1 font-medium w-16">当前</th>
-              <th className="text-right py-1.5 px-1 font-medium w-12">SS+<span className="text-[10px] opacity-75"> 99%</span></th>
-              <th className="text-right py-1.5 px-1 font-medium w-12">SSS<span className="text-[10px] opacity-75"> 100%</span></th>
-              <th className="text-right py-1.5 px-1 font-medium w-12">SSS+<span className="text-[10px] opacity-75"> 100.5%</span></th>
-              <th className="text-center py-1.5 px-1 font-medium w-10">难度</th>
-              <th className="text-left py-1.5 pl-2 font-medium w-24">成绩池</th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayed.map((item, i) => (
-              <PushRow key={`${item.songId}-${item.levelIndex}`} item={item} index={i + 1} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* ---- B35 table ---- */}
+      <SuggestionSection
+        title={`旧版本 Best 35 推分建议 (${b35Suggestions.length})`}
+        items={b35Suggestions}
+        hasAnyAP={hasAnyAP}
+      />
 
-      {/* Mobile card layout */}
-      <div className="md:hidden space-y-2">
-        {displayed.length === 0 && (
-          <p className="text-xs text-text-secondary text-center py-4">暂无可推分曲目</p>
-        )}
-        {displayed.map((item, i) => {
-          const diff = DIFF_LABELS[item.difficulty] || DIFF_LABELS.medium
-          const configType = guessConfigType(item.levelValue)
-          const configTag = CONFIG_TAGS[configType]
-          return (
-            <div key={`${item.songId}-${item.levelIndex}`} className="bg-bg-gray rounded-lg p-3 space-y-1.5">
-              {/* Row 1: rank + title + level + external link */}
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-text-tertiary text-xs tabular-nums shrink-0">{i + 1}.</span>
-                <Link to={`/songs/${item.songId}`} className="font-medium text-xs truncate hover:text-primary hover:underline min-w-0">
-                  {item.songTitle}
-                </Link>
-                <span className="text-text-tertiary text-[10px] shrink-0">{LEVEL_LABELS[item.levelIndex as LevelIndex]}</span>
-                <a href={bilibiliSearchUrl(item.songTitle, item.level)}
-                  target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center text-text-tertiary hover:text-primary shrink-0"
-                  onClick={(e) => e.stopPropagation()}>
-                  <ExternalLink size={11} />
-                </a>
-                {item.precision === 'estimated' && (
-                  <span className="text-[10px] text-text-tertiary shrink-0 cursor-help" title="达成率为基于 B50 定数回归的估算值">?</span>
-                )}
-              </div>
-
-              {/* Row 2: level value + current + diff tag + pool */}
-              <div className="flex items-center gap-2 text-xs">
-                <span className="tabular-nums font-medium">{item.levelValue.toFixed(1)}</span>
-                <span className="tabular-nums text-text-secondary">
-                  {item.precision === 'estimated' ? `估 ${item.currentAchievements.toFixed(1)}%` : `${item.currentAchievements.toFixed(1)}%`}
-                </span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: diff.color + '20', color: diff.color }}>{diff.label}</span>
-                <span className="px-1 py-0.5 rounded text-[9px] font-medium" style={{ backgroundColor: configTag.color + '20', color: configTag.color }} title={configTag.desc}>{configTag.label}</span>
-                <span className="text-text-secondary text-[10px]">{POOL_LABELS[item.pool]}</span>
-              </div>
-
-              {/* Row 3: three target gains */}
-              <div className="flex gap-3 text-xs">
-                {item.gains.map((gain, gi) => (
-                  <span key={gi} className="text-text-secondary" title={`目标 ${gain.targetAch}% → 增益 +${gain.ratingGain}`}>
-                    <span className="font-medium text-text">{gain.ratingGain > 0 ? `+${gain.ratingGain}` : '—'}</span>
-                    <span className="text-[10px] ml-0.5">{['SS+ 99%', 'SSS 100%', 'SSS+ 100.5%'][gi]}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {suggestions.length > 5 && (
-        <button
-          onClick={() => setShowAll(!showAll)}
-          className="mt-3 text-xs text-primary hover:underline cursor-pointer w-full text-center"
-        >
-          {showAll ? '收起，只显示前 5 条' : `查看全部 ${suggestions.length} 条建议`}
-        </button>
-      )}
+      {/* ---- B15 table ---- */}
+      <SuggestionSection
+        title={`新版本 Best 15 推分建议 (${b15Suggestions.length})`}
+        items={b15Suggestions}
+        hasAnyAP={hasAnyAP}
+      />
 
       {/* Algorithm footnotes */}
       <div className="mt-3 pt-3 border-t border-border/30 space-y-1">
@@ -265,15 +196,139 @@ export default function PushSuggestions({ theoreticalMax = 0 }: { theoreticalMax
           难度标签：轻松=水分曲，适合冲分；适中=同级平均水平；挑战=硬核谱面，攻克后成就感满满。定数越高越严格哦。
         </p>
         <p className="text-xs text-text-tertiary">
-          🔗 跳转 B 站搜索该曲目手元，看看大佬们是怎么打的，享受音乐和进步的过程吧！
+          <ExternalLink size={12} className="inline mr-1" />跳转 B 站搜索该曲目手元，看看大佬们是怎么打的，享受音乐和进步的过程吧！
         </p>
       </div>
     </div>
   )
 }
 
+/** Section: a single pool's suggestion table + mobile cards */
+function SuggestionSection({
+  title, items, hasAnyAP,
+}: {
+  title: string
+  items: PushSuggestion[]
+  hasAnyAP: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const displayed = expanded ? items : items.slice(0, 5)
+
+  if (items.length === 0) return null
+
+  const totalGain = items.reduce((s, it) => s + (it.gains[2]?.ratingGain ?? 0), 0)
+  const apCount = items.filter(it => it.apGain && it.apGain.ratingGain > 0).length
+
+  return (
+    <div className="mb-3 last:mb-0">
+      {/* Collapsible header with stats */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between gap-2 py-2 cursor-pointer border-none bg-transparent hover:bg-surface-light rounded-lg px-2 -mx-2 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <h4 className="text-xs font-semibold text-text-secondary truncate">{title}</h4>
+          <span className="text-[10px] text-text-tertiary tabular-nums shrink-0">
+            +{totalGain} 分
+            {apCount > 0 && <span className="text-success ml-1">AP ×{apCount}</span>}
+          </span>
+        </div>
+        <span className="text-xs text-text-tertiary shrink-0">
+          {expanded ? `收起 ▲` : `${items.length} 条 ▶`}
+        </span>
+      </button>
+
+      {expanded && (
+        <div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-text-secondary border-b border-border/50">
+              <th className="text-left py-1.5 pr-2 font-medium w-8">#</th>
+              <th className="text-left py-1.5 pr-2 font-medium">曲目</th>
+              <th className="text-center py-1.5 px-1 font-medium w-12">定数</th>
+              <th className="text-right py-1.5 px-1 font-medium w-16">当前</th>
+              <th className="text-right py-1.5 px-1 font-medium w-12">SS+<span className="text-[10px] opacity-75"> 99%</span></th>
+              <th className="text-right py-1.5 px-1 font-medium w-12">SSS<span className="text-[10px] opacity-75"> 100%</span></th>
+              <th className="text-right py-1.5 px-1 font-medium w-12">SSS+<span className="text-[10px] opacity-75"> 100.5%</span></th>
+              {hasAnyAP && (
+                <th className="text-right py-1.5 px-1 font-medium w-12 text-success">AP<span className="text-[10px] opacity-75"> +1</span></th>
+              )}
+              <th className="text-center py-1.5 px-1 font-medium w-10">难度</th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayed.map((item, i) => (
+              <PushRow key={`${item.songId}-${item.levelIndex}`} item={item} index={i + 1} hasAnyAP={hasAnyAP} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile card layout */}
+      <div className="md:hidden space-y-2">
+        {displayed.map((item, i) => {
+          const diff = DIFF_LABELS[item.difficulty] || DIFF_LABELS.medium
+          const configType = guessConfigType(item.levelValue)
+          const configTag = CONFIG_TAGS[configType]
+          return (
+            <div
+              key={`${item.songId}-${item.levelIndex}`}
+              className="rounded-lg p-3 space-y-1.5 border-l-3"
+              style={{
+                backgroundColor: item.pool === 'b35' ? 'rgba(91,164,207,0.06)' : 'rgba(184,160,232,0.06)',
+                borderLeftColor: item.levelValue >= 14.5 ? '#DC2626' : item.levelValue >= 13.5 ? '#D97706' : item.levelValue >= 12 ? '#5BA4CF' : '#22C55E',
+              }}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-text-tertiary text-xs tabular-nums shrink-0">{i + 1}.</span>
+                <Link to={`/songs/${item.songId}`} className="font-medium text-xs truncate hover:text-primary hover:underline min-w-0">
+                  {item.songTitle}
+                </Link>
+                <span className="text-text-tertiary text-[10px] shrink-0">{LEVEL_LABELS[item.levelIndex as LevelIndex]}</span>
+                <a href={bilibiliSearchUrl(item.songTitle, item.level)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-text-tertiary hover:text-primary shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <ExternalLink size={11} />
+                </a>
+                {item.precision === 'estimated' && (
+                  <span className="text-[10px] text-text-tertiary shrink-0 cursor-help" title="达成率为基于 B50 定数回归的估算值">?</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="tabular-nums font-medium">{item.levelValue.toFixed(1)}</span>
+                <span className="tabular-nums text-text-secondary">
+                  {item.precision === 'estimated' ? `估 ${item.currentAchievements.toFixed(1)}%` : `${item.currentAchievements.toFixed(1)}%`}
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: diff.color + '20', color: diff.color }}>{diff.label}</span>
+                <span className="px-1 py-0.5 rounded text-[9px] font-medium" style={{ backgroundColor: configTag.color + '20', color: configTag.color }} title={configTag.desc}>{configTag.label}</span>
+              </div>
+              <div className="flex gap-3 text-xs">
+                {item.gains.map((gain, gi) => (
+                  <span key={gi} className="text-text-secondary" title={`目标 ${gain.targetAch}% → 增益 +${gain.ratingGain}`}>
+                    <span className="font-medium text-text">{gain.ratingGain > 0 ? `+${gain.ratingGain}` : '—'}</span>
+                    <span className="text-[10px] ml-0.5">{['SS+ 99%', 'SSS 100%', 'SSS+ 100.5%'][gi]}</span>
+                  </span>
+                ))}
+                {item.apGain && item.apGain.ratingGain > 0 && (
+                  <span className="text-success font-medium" title={`AP 判定额外 +${item.apGain.ratingGain} Rating`}>
+                    +{item.apGain.ratingGain}
+                    <span className="text-[10px] ml-0.5">AP +1</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+    )}
+    </div>
+  )
+}
+
 /** Single suggestion row — React.memo for performance */
-function PushRow({ item, index }: { item: PushSuggestion; index: number }) {
+function PushRow({ item, index, hasAnyAP }: { item: PushSuggestion; index: number; hasAnyAP: boolean }) {
   const diff = DIFF_LABELS[item.difficulty] || DIFF_LABELS.medium
   const configType = guessConfigType(item.levelValue, 200) // BPM not available in PushSuggestion, use heuristic
   const configTag = CONFIG_TAGS[configType]
@@ -323,6 +378,16 @@ function PushRow({ item, index }: { item: PushSuggestion; index: number }) {
           {gain.ratingGain > 0 ? `+${gain.ratingGain}` : '—'}
         </td>
       ))}
+      {item.apGain && item.apGain.ratingGain > 0 ? (
+        <td
+          className="py-1.5 px-1 text-right tabular-nums text-success font-medium"
+          title={`AP 判定额外 +1 Rating（达成率 ${item.apGain.targetAch}% + AP → Rating ${item.apGain.targetRating}）`}
+        >
+          +{item.apGain.ratingGain}
+        </td>
+      ) : hasAnyAP ? (
+        <td className="py-1.5 px-1" />
+      ) : null}
       <td className="py-1.5 px-1 text-center">
         <span
           className="px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help"
@@ -338,9 +403,6 @@ function PushRow({ item, index }: { item: PushSuggestion; index: number }) {
         >
           {configTag.label}
         </span>
-      </td>
-      <td className="py-1.5 pl-2 text-text-secondary text-[10px]">
-        {POOL_LABELS[item.pool]}
       </td>
     </tr>
   )

@@ -11,6 +11,7 @@
 | 算法详解 | [docs/05-算法详解.md](docs/05-算法详解.md) | Rating/B50/五维算法、完整系数表 |
 | 算法说明 | [docs/algorithms.md](docs/algorithms.md) | 玩家友好算法解读（不含代码） |
 | 知识库 | [docs/knowledge-base.md](docs/knowledge-base.md) | 定数阶梯策略、成就牌子文案 |
+| 外部资源 | [docs/external-resources.md](docs/external-resources.md) | 谱面数据源、CDN、第三方工具 |
 | 开发日志 | [开发日志/](开发日志/) | 每日开发记录（按日期命名） |
 
 ## AI 工作指引
@@ -58,6 +59,14 @@
 ```
 
 此清单在每次代码修改后、提交 Git 之前产出。
+
+### 后期开发浏览器调试规范
+
+- **后续开发以移动端视觉与使用体验为主**。UI 设计优先考虑手机屏幕（375–414px 宽度），桌面版作为兼容视图。
+- 当使用 Playwright MCP 进行浏览器调试时，**必须在启动浏览器后立即执行设备模拟**，使用移动端视图（如 `iPhone 12`、`xiaomi 15` 等）。
+- 具体操作：调用 `browser_emulate_device` 工具，参数 `device: "iPhone 12"`。
+- 如果需要查看桌面版，请手动要求切换。
+- 当前可用工具（Browser）不支持设备模拟时，**优先使用移动端卡片组件（`md:hidden` 路径）进行验证**，评估页面在 375px 宽度下的表现。
 
 ## 技术栈
 

@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { computeRating } from '@/utils/rating'
-import { computeB50, computeTheoreticalMaxRating } from '@/utils/b50'
+import { computeB50, computeTheoreticalMaxRating, computeTheoreticalMaxBoth } from '@/utils/b50'
 import { computePushSuggestions } from '@/utils/pushSuggestions'
 import type { ScoreRecord } from '@/db/database'
 import type { Song, ChartDifficulty } from '@/types'
@@ -75,6 +75,29 @@ describe('computeRating', () => {
     const lv = 13.5
     const r = [80, 90, 94, 97, 98, 99, 99.5, 100, 100.5].map(a => computeRating(lv, a))
     for (let i = 1; i < r.length; i++) expect(r[i]).toBeGreaterThanOrEqual(r[i - 1])
+  })
+
+  // ---- AP bonus ----
+
+  it('adds +1 for fcType=ap', () => {
+    expect(computeRating(14.0, 100.5, 'ap')).toBe(computeRating(14.0, 100.5) + 1)
+    expect(computeRating(13.0, 97.0, 'ap')).toBe(computeRating(13.0, 97.0) + 1)
+  })
+
+  it('treats fcType=app same as ap', () => {
+    expect(computeRating(14.0, 100.5, 'app')).toBe(computeRating(14.0, 100.5, 'ap'))
+  })
+
+  it('does NOT add bonus for fcType=fc / null / undefined', () => {
+    const base = computeRating(14.0, 100.5)
+    expect(computeRating(14.0, 100.5, 'fc')).toBe(base)
+    expect(computeRating(14.0, 100.5, null)).toBe(base)
+    expect(computeRating(14.0, 100.5, undefined)).toBe(base)
+  })
+
+  it('applies AP bonus after achievement cap', () => {
+    // capped at 100.5% → +1 AP = same as capped +1
+    expect(computeRating(14.0, 101.0, 'ap')).toBe(computeRating(14.0, 100.5, 'ap'))
   })
 })
 
@@ -159,22 +182,17 @@ describe('computeTheoreticalMaxRating', () => {
 
   it('caps old pool at 35 and new pool at 15', () => {
     const songs: Song[] = []
-    // 40 old songs at varying levels
     for (let i = 1; i <= 40; i++) {
       songs.push(makeSong({ id: i, isNew: false, difficulties: {
         standard: [], dx: [makeDiff({ levelValue: 14.0 + i * 0.01 })]
       }}))
     }
-    // 20 new songs at varying levels
     for (let i = 41; i <= 60; i++) {
       songs.push(makeSong({ id: i, isNew: true, difficulties: {
         standard: [], dx: [makeDiff({ levelValue: 14.0 + i * 0.01 })]
       }}))
     }
     const result = computeTheoreticalMaxRating(songs)
-    // Should be sum of top 35 old + top 15 new at 100.5%
-    // Top old: songs 40,39,...,6 (35 songs, highest levelValues)
-    // Top new: songs 60,59,...,46 (15 songs)
     let expected = 0
     for (let i = 40; i >= 6; i--) {
       expected += computeRating(14.0 + i * 0.01, 100.5)
@@ -183,6 +201,40 @@ describe('computeTheoreticalMaxRating', () => {
       expected += computeRating(14.0 + i * 0.01, 100.5)
     }
     expect(result).toBe(expected)
+  })
+})
+
+// ---- computeTheoreticalMaxBoth ----
+
+describe('computeTheoreticalMaxBoth', () => {
+  it('returns 0/0 for empty songs', () => {
+    const r = computeTheoreticalMaxBoth([])
+    expect(r.sssPlusMax).toBe(0)
+    expect(r.apMax).toBe(0)
+  })
+
+  it('apMax = sssPlusMax + entryCount', () => {
+    const songs: Song[] = []
+    for (let i = 1; i <= 10; i++) {
+      songs.push(makeSong({ id: i, isNew: false, difficulties: {
+        standard: [], dx: [makeDiff({ levelValue: 14.0 })]
+      }}))
+    }
+    const r = computeTheoreticalMaxBoth(songs)
+    expect(r.apMax).toBe(r.sssPlusMax + 10) // 10 songs → 10 B50 entries → +10 AP
+  })
+
+  it('AP bonus limited to actual B50 entries (not total songs)', () => {
+    // 100 old songs → only top 35 in B50
+    const songs: Song[] = []
+    for (let i = 1; i <= 100; i++) {
+      songs.push(makeSong({ id: i, isNew: false, difficulties: {
+        standard: [], dx: [makeDiff({ levelValue: 14.0 + i * 0.01 })]
+      }}))
+    }
+    const r = computeTheoreticalMaxBoth(songs)
+    const diff = r.apMax - r.sssPlusMax
+    expect(diff).toBe(35) // capped at B35_SIZE
   })
 })
 

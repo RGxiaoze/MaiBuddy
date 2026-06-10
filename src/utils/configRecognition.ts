@@ -30,7 +30,7 @@ export interface ConfigSegment {
 export function recognizeConfigs(
   frames: FrameDisplacement[],
   bpm: number,
-  subdivisions: number[]  // from chart timing changes
+  _subdivisions: number[]  // from chart timing changes
 ): ConfigSegment[] {
   const segments: ConfigSegment[] = []
   if (frames.length === 0) return segments
@@ -96,7 +96,7 @@ function makeSegment(
   frames: FrameDisplacement[],
   start: number,
   end: number,
-  bpm: number
+  _bpm: number
 ): ConfigSegment {
   const segFrames = frames.slice(start, end)
   const duration = segFrames[segFrames.length - 1].time - segFrames[0].time

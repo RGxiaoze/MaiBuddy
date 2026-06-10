@@ -2,7 +2,7 @@
 // Chart parser — simai → MaiChart AST via simai-sharp-ts
 // ============================================================
 
-import { SimaiConvert, SimaiFile } from 'simai-sharp'
+import { SimaiConvert } from 'simai-sharp'
 
 export interface ParsedChart {
   bpm: number
@@ -98,7 +98,6 @@ export function parseChart(simaiText: string, bpm: number): ParsedChart {
 
 /** Parse a maidata.txt file content, extracting a specific difficulty */
 export function parseMaidataFile(content: string, inoteId: number = 5): ParsedChart {
-  const file = new SimaiFile('')
   // SimaiFile can't parse from string directly, so we extract the inote section
   const lines = content.split('\n')
   let inSection = false

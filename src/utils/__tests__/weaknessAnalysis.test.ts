@@ -59,7 +59,7 @@ describe('analyzeWeakness', () => {
       Object.fromEntries(Array.from({ length: 5 }, (_, i) => [i + 1, { bpm: 150, tap: 250, total: 500 }]))
     )
     // All charts have chartAvg 97.0 → residual = 95 − 97 = −2.0 (weak)
-    const stats: StatsGetter = (sid) => ({ avg: 97.0, stdDev: 2.0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.7 })
+    const stats: StatsGetter = (_sid) => ({ avg: 97.0, stdDev: 2.0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.7 })
 
     const result = analyzeWeakness(scores, songMap, stats)
     expect(result.hasStatsData).toBe(true)
@@ -82,7 +82,7 @@ describe('analyzeWeakness', () => {
     const songMap = makeSongMap(
       Object.fromEntries(Array.from({ length: 3 }, (_, i) => [i + 1, { bpm: 150, tap: 250, total: 500 }]))
     )
-    const stats: StatsGetter = (sid) => ({ avg: 97.0, stdDev: 2.0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.7 })
+    const stats: StatsGetter = (_sid) => ({ avg: 97.0, stdDev: 2.0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.7 })
 
     const result = analyzeWeakness(scores, songMap, stats)
     const comprehensive = result.tagStats.find(t => t.tag === '综合')
@@ -97,7 +97,7 @@ describe('analyzeWeakness', () => {
     const songMap = makeSongMap(
       Object.fromEntries(Array.from({ length: 5 }, (_, i) => [i + 1, { bpm: 150, tap: 250, total: 500 }]))
     )
-    const stats: StatsGetter = (sid) => ({ avg: 97.0, stdDev: 2.0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.7 })
+    const stats: StatsGetter = (_sid) => ({ avg: 97.0, stdDev: 2.0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.7 })
 
     const result = analyzeWeakness(scores, songMap, stats)
     // mean residual = 98.0 − 97.0 = +1.0 (not weak)
@@ -111,7 +111,7 @@ describe('analyzeWeakness', () => {
     const songMap = makeSongMap(
       Object.fromEntries(Array.from({ length: 5 }, (_, i) => [i + 1, { bpm: 150, tap: 250, total: 500 }]))
     )
-    const stats: StatsGetter = (sid) => ({ avg: 97.0, stdDev: 2.0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.7 })
+    const stats: StatsGetter = (_sid) => ({ avg: 97.0, stdDev: 2.0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.7 })
 
     const result = analyzeWeakness(scores, songMap, stats)
     const comprehensive = result.tagStats.find(t => t.tag === '综合')

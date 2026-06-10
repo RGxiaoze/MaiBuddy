@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useMemo, memo } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { useSongStore } from '@/store/songStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { FC_LABELS, FS_LABELS, LEVEL_INDEX_MAP, LEVEL_LABELS } from '@/data/constants'
@@ -27,6 +28,7 @@ export default function SongDetail() {
   const [selectedLevel, setSelectedLevel] = useState<LevelIndex>(3) // default MASTER
   const [showScoreForm, setShowScoreForm] = useState(false)
   const [editingScore, setEditingScore] = useState<Score | undefined>(undefined)
+  const [showAllAliases, setShowAllAliases] = useState(false)
 
   // Fetch data if not loaded
   useEffect(() => {
@@ -48,6 +50,7 @@ export default function SongDetail() {
   const [statsLoaded, setStatsLoaded] = useState(false)
   useEffect(() => {
     if (songs.length === 0) return
+    let cancelled = false
     const officialLevelMap = new Map<string, number>()
     for (const s of songs) {
       for (const diff of [...s.difficulties.standard, ...s.difficulties.dx]) {
@@ -56,13 +59,33 @@ export default function SongDetail() {
         }
       }
     }
-    loadStats(officialLevelMap).then(() => setStatsLoaded(true)).catch(() => setStatsLoaded(true))
+    loadStats(officialLevelMap).then(() => {
+      if (!cancelled) setStatsLoaded(true)
+    }).catch(() => {
+      if (!cancelled) setStatsLoaded(true)
+    })
+    return () => { cancelled = true }
   }, [songs.length])
 
-  // Pre-compute derived values (safe even when song is undefined, before early returns)
-  const allDiffs = song ? [...song.difficulties.standard, ...song.difficulties.dx] : []
+  // Pre-compute derived values
+  const allDiffs: ChartDifficulty[] = song
+    ? [...song.difficulties.standard, ...song.difficulties.dx]
+    : []
   const currentDiff = allDiffs.find((d) => d.levelIndex === selectedLevel) as ChartDifficulty | undefined
   const levelColors = LEVEL_INDEX_MAP[selectedLevel]
+
+  // Detect paired song (same title+artist+bpm, different type)
+  const pairedSong = useMemo(() => {
+    if (!song) return undefined
+    const targetType = song.difficulties.standard.length > 0 ? 'dx' : 'standard'
+    return songs.find(s =>
+      s.id !== song.id &&
+      s.title === song.title &&
+      s.artist === song.artist &&
+      s.bpm === song.bpm &&
+      s.difficulties[targetType].length > 0
+    )
+  }, [song, songs])
 
   // Scores for this song — memoized to avoid O(n) scan + new array ref on every render
   const songScores = useMemo(
@@ -70,19 +93,20 @@ export default function SongDetail() {
     [scores, song?.id]
   )
 
-  const ratingRefs = [50, 60, 70, 75, 80, 90, 94, 97, 98, 99, 99.5, 100, 100.5]
-
-  // Precompute DX Rating table — only recalculates when levelValue changes
+  const ratingRefs = [100.5, 100, 99.5, 99, 98, 97, 94, 90, 80, 75, 70, 60, 50]
   const ratingTable = useMemo(() => {
     if (!currentDiff || currentDiff.levelValue <= 0) return null
-    return ratingRefs.map((r) => computeRating(currentDiff.levelValue, r))
+    const ratings = ratingRefs.map((r) => computeRating(currentDiff.levelValue, r))
+    // Prepend AP rating
+    const apRating = computeRating(currentDiff.levelValue, 100.5, 'ap')
+    return { apRating, ratings }
   }, [currentDiff?.levelValue])
 
   // Precompute chart stats for distribution display
   const chartStats = useMemo(() => {
     if (!statsLoaded || !song || !currentDiff) return undefined
     return getChartStats(song.id, currentDiff.level)
-  }, [statsLoaded, song?.id, currentDiff?.levelIndex])
+  }, [statsLoaded, song?.id, currentDiff?.level])
 
   const levelAvg = useMemo(() => {
     if (!statsLoaded || !currentDiff) return undefined
@@ -121,7 +145,7 @@ export default function SongDetail() {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-3 text-text-secondary">
-          <span className="text-3xl">🔍</span>
+          <Search size={36} className="mx-auto text-text-tertiary" />
           <span>曲目未找到 (ID: {songId})</span>
           <button onClick={() => navigate('/songs')} className="text-sm text-primary hover:underline cursor-pointer">
             返回曲目列表
@@ -169,68 +193,88 @@ export default function SongDetail() {
       </button>
 
       {/* Basic info */}
-      <div className="bg-surface border border-border rounded-lg p-5 mb-4">
-        <div className="flex gap-5">
+      <div className="bg-surface border border-border rounded-lg p-4 sm:p-4 sm:p-5 mb-4">
+        <div className="flex gap-3 sm:gap-5">
           {/* Cover */}
           <img
             src={song.imageUrl}
             alt={song.title}
             loading="lazy"
-            className="w-32 h-32 rounded-lg object-cover shrink-0 bg-bg-gray"
+            className="w-20 h-20 sm:w-32 sm:h-32 rounded-lg object-cover shrink-0 bg-bg-gray"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none'
             }}
           />
 
-          <div className="flex flex-col gap-1 min-w-0">
-            <h2 className="text-lg font-semibold text-text m-0">{song.title}</h2>
-            <p className="text-sm text-text-secondary">{song.artist}</p>
-            {aliases.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border/30">
-                <span className="text-xs text-text-secondary shrink-0 leading-5">别名：</span>
-                {aliases.map((a, i) => (
-                  <span key={i} className="px-1.5 py-0.5 rounded text-xs bg-primary/5 text-text-secondary">
-                    {a}
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-3 mt-1 text-xs text-text-secondary">
+          <div className="flex flex-col gap-1 min-w-0 flex-1">
+            <h2 className="text-base sm:text-lg font-semibold text-text m-0">{song.title}</h2>
+            <p className="text-xs sm:text-sm text-text-secondary truncate">{song.artist}</p>
+            <div className="flex gap-2 sm:gap-3 mt-0.5 text-xs text-text-secondary flex-wrap">
               <span>BPM: <strong className="text-text">{song.bpm}</strong></span>
               <span>版本: <strong className="text-text">{getVersionDisplay(song.from)}</strong></span>
-              <span>分类: <strong className="text-text">{song.genre}</strong></span>
+              <span className="hidden sm:inline">分类: <strong className="text-text">{song.genre}</strong></span>
             </div>
+            {aliases.length > 0 && (
+              <div className="mt-1.5 pt-1.5 border-t border-border/30">
+                <div className="flex flex-wrap gap-1">
+                  <span className="text-xs text-text-secondary shrink-0 leading-5">别名：</span>
+                  {(showAllAliases ? aliases : aliases.slice(0, 6)).map((a, i) => (
+                    <span key={i} className="px-1.5 py-0.5 rounded text-xs bg-primary/5 text-text-secondary whitespace-nowrap">
+                      {a}
+                    </span>
+                  ))}
+                  {aliases.length > 6 && (
+                    <button
+                      onClick={() => setShowAllAliases(!showAllAliases)}
+                      className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline cursor-pointer bg-transparent border-none"
+                    >
+                      {showAllAliases ? <><ChevronUp size={12} />收起</> : <><ChevronDown size={12} />等{aliases.length}个</>}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Difficulty tabs */}
-        <div className="flex gap-1 mt-4">
-          {([0, 1, 2, 3, 4] as LevelIndex[]).map((idx) => {
-            const diff = allDiffs.find((d) => d.levelIndex === idx)
-            if (!diff || diff.levelValue === 0) return null
-            const colors = LEVEL_INDEX_MAP[idx]
-            const isSelected = selectedLevel === idx
-            return (
-              <button
-                key={idx}
-                onClick={() => setSelectedLevel(idx)}
-                className="px-3 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer border-none"
-                style={{
-                  backgroundColor: isSelected ? colors.color : 'transparent',
-                  color: isSelected ? '#fff' : colors.color,
-                  border: isSelected ? '1px solid transparent' : `1px solid ${colors.color}40`,
-                }}
-              >
-                {LEVEL_LABELS[idx]} {diff.level}
-              </button>
-            )
-          })}
+        {/* Difficulty tabs + paired song toggle */}
+        <div className="flex items-center gap-2 mt-4">
+          <div className="flex gap-1 flex-wrap flex-1">
+            {allDiffs.map((diff) => {
+              const idx = diff.levelIndex as LevelIndex
+              const colors = LEVEL_INDEX_MAP[idx]
+              const isSelected = selectedLevel === idx
+              return (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedLevel(idx)}
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 rounded text-[11px] sm:text-xs font-medium transition-colors cursor-pointer border-none"
+                  style={{
+                    backgroundColor: isSelected ? colors.color : 'transparent',
+                    color: isSelected ? '#fff' : colors.color,
+                    border: isSelected ? '1px solid transparent' : `1px solid ${colors.color}40`,
+                  }}
+                >
+                  {LEVEL_LABELS[idx]} {diff.level}
+                </button>
+              )
+            })}
+          </div>
+          {pairedSong && (
+            <button
+              onClick={() => navigate(`/songs/${pairedSong.id}`)}
+              className="px-2 py-1 rounded-md text-[10px] font-medium cursor-pointer border border-border
+                         bg-surface text-text-secondary hover:border-primary hover:text-primary transition-colors shrink-0"
+            >
+              {pairedSong.difficulties.standard.length > 0 ? '标' : 'DX'} 版
+            </button>
+          )}
         </div>
       </div>
 
       {/* Chart info */}
       {currentDiff && (
-        <div className="bg-surface border border-border rounded-lg p-5 mb-4">
+        <div className="bg-surface border border-border rounded-lg p-4 sm:p-5 mb-4">
           <h3 className="text-sm font-semibold text-text mb-3">谱面信息 — {LEVEL_LABELS[selectedLevel]} <span style={{ color: levelColors.color }}>{currentDiff.level}</span></h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -261,7 +305,7 @@ export default function SongDetail() {
 
       {/* 全服达成分布 */}
       {chartStats && (
-        <div className="bg-surface border border-border rounded-lg p-5 mb-4">
+        <div className="bg-surface border border-border rounded-lg p-4 sm:p-5 mb-4">
           <h3 className="text-sm font-semibold text-text mb-3">全服达成分布</h3>
 
           {/* StdDev classification banner — always shown */}
@@ -337,13 +381,14 @@ export default function SongDetail() {
 
       {/* DX Rating reference */}
       {ratingTable && (
-        <div className="bg-surface border border-border rounded-lg p-5 mb-4">
+        <div className="bg-surface border border-border rounded-lg p-4 sm:p-5 mb-4">
           <h3 className="text-sm font-semibold text-text mb-3">DX Rating 对照</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-text-secondary">
                   <th className="text-left py-1 pr-3 font-medium">达成率</th>
+                  <th className="text-right px-2 font-medium text-success">AP</th>
                   {ratingRefs.map((r) => (
                     <th key={r} className="text-right px-2 font-medium">{r}%</th>
                   ))}
@@ -352,7 +397,8 @@ export default function SongDetail() {
               <tbody>
                 <tr>
                   <td className="py-1 text-text-secondary">Rating</td>
-                  {ratingTable.map((v, i) => (
+                  <td className="text-right px-2 tabular-nums font-medium text-success">{ratingTable.apRating}</td>
+                  {ratingTable.ratings.map((v, i) => (
                     <td key={i} className="text-right px-2 tabular-nums font-medium">
                       {v}
                     </td>
@@ -365,12 +411,12 @@ export default function SongDetail() {
       )}
 
       {/* Scores module */}
-      <div className="bg-surface border border-border rounded-lg p-5">
+      <div className="bg-surface border border-border rounded-lg p-4 sm:p-5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-text m-0">我的成绩</h3>
           <button
             onClick={() => { setEditingScore(undefined); setShowScoreForm(true) }}
-            className="px-3 py-1.5 rounded-md bg-primary text-white text-xs hover:bg-primary-dark transition-colors cursor-pointer"
+            className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md bg-primary text-white text-xs sm:text-sm hover:bg-primary-dark transition-colors cursor-pointer"
           >
             + 录入成绩
           </button>
@@ -381,12 +427,22 @@ export default function SongDetail() {
             暂无成绩记录
           </p>
         ) : (
-          <div className="grid gap-y-2" style={{ gridTemplateColumns: '4.5rem 5rem 3rem 3.5rem 1fr 3.5rem 4.5rem' }}>
-            <ScoreHeader />
-            {songScores.map((score: ScoreRecord) => (
-              <ScoreRow key={score.id} score={score} allDiffs={allDiffs} onEdit={() => handleEdit(score)} onDelete={() => score.id && handleDelete(score.id)} />
-            ))}
-          </div>
+          <>
+            {/* Desktop table */}
+            <div className="hidden sm:grid gap-y-2" style={{ gridTemplateColumns: '4.5rem 5rem 3rem 3.5rem 1fr 3.5rem 4.5rem' }}>
+              <ScoreHeader />
+              {songScores.map((score: ScoreRecord) => (
+                <ScoreRow key={score.id} score={score} allDiffs={allDiffs} onEdit={() => handleEdit(score)} onDelete={() => score.id && handleDelete(score.id)} />
+              ))}
+            </div>
+
+            {/* Mobile cards */}
+            <div className="sm:hidden space-y-2">
+              {songScores.map((score: ScoreRecord) => (
+                <ScoreMobileCard key={score.id} score={score} allDiffs={allDiffs} onEdit={() => handleEdit(score)} onDelete={() => score.id && handleDelete(score.id)} />
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -414,6 +470,44 @@ function ScoreHeader() {
       <span className="justify-self-end tabular-nums">DX 分数</span>
       <span className="justify-self-end tabular-nums">日期</span>
       <span className="justify-self-end">操作</span>
+    </div>
+  )
+}
+
+/** Mobile score card — compact single-row info + actions */
+function ScoreMobileCard({ score, allDiffs, onEdit, onDelete }: { score: ScoreRecord; allDiffs: ChartDifficulty[]; onEdit: () => void; onDelete: () => void }) {
+  const levelColors = LEVEL_INDEX_MAP[score.levelIndex as LevelIndex]
+  const currentDiff = allDiffs.find((d) => d.levelIndex === score.levelIndex)
+  const totalNotes = currentDiff?.notes?.total
+  const dxStar = totalNotes && totalNotes > 0 ? computeDxStar(score.dxScore, totalNotes) : null
+
+  return (
+    <div className="bg-bg-gray rounded-lg p-3 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium text-white" style={{ backgroundColor: levelColors.color }}>
+            {LEVEL_LABELS[score.levelIndex as LevelIndex]}
+          </span>
+          <span className="tabular-nums font-semibold text-sm">{score.achievements.toFixed(4)}%</span>
+          <GradeBadge rate={score.rate as import('@/types').RateType} />
+        </div>
+        <div className="flex gap-1.5">
+          <button onClick={onEdit} className="text-xs text-primary hover:underline cursor-pointer bg-transparent border-none">编辑</button>
+          <button onClick={onDelete} className="text-xs text-error hover:underline cursor-pointer bg-transparent border-none">删除</button>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 text-xs text-text-secondary">
+        {score.fcType && <span className="text-success font-medium">{FC_LABELS[score.fcType]}</span>}
+        {score.fsType && <span className="text-success font-medium">{FS_LABELS[score.fsType]}</span>}
+        {dxStar && (
+          <span className="tabular-nums">
+            {renderStars(dxStar.stars) || '☆'} {dxStar.ratio.toFixed(2)}%
+          </span>
+        )}
+        <span className="tabular-nums ml-auto">
+          {new Date(score.playDate).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+        </span>
+      </div>
     </div>
   )
 }
@@ -562,15 +656,15 @@ function RateDiffCard({ label, rate, levelAvg, officialLevelAvgRate, officialLev
         <div className="text-xs text-text-tertiary mt-0.5">--</div>
       )}
       {/* Row 2: vs 官标定数 */}
-      {showOfficial && (
-        <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: getDiffColor(diffVsOfficial!, label) }}>
-          {diffSign(diffVsOfficial!)}% vs 官标定数({levelValue?.toFixed(1)})
+      {showOfficial && diffVsOfficial != null && (
+        <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: getDiffColor(diffVsOfficial, label) }}>
+          {diffSign(diffVsOfficial)}% vs 官标定数({levelValue?.toFixed(1)})
         </div>
       )}
       {/* Row 3: 拟合后 vs 官标定数 */}
-      {showFitDiff && (
-        <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: getDiffColor(diffVsFit!, label) }}>
-          {diffSign(diffVsFit!)}% 拟合后 vs 官标定数({fitDiffValue?.toFixed(1)})
+      {showFitDiff && diffVsFit != null && (
+        <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: getDiffColor(diffVsFit, label) }}>
+          {diffSign(diffVsFit)}% 拟合后 vs 官标定数({fitDiffValue?.toFixed(1)})
         </div>
       )}
     </div>

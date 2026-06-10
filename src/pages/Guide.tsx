@@ -21,8 +21,8 @@ const Section = ({
   title: string
   children: React.ReactNode
 }) => (
-  <section className="bg-white rounded-xl shadow-sm p-6">
-    <h2 className="flex items-center gap-3 text-lg font-semibold text-text mb-4">
+  <section className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+    <h2 className="flex items-center gap-2 sm:gap-3 text-base sm:text-lg font-semibold text-text mb-3 sm:mb-4">
       <span className="text-primary">{icon}</span>
       {title}
     </h2>
@@ -33,9 +33,9 @@ const Section = ({
 export default function Guide() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-3 mb-8">
-        <BookOpen className="w-7 h-7 text-primary" />
-        <h1 className="text-2xl font-bold text-text">使用指南</h1>
+      <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
+        <BookOpen className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
+        <h1 className="text-xl sm:text-2xl font-bold text-text">使用指南</h1>
       </div>
 
       {/* Quick Start */}
@@ -49,7 +49,7 @@ export default function Guide() {
             <ol className="list-decimal list-inside space-y-1.5 ml-1">
               <li><strong>曲目检索</strong> — 搜索曲目，支持多关键词、定数范围、版本、难度筛选。</li>
               <li><strong>录入成绩</strong> — 曲目详情页选择难度后点击「录入成绩」，填写达成率、DX 分数等。</li>
-              <li><strong>一键导入</strong> — 点击「导入成绩」使用 Diving-Fish 凭证拉取全部成绩。</li>
+              <li><strong>一键导入</strong> — 点击「导入成绩」，用 Diving-Fish 账号一步登录并拉取全部成绩。也支持手动粘贴 Import-Token。</li>
             </ol>
           </div>
           <p className="text-text-tertiary text-xs">所有数据存储在你的浏览器本地（IndexedDB），不会上传到任何第三方服务器。</p>
@@ -106,9 +106,10 @@ export default function Guide() {
           <ul className="list-disc list-inside space-y-1 ml-1">
             <li>基于 B50 地板替换逻辑的增益计算</li>
             <li>按众数区间过滤 + SSS+ 率加权排序</li>
-            <li>3 档目标方案：SS+ 99% / SSS 100% / SSS+ 100.5%</li>
-            <li>策略分段（冲击万四 → 冲击万六 → 冲击理论 Rating）</li>
-            <li>手机端卡片式布局，三档增益横向排列</li>
+            <li>4 档目标方案：SS+ 99% / SSS 100% / SSS+ 100.5% / <strong className="text-success">AP +1</strong></li>
+            <li>B35（旧曲）/ B15（新曲）双表分区展示</li>
+            <li>全服 AP 率排序 — 优先推荐更容易 AP 的曲目</li>
+            <li>手机端卡片式布局，四档增益横向排列</li>
           </ul>
         </div>
       </Section>
@@ -146,8 +147,10 @@ export default function Guide() {
             <ul className="list-disc list-inside space-y-1 ml-1">
               <li>maimaidx-prober (Diving-Fish) — Rating/B50 核心算法</li>
               <li>maimaiDX (Yuri-YuzuChaN) — API 封装与数据处理</li>
-              <li>MaimaiData (PaperPig) — 版本判定与本地存储</li>
               <li>落雪咖啡屋 (Lxns-Network) — 类型枚举体系</li>
+              <li>Maichart-Converts (Neskol) — Simai 谱面公开数据集</li>
+              <li>舞萌谱面预览 v.awmc.cc (AWMC TEAM) — 谱面预览与可视化参考</li>
+              <li>dxrating (gekichumai) — DX Rating 工具</li>
             </ul>
           </div>
           <div className="space-y-2">
@@ -156,6 +159,7 @@ export default function Guide() {
               <li>RemyWiki — Rating/B50 算法公式</li>
               <li>beatmania IIDX 非公式難易度表 — 底力/体力/爆发三层区分</li>
               <li>SOUND VOLTEX Effect Radar — 多维雷达图可视化</li>
+              <li>AstroDX — 机台布局几何模型（6 层传感器区域）</li>
             </ul>
           </div>
           <p className="text-text-tertiary text-xs">

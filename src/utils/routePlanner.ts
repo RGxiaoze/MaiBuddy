@@ -7,7 +7,6 @@ import { type PushSuggestion } from './pushSuggestions'
 import type { ChartStatSummary } from '@/services/statsService'
 import {
   EXCLUDE_LV15_RATING, ROUTE_BOOST_HIGH, ROUTE_BOOST_LOW, MAX_PER_PHASE,
-  LEVEL_TIER_LOW, LEVEL_TIER_MID, LEVEL_TIER_HIGH, LEVEL_TIER_ULTRA,
 } from '@/config/algorithms'
 
 export interface RoutePhase {
@@ -133,7 +132,7 @@ export function generatePushRoute(
 
   // Near theoretical: playful nudge
   if (remainingToTheory > 0 && remainingToTheory <= 100) {
-    summary += `距离理论 Rating 仅差 ${remainingToTheory} 分——几乎触摸到天花板了！剩下的交给时间和运气吧 🎉`
+    summary += `距离理论 Rating 仅差 ${remainingToTheory} 分——几乎触摸到天花板了！剩下的交给时间和运气吧`
   }
 
   // 10-12 beginner: enjoy the game

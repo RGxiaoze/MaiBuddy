@@ -19,6 +19,7 @@ function computeVersionFingerprint(songs: Song[]): number {
   }
   return max
 }
+export type SortBy = 'default' | 'bpm' | 'version' | 'levelValue'
 export type SortOrder = 'asc' | 'desc'
 
 export const SORT_OPTIONS: { value: SortBy; label: string }[] = [

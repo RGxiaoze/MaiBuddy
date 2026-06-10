@@ -4,13 +4,14 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
+import { Target, ClipboardList, BarChart3 } from 'lucide-react'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { computeChartDimensions, computeChartDimensionsRaw, computePlayerDimensions, type DimensionScores } from '@/utils/dimensions'
 import { analyzeWeakness } from '@/utils/weaknessAnalysis'
 import { computeAchievementMetrics } from '@/utils/achievementMetrics'
-import { computeTheoreticalMaxRating } from '@/utils/b50'
+import { computeTheoreticalMaxBoth } from '@/utils/b50'
 import { generatePushRoute } from '@/utils/routePlanner'
 import { computePushSuggestions } from '@/utils/pushSuggestions'
 import { getTagMeta, type ChartTag } from '@/utils/chartTags'
@@ -27,7 +28,7 @@ const DIM_META: Record<keyof DimensionScores, { name: string; color: string; des
   stamina:     { name: '体力', color: '#D97706', desc: '身体素质的体现——支持你长时间处理高密度配置而不掉速。体力越好，越能在反复推分中保持状态，扛住高难度谱面的持续消耗，稳扎稳打出成绩。' },
   burst:       { name: '爆发', color: '#A855F7', desc: '手速与协调的体现——处理瞬时高密度音符的能力。爆发越高，越能从容面对当前水平谱面的超高速配置。' },
   positioning: { name: '定位', color: '#22C55E', desc: '手臂在不断移动中准确击中判定点的能力。定位越准，越能从容应对反复变换位置的配置，处理一般的星星配置也更稳定。' },
-  technique:   { name: '技巧', color: '#3B82F6', desc: '协调与记忆的博弈——处理星星、Touch 以及各类非常规配置的能力。技巧越强，越能驾驭围绕星星和 Touch 展开的复合难点，甚至可以通过对判定的理解，用巧妙的非常规方式化解常规配置的棘手之处。' },
+  technique:   { name: '技巧', color: '#3B82F6', desc: '利用协调与记忆力，处理星星、Touch 以及各类非常规配置的能力。技巧越强，越能驾驭围绕星星和 Touch 展开的复合难点，甚至可以通过对判定的理解，用巧妙的非常规方式化解常规配置的棘手之处。' },
 }
 
 export default function DimensionAnalysis() {
@@ -106,7 +107,8 @@ export default function DimensionAnalysis() {
   const { localB50 } = usePlayerStore()
 
   // Achievement metrics (only when local B50 is available)
-  const theoryMax = useMemo(() => songs.length > 0 ? computeTheoreticalMaxRating(songs) : 0, [songs])
+  const theoryMaxAll = useMemo(() => songs.length > 0 ? computeTheoreticalMaxBoth(songs) : { sssPlusMax: 0, apMax: 0 }, [songs])
+  const theoryMax = theoryMaxAll.sssPlusMax
   const metrics = useMemo(() => {
     if (!localB50 || songs.length === 0) return null
     return computeAchievementMetrics(scores, localB50.totalRating, theoryMax)
@@ -143,14 +145,17 @@ export default function DimensionAnalysis() {
 
       {/* Achievement metrics cards — only when local B50 is ready */}
       {!isLoading && metrics && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           {/* Card 1: Completion (AP + SSS+) */}
           <div className="bg-surface border border-border rounded-lg p-4">
             <p className="text-xs text-text-secondary mb-2 font-medium">完成度</p>
             <div className="space-y-1">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-text-secondary">AP</span>
-                <span className="text-sm font-semibold text-success">{metrics.apCount} 首</span>
+                <span className="text-sm font-semibold text-success">
+                  {metrics.apCount} 首
+                  <span className="text-xs text-text-tertiary ml-1">(+{metrics.apRatingBonus} Rating)</span>
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-text-secondary">SSS+</span>
@@ -169,11 +174,16 @@ export default function DimensionAnalysis() {
                 style={{ width: `${Math.min(metrics.ratingProgress, 100)}%` }}
               />
             </div>
-            <p className="text-xs text-text-secondary mt-1 text-right">{metrics.ratingProgress.toFixed(1)}%</p>
+            <p className="text-xs text-text-secondary mt-1 text-right">
+              {metrics.ratingProgress.toFixed(1)}%
+              {metrics.apRatingBonus > 0 && (
+                <span className="text-success ml-1">(AP 加成 +{metrics.apRatingBonus})</span>
+              )}
+            </p>
           </div>
 
           {/* Card 3: Level distribution */}
-          <div className="bg-surface border border-border rounded-lg p-4 md:col-span-1 col-span-2">
+          <div className="bg-surface border border-border rounded-lg p-4">
             <p className="text-xs text-text-secondary mb-2 font-medium">定数分布</p>
             <div className="space-y-1">
               {metrics.levelDist.map(tier => (
@@ -364,7 +374,7 @@ export default function DimensionAnalysis() {
           {/* Push route plan */}
           {pushRoute && pushRoute.phases.length > 0 && (
             <div className="bg-surface border border-border rounded-lg p-5">
-              <h3 className="text-sm font-semibold text-text mb-3">📋 推分路线规划</h3>
+              <h3 className="text-sm font-semibold text-text mb-3"><ClipboardList size={16} className="inline mr-1" /> 推分路线规划</h3>
               <p className="text-xs text-text-secondary mb-4">{pushRoute.summary}</p>
 
               <div className="flex flex-col gap-3">
@@ -381,21 +391,37 @@ export default function DimensionAnalysis() {
                     <p className="text-xs text-text-secondary mb-2">
                       目标达成率：{phase.targetAchievement}，{phase.songCount} 首候选曲目
                     </p>
-                    <div className="flex flex-wrap gap-1">
-                      {phase.songs.slice(0, 5).map(s => (
-                        <Link key={`${s.songId}-${s.levelIndex}`}
-                          to={"/songs/" + s.songId}
-                          className="px-1.5 py-0.5 rounded text-[10px] bg-bg-gray text-text-secondary hover:underline">
-                          {s.songTitle} {s.levelValue}
-                        </Link>
-                      ))}
+                    <div className="space-y-1.5">
+                      {phase.songs.slice(0, 5).map(s => {
+                        const maxGain = s.apGain?.ratingGain
+                          ? { label: 'AP +1', gain: s.apGain.ratingGain, color: 'text-success' }
+                          : s.gains[2].ratingGain > 0
+                            ? { label: 'SSS+', gain: s.gains[2].ratingGain, color: 'text-text' }
+                            : s.gains[1].ratingGain > 0
+                              ? { label: 'SSS', gain: s.gains[1].ratingGain, color: 'text-text-secondary' }
+                              : { label: 'SS+', gain: s.gains[0].ratingGain, color: 'text-text-tertiary' }
+                        return (
+                          <Link key={`${s.songId}-${s.levelIndex}`}
+                            to={"/songs/" + s.songId}
+                            className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-bg-gray hover:bg-surface-light transition-colors no-underline"
+                          >
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className="text-xs text-text truncate">{s.songTitle}</span>
+                              <span className="text-[10px] text-text-tertiary shrink-0">{s.levelValue.toFixed(1)}</span>
+                            </span>
+                            <span className={`text-xs font-medium tabular-nums shrink-0 ml-2 ${maxGain.color}`}>
+                              {maxGain.label} +{maxGain.gain}
+                            </span>
+                          </Link>
+                        )
+                      })}
                     </div>
                   </div>
                 ))}
               </div>
 
               <p className="text-xs text-text-tertiary mt-4 pt-3 border-t border-border/30">
-                🎯 目标：{pushRoute.currentRating} → {pushRoute.targetRating}（+{pushRoute.targetRating - pushRoute.currentRating}）
+                <Target size={14} className="inline mr-1" />目标：{pushRoute.currentRating} → {pushRoute.targetRating}（+{pushRoute.targetRating - pushRoute.currentRating}）
               </p>
             </div>
           )}
@@ -404,7 +430,7 @@ export default function DimensionAnalysis() {
           {strategy && (
             <div className="bg-surface border border-border rounded-lg p-5 mt-4">
               <h3 className="text-sm font-semibold text-text mb-2">
-                📊 定数阶梯策略
+                <BarChart3 size={16} className="inline mr-1" />定数阶梯策略
               </h3>
               <p className="text-xs text-text-secondary mb-2">
                 当前段位：{strategy.min}–{strategy.max} 分

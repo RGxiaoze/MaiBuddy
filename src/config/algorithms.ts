@@ -58,6 +58,9 @@ export const LEVEL_TIER_ULTRA = 14.0
 /** 每阶段最多推荐的曲目数 */
 export const MAX_PER_PHASE = 5
 
+/** 推分建议总条数上限 */
+export const MAX_SUGGESTIONS = 38
+
 /** 练习推荐每级最多曲目数 */
 export const MAX_PRACTICE_PER_LEVEL = 2
 
@@ -105,13 +108,13 @@ export const DIFF_WEIGHT_COMMUNITY = 0.6
 export const DIFF_WEIGHT_GAP = 0.4
 
 /** 复合分 ≥ 此值 → easy（基础值，实际阈值随定数线性上浮） */
-export const DIFF_COMPOSITE_EASY = 0.65
+export const DIFF_COMPOSITE_EASY = 0.67
 
 /** 复合分 ≥ 此值 → medium（基础值，实际阈值随定数线性上浮） */
-export const DIFF_COMPOSITE_MEDIUM = 0.35
+export const DIFF_COMPOSITE_MEDIUM = 0.38
 
 /** 定数每高于 base 一级，easy/medium 阈值上浮此值 */
-export const DIFF_LEVEL_PENALTY = 0.05
+export const DIFF_LEVEL_PENALTY = 0.06
 
 /** 定数 ≤ 此值时阈值不变（12 级及以下保持基准） */
 export const DIFF_LEVEL_BASE = 12
@@ -139,14 +142,14 @@ export const TARGET_GAP_WELL_BELOW = -0.5
 /** gap ≤ 0（在舒适区内）→ 理论天花板 */
 export const TARGET_GAP_AT_COMFORT = 0
 
-/** gap ≤ 0.5（紧凑伸展，覆盖 pełny 推分区间 mode+0.1→mode+0.5）→ 理论天花板 */
-export const TARGET_GAP_CLOSE = 0.5
+/** gap ≤ 0.3（紧凑伸展）→ 理论天花板 SSS+ */
+export const TARGET_GAP_CLOSE = 0.3
 
-/** gap ≤ 1.0（中度伸展）→ SSS (100.0%) */
-export const TARGET_GAP_MODERATE = 1.0
+/** gap ≤ 0.7（中度伸展）→ SSS (100.0%) */
+export const TARGET_GAP_MODERATE = 0.7
 
-/** gap ≤ 1.5（远伸展）→ SS+ (99.0%)，用于 B50 地板曲目推分 */
-export const TARGET_GAP_FAR = 1.5
+/** gap ≤ 1.2（远伸展）→ SS+ (99.0%) */
+export const TARGET_GAP_FAR = 1.2
 
 /** 超出伸展区外的回退达成率 → SS+ (98.5%) */
 export const TARGET_FALLBACK_ACH = 98.5

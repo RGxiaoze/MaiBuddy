@@ -39,7 +39,7 @@ export default function Changelog() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/changelog.json')
+    fetch(import.meta.env.BASE_URL + 'changelog.json')
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()

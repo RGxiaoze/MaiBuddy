@@ -27,17 +27,17 @@ describe('realisticTargetAch', () => {
   })
 
   it('中度伸展应返回 100.0 (SSS)', () => {
-    // gap = 0.6 (> 0.5, ≤ 1.0) → TARGET_GAP_MODERATE
+    // gap = 0.6 (> 0.3, ≤ 0.7) → TARGET_GAP_MODERATE
     expect(realisticTargetAch(14.6, 14.0)).toBe(100.0)
   })
 
   it('远伸展应返回 99.0 (SS+)', () => {
-    // gap = 1.2 (> 1.0, ≤ 1.5) → TARGET_GAP_FAR
+    // gap = 1.2 (> 0.7, ≤ 1.2) → TARGET_GAP_FAR
     expect(realisticTargetAch(15.2, 14.0)).toBe(99.0)
   })
 
   it('超远应返回 98.5 (SS)', () => {
-    // gap = 1.6 (> 1.5) → fallback
+    // gap = 1.6 (> 1.2) → fallback
     expect(realisticTargetAch(15.6, 14.0)).toBe(98.5)
   })
 
@@ -92,7 +92,7 @@ describe('classifyDifficulty', () => {
     expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14 }, 100.5)).toBe('medium')
   })
 
-  it('大gap(12%)+水分曲(diff=+2.5) → medium（被gap拖低）', () => {
+  it('大gap(12%)+水分曲(diff=+2.5) → medium', () => {
     const s = makeScore({ levelValue: 14.0, achievements: 88.5 })
     expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14 }, 100.5)).toBe('medium')
   })
@@ -118,15 +118,13 @@ describe('classifyDifficulty', () => {
 
   // ---- 定数梯度：高级别阈值更严 ----
 
-  it('14.5 水分曲+小gap(2%) → easy（过 0.775 线）', () => {
+  it('14.5 水分曲+小gap(2%) → medium（阈值上调）', () => {
     const s = makeScore({ levelValue: 14.5, achievements: 98.5 })
-    // composite=0.797, easyThreshold=0.65+0.05×2.5=0.775
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14.5 }, 100.5)).toBe('easy')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14.5 }, 100.5)).toBe('medium')
   })
 
-  it('14.5 平均谱+中gap(6%) → medium（未达 0.775 easy 线）', () => {
+  it('14.5 平均谱+中gap(6%) → medium', () => {
     const s = makeScore({ levelValue: 14.5, achievements: 94.5 })
-    // composite=0.54, easyThreshold=0.775, mediumThreshold=0.475 → medium
     expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.5 }, 100.5)).toBe('medium')
   })
 

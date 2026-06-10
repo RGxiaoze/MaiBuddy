@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useState, useDeferredValue, useRef } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { useSongStore, SORT_OPTIONS } from '@/store/songStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
@@ -12,10 +12,11 @@ import Pagination from '@/components/shared/Pagination'
 import { LEVEL_INDEX_MAP } from '@/data/constants'
 import { VERSION_ORDER, getVersionDisplay } from '@/data/versions'
 import { loginToProber, generateImportToken } from '@/services/divingFishApi'
+import { Settings, Download, Upload, Music, FolderOpen, X } from 'lucide-react'
 import { exportScoresToFile } from '@/utils/exportScores'
 import { importScoresFromFile } from '@/utils/importScores'
 import { getAllScores } from '@/db/database'
-import type { LevelIndex } from '@/types'
+import type { LevelIndex, Song } from '@/types'
 
 const PAGE_SIZE = 50
 
@@ -30,12 +31,17 @@ const LEVEL_PRESETS = [
 
 // ---- Inline: login-to-token form ----
 
-function LoginToGetToken({ onToken }: { onToken: (token: string) => void }) {
-  const [loginUser, setLoginUser] = useState('')
+function LoginToGetToken({ onToken, onLoginAndImport }: { onToken: (token: string) => void; onLoginAndImport: (token: string) => Promise<void> }) {
+  const [loginUser, setLoginUser] = useState(() => {
+    try { return localStorage.getItem('maimai-df-remember-user') || '' } catch { return '' }
+  })
   const [loginPass, setLoginPass] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [loginSuccess, setLoginSuccess] = useState(false)
+  const [remember, setRemember] = useState(() => {
+    try { return localStorage.getItem('maimai-df-remember-user') !== null } catch { return false }
+  })
 
   const handleLogin = useCallback(async () => {
     if (!loginUser.trim() || !loginPass.trim()) return
@@ -45,19 +51,26 @@ function LoginToGetToken({ onToken }: { onToken: (token: string) => void }) {
     try {
       await loginToProber(loginUser.trim(), loginPass)
       const token = await generateImportToken()
-      onToken(token)
       setLoginSuccess(true)
       setLoginPass('')
+      if (remember) {
+        try { localStorage.setItem('maimai-df-remember-user', loginUser.trim()) } catch {}
+      } else {
+        try { localStorage.removeItem('maimai-df-remember-user') } catch {}
+      }
+      // Save token + trigger import
+      onToken(token)
+      await onLoginAndImport(token)
     } catch (err) {
       setLoginError(err instanceof Error ? err.message : '登录失败')
     } finally {
       setLoginLoading(false)
     }
-  }, [loginUser, loginPass, onToken])
+  }, [loginUser, loginPass, onToken, onLoginAndImport, remember])
 
   return (
     <div>
-      <div className="flex gap-2 mb-2">
+      <div className="flex flex-col sm:flex-row gap-2 mb-2">
         <input
           type="text"
           value={loginUser}
@@ -81,11 +94,20 @@ function LoginToGetToken({ onToken }: { onToken: (token: string) => void }) {
                      hover:bg-primary-dark transition-colors cursor-pointer
                      disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
         >
-          {loginLoading ? '登录中...' : '获取 Token'}
+          {loginLoading ? '登录并导入中...' : '登录并导入'}
         </button>
       </div>
+      <label className="flex items-center gap-1.5 mb-2 cursor-pointer text-xs text-text-secondary">
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(e) => setRemember(e.target.checked)}
+          className="w-3.5 h-3.5 rounded border-border cursor-pointer"
+        />
+        记住账号
+      </label>
       {loginLoading && (
-        <p className="text-xs text-text-secondary">正在登录 Diving-Fish 并生成 Import-Token...</p>
+        <p className="text-xs text-text-secondary">正在登录并拉取成绩...</p>
       )}
       {loginError && (
         <p className="text-xs text-error">{loginError}</p>
@@ -112,13 +134,33 @@ export default function SongList() {
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   // ---- Import modal state ----
+  const [searchParams, setSearchParams] = useSearchParams()
   const [showImport, setShowImport] = useState(false)
+  
+  // Auto-open import modal when ?import=1 query param is present
+  useEffect(() => {
+    if (searchParams.get('import') === '1') {
+      setShowImport(true)
+    }
+  }, [searchParams])
+
+  const closeImport = () => {
+    setShowImport(false)
+    if (searchParams.get('import') === '1') {
+      setSearchParams(prev => { prev.delete('import'); return prev }, { replace: true })
+    }
+  }
   const [importToken, setImportToken] = useState(() => {
     try { return localStorage.getItem('maimai-df-import-token') || '' } catch { return '' }
   })
+  const [rememberToken, setRememberToken] = useState(() => {
+    try { return localStorage.getItem('maimai-df-import-token') !== null } catch { return false }
+  })
   const saveImportToken = (token: string) => {
     setImportToken(token)
-    try { localStorage.setItem('maimai-df-import-token', token) } catch { /* quota exceeded */ }
+    if (rememberToken) {
+      try { localStorage.setItem('maimai-df-import-token', token) } catch {}
+    }
   }
   const fetchAllScores = useScoreStore((s) => s.fetchAllScores)
   const [importing, setImporting] = useState(false)
@@ -180,35 +222,51 @@ export default function SongList() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // Precompute display data for current page
+  // Precompute pair map once per full song list (stable across pagination)
+  const pairMap = useMemo(() => {
+    const map = new Map<string, { standard?: Song; dx?: Song }>()
+    for (const s of songs) {
+      const key = `${s.title}|${s.artist}|${s.bpm}`
+      const entry = map.get(key) || {}
+      if (s.difficulties.standard.length > 0) entry.standard = s
+      if (s.difficulties.dx.length > 0) entry.dx = s
+      map.set(key, entry)
+    }
+    return map
+  }, [songs])
+
+  // Precompute display data for current page, including paired song info
   const songDisplayData = useMemo(() => {
     return pagedSongs.map((song) => {
+      const key = `${song.title}|${song.artist}|${song.bpm}`
+      const pair = pairMap.get(key)
+      const hasPair = pair && pair.standard && pair.dx
+
+      // Level labels from this song only (not merged)
       const levelLabels: { idx: LevelIndex; label: string; color: string }[] = []
-      for (const d of song.difficulties.standard) {
+      const diffs = [...song.difficulties.standard, ...song.difficulties.dx]
+      for (const d of diffs) {
         if (d.level && d.level !== '0') {
           const colors = LEVEL_INDEX_MAP[d.levelIndex]
           if (colors) levelLabels.push({ idx: d.levelIndex, label: d.level, color: colors.color })
         }
       }
-      for (const d of song.difficulties.dx) {
-        if (d.level && d.level !== '0') {
-          const colors = LEVEL_INDEX_MAP[d.levelIndex]
-          if (colors) levelLabels.push({ idx: d.levelIndex, label: d.level, color: colors.color })
-        }
-      }
-      return { song, levelLabels }
+      levelLabels.sort((a, b) => a.idx - b.idx)
+
+      return { song, levelLabels, hasPair: !!hasPair, pair }
     })
-  }, [pagedSongs])
+  }, [pagedSongs, pairMap])
 
   // ---- Import handler ----
-  const handleImport = async () => {
-    if (!importToken.trim()) return
+  // Login + direct import (one-click flow)
+  const handleLoginAndImport = useCallback(async (token: string) => {
+    saveImportToken(token)
     setImporting(true)
     setImportError(null)
     setImportResult(null)
     setImportProgress(null)
     try {
-      const stats = await importDivingFishScores(importToken.trim(), (current, total) => {
+      const stats = await importDivingFishScores(token, (current, total) => {
         setImportProgress({ current, total })
       })
       setImportResult(stats)
@@ -217,7 +275,7 @@ export default function SongList() {
     } finally {
       setImporting(false)
     }
-  }
+  }, [importDivingFishScores, saveImportToken])
 
   // ---- Export handler ----
   const handleExport = async () => {
@@ -309,7 +367,9 @@ export default function SongList() {
       {/* Header + search */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-text mb-4">曲目检索</h2>
-        <div className="flex gap-2">
+
+        {/* Desktop toolbar */}
+        <div className="hidden md:flex gap-2">
           <div className="flex-1">
             <SearchBar
               value={searchQuery}
@@ -342,14 +402,14 @@ export default function SongList() {
             className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border transition-colors cursor-pointer
               ${showAdvanced ? 'bg-primary text-white border-primary' : 'bg-surface text-text-secondary border-border hover:border-primary'}`}
           >
-            ⚙ 高级搜索
+            <Settings size={14} className="mr-1" />高级搜索
           </button>
           <button
             onClick={() => setShowImport(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border transition-colors cursor-pointer
                        bg-surface text-text-secondary border-border hover:border-primary"
           >
-            📥 导入成绩
+            <Download size={14} className="mr-1" />导入成绩
           </button>
           <button
             onClick={handleExport}
@@ -358,8 +418,64 @@ export default function SongList() {
                        bg-surface text-text-secondary border-border hover:border-primary
                        disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            📤 导出成绩
+            <Upload size={14} className="mr-1" />导出成绩
           </button>
+        </div>
+
+        {/* Mobile toolbar — search full-width + icon buttons */}
+        <div className="md:hidden space-y-2">
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="搜索曲名、作者、谱师、别名..."
+          />
+          <div className="flex gap-1.5 flex-wrap">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="px-2 py-1.5 rounded-md border border-border bg-surface text-xs text-text-secondary
+                         focus:outline-none focus:border-primary cursor-pointer"
+              title="排序方式"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <button
+              onClick={toggleSortOrder}
+              className="px-2 py-1.5 rounded-md border border-border bg-surface text-xs text-text-secondary
+                         hover:border-primary transition-colors cursor-pointer"
+              title={sortOrder === 'desc' ? '降序 ↓' : '升序 ↑'}
+            >
+              {sortOrder === 'desc' ? '↓' : '↑'}
+            </button>
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className={`px-2 py-1.5 rounded-md text-xs border transition-colors cursor-pointer
+                ${showAdvanced ? 'bg-primary text-white border-primary' : 'bg-surface text-text-secondary border-border hover:border-primary'}`}
+              title="高级搜索"
+            >
+              <Settings size={14} />
+            </button>
+            <button
+              onClick={() => setShowImport(true)}
+              className="px-2 py-1.5 rounded-md text-xs border transition-colors cursor-pointer
+                         bg-surface text-text-secondary border-border hover:border-primary"
+              title="导入成绩"
+            >
+<Download size={14} />
+            </button>
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="px-2 py-1.5 rounded-md text-xs border transition-colors cursor-pointer
+                         bg-surface text-text-secondary border-border hover:border-primary
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+              title="导出成绩"
+            >
+              <Upload size={14} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -477,38 +593,93 @@ export default function SongList() {
       {/* Song list */}
       {filteredSongs.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-16 text-text-secondary">
-          <span className="text-2xl">🎵</span>
+          <Music size={28} className="text-text-tertiary" />
           <p className="text-sm">未找到匹配曲目</p>
         </div>
       ) : (
         <>
           <div className="flex flex-col gap-1.5">
-            {songDisplayData.map(({ song, levelLabels }) => (
+            {songDisplayData.map(({ song, levelLabels, hasPair, pair }) => (
               <button
                 key={song.id}
                 onClick={() => navigate(`/songs/${song.id}`)}
-                className="flex items-center gap-4 p-3 rounded-lg bg-surface border border-border/50
+                className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 rounded-lg bg-surface border border-border/50
                            hover:border-primary hover:shadow-sm transition-all text-left cursor-pointer w-full"
               >
-                {/* Cover thumbnail */}
-                <img
-                  src={song.imageUrl}
-                  alt={song.title}
-                  className="w-12 h-12 rounded object-cover shrink-0 bg-bg-gray"
-                  loading="lazy"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect fill="%23EBEEF3" width="48" height="48"/><text x="24" y="28" text-anchor="middle" fill="%23999" font-size="14">♪</text></svg>'
-                  }}
-                />
+                {/* Mobile: cover + title row, desktop: cover thumbnail inline */}
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <img
+                    src={song.imageUrl}
+                    alt={song.title}
+                    className="w-12 h-12 rounded object-cover shrink-0 bg-bg-gray"
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect fill="%23EBEEF3" width="48" height="48"/><text x="24" y="28" text-anchor="middle" fill="%23999" font-size="14">♪</text></svg>'
+                    }}
+                  />
+                  <div className="sm:hidden flex-1 min-w-0">
+                    <div className="font-medium text-sm text-text truncate">{song.title}</div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {levelLabels.map(({ idx, label, color }) => (
+                        <span
+                          key={idx}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-medium text-white leading-tight"
+                          style={{ backgroundColor: color }}
+                        >
+                          {label}
+                        </span>
+                      ))}
+                      {song.difficulties.standard.length > 0 && (
+                        <span
+                          className={`px-1 py-0.5 rounded text-[9px] leading-tight border border-border/50 shrink-0
+                            ${hasPair ? 'cursor-pointer hover:border-primary' : 'text-text-tertiary bg-surface-light'}`}
+                          onClick={(e) => { if (hasPair && pair?.standard) { e.stopPropagation(); navigate('/songs/' + pair.standard.id) } }}
+                        >标</span>
+                      )}
+                      {song.difficulties.dx.length > 0 && (
+                        <span
+                          className={`px-1 py-0.5 rounded text-[9px] leading-tight shrink-0
+                            ${hasPair ? 'cursor-pointer hover:bg-primary/20' : 'text-primary bg-primary/10'}`}
+                          onClick={(e) => { if (hasPair && pair?.dx) { e.stopPropagation(); navigate('/songs/' + pair.dx.id) } }}
+                        >DX</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
-                {/* Song info */}
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-text truncate">{song.title}</div>
+                {/* Desktop song info (hidden on mobile) */}
+                <div className="hidden sm:block flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-sm text-text truncate">{song.title}</span>
+                    {song.difficulties.standard.length > 0 && (
+                      <span
+                        className={`px-1 py-0.5 rounded text-[9px] leading-tight border border-border/50 shrink-0
+                          ${hasPair ? 'cursor-pointer hover:border-primary' : 'text-text-tertiary bg-surface-light'}`}
+                        onClick={(e) => { if (hasPair && pair?.standard) { e.stopPropagation(); navigate('/songs/' + pair.standard.id) } }}
+                      >标</span>
+                    )}
+                    {song.difficulties.dx.length > 0 && (
+                      <span
+                        className={`px-1 py-0.5 rounded text-[9px] leading-tight shrink-0
+                          ${hasPair ? 'cursor-pointer hover:bg-primary/20' : 'text-primary bg-primary/10'}`}
+                        onClick={(e) => { if (hasPair && pair?.dx) { e.stopPropagation(); navigate('/songs/' + pair.dx.id) } }}
+                      >DX</span>
+                    )}
+                  </div>
                   <div className="text-xs text-text-secondary truncate">{song.artist}</div>
                 </div>
 
-                {/* Difficulty badges + BPM + version */}
-                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                {/* Mobile: artist + metadata row */}
+                <div className="sm:hidden flex items-center gap-2 text-xs text-text-secondary pt-0.5">
+                  <span className="truncate">{song.artist}</span>
+                  <span className="text-text-tertiary">|</span>
+                  <span className="tabular-nums shrink-0">BPM {song.bpm}</span>
+                  <span className="text-text-tertiary">|</span>
+                  <span className="truncate shrink-0">{getVersionDisplay(song.from)}</span>
+                </div>
+
+                {/* Desktop: Difficulty badges + BPM + version */}
+                <div className="hidden sm:flex items-center gap-2 shrink-0 flex-wrap justify-end">
                   <div className="flex gap-1">
                     {levelLabels.map(({ idx, label, color }) => (
                       <span
@@ -521,7 +692,7 @@ export default function SongList() {
                     ))}
                   </div>
                   <span className="text-xs text-text-secondary tabular-nums w-14 text-right">{song.bpm}</span>
-                  <span className="text-[10px] text-text-tertiary w-16 text-right hidden sm:inline">{song.from}</span>
+                  <span className="text-[10px] text-text-tertiary w-16 text-right">{song.from}</span>
                 </div>
               </button>
             ))}
@@ -540,52 +711,70 @@ export default function SongList() {
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowImport(false)}
+            onClick={closeImport}
           />
-
           {/* Modal card */}
-          <div className="relative bg-surface rounded-xl border border-border shadow-lg p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface rounded-xl border border-border shadow-lg p-4 sm:p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto mx-2 sm:mx-0">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-text">导入完整成绩</h3>
+              <h3 className="text-sm sm:text-base font-semibold text-text">导入完整成绩</h3>
               <button
-                onClick={() => setShowImport(false)}
+                onClick={closeImport}
                 className="p-1 rounded text-text-tertiary hover:text-text hover:bg-surface-light transition-colors cursor-pointer border-none bg-transparent"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
-            <p className="text-xs text-text-secondary mb-3">
-              在 Diving-Fish 网站「编辑个人资料」中生成 Import-Token，粘贴到下方即可导入<strong>全部曲目×全部难度</strong>的成绩
+            <p className="text-xs text-text-secondary mb-4">
+              导入 Diving-Fish 的<strong>全部曲目×全部难度</strong>成绩到本地浏览器存储
             </p>
 
-            <div className="flex gap-2">
-              <input
-                type="password"
-                value={importToken}
-                onChange={(e) => saveImportToken(e.target.value)}
-                placeholder="粘贴 Import-Token"
-                className="flex-1 px-3 py-2 rounded-md border border-border text-sm font-mono
-                           focus:outline-none focus:border-primary bg-surface"
-              />
-              <button
-                onClick={handleImport}
-                disabled={importing || !importToken.trim()}
-                className="px-4 py-2 rounded-md bg-primary text-white text-sm font-medium
-                           hover:bg-primary-dark transition-colors cursor-pointer
-                           disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-              >
-                {importing ? '导入中...' : '导入完整成绩'}
-              </button>
+            {/* Auto-login — preferred method */}
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 sm:p-4 mb-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary text-white">推荐</span>
+                <p className="text-xs text-text font-medium">Diving-Fish 账号登录，一步导入</p>
+              </div>
+              <LoginToGetToken onToken={saveImportToken} onLoginAndImport={handleLoginAndImport} />
             </div>
 
-            {/* Auto-login to fetch Import-Token */}
-            <details className="mt-3">
-              <summary className="text-xs text-text-secondary cursor-pointer hover:text-primary transition-colors">
-                或使用 Diving-Fish 账号密码自动获取 Token
-              </summary>
-              <div className="mt-3 pt-3 border-t border-border">
-                <LoginToGetToken onToken={(token) => { saveImportToken(token) }} />
+            {/* Manual Token input — fallback, collapsible */}
+            <details className="text-xs text-text-secondary cursor-pointer group">
+              <summary className="hover:text-primary transition-colors select-none">备用手动导入 — 已有 Import-Token 时使用</summary>
+              <div className="mt-2 pt-2 border-t border-border/50 space-y-2">
+                <p className="text-text-tertiary">在 Diving-Fish 网站「编辑个人资料」中生成 Token 后粘贴到下方</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="password"
+                    value={importToken}
+                    onChange={(e) => saveImportToken(e.target.value)}
+                    placeholder="粘贴 Import-Token"
+                    className="flex-1 px-3 py-2 rounded-md border border-border text-sm font-mono
+                               focus:outline-none focus:border-primary bg-surface"
+                  />
+                  <button
+                    onClick={() => handleLoginAndImport(importToken.trim())}
+                    disabled={importing || !importToken.trim()}
+                    className="px-4 py-2 rounded-md bg-surface border border-border text-text-secondary text-sm font-medium
+                               hover:border-primary hover:text-primary transition-colors cursor-pointer
+                               disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {importing ? '导入中...' : '导入'}
+                  </button>
+                </div>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberToken}
+                    onChange={(e) => {
+                      setRememberToken(e.target.checked)
+                      if (!e.target.checked) { try { localStorage.removeItem('maimai-df-import-token') } catch {} }
+                      else if (importToken.trim()) { try { localStorage.setItem('maimai-df-import-token', importToken.trim()) } catch {} }
+                    }}
+                    className="w-3.5 h-3.5 rounded border-border cursor-pointer"
+                  />
+                  记住 Token
+                </label>
               </div>
             </details>
 
@@ -658,7 +847,7 @@ export default function SongList() {
                            hover:border-primary hover:text-primary transition-colors cursor-pointer
                            disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {fileImporting ? '导入中...' : '📂 选择备份文件'}
+                {fileImporting ? '导入中...' : <><FolderOpen size={14} className="mr-1 inline" />选择备份文件</>}
               </button>
 
               {fileImportResult && (

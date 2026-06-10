@@ -15,6 +15,8 @@ export interface LevelDistEntry {
 export interface AchievementMetrics {
   apCount: number
   sssPlusCount: number
+  /** 已获 AP 带来的 Rating 加成（每个 AP +1） */
+  apRatingBonus: number
   /** Rating progress as percentage (0–100) */
   ratingProgress: number
   /** Per-level-tier distribution (always 4 tiers) */
@@ -59,5 +61,5 @@ export function computeAchievementMetrics(
     return { range, avgAch, count: bucket.length }
   })
 
-  return { apCount, sssPlusCount, ratingProgress, levelDist }
+  return { apCount, sssPlusCount, apRatingBonus: apCount, ratingProgress, levelDist }
 }
