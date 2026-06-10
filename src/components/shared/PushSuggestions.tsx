@@ -300,17 +300,17 @@ function SuggestionSection({
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="tabular-nums font-medium">{item.levelValue.toFixed(1)}</span>
-                      <span className="tabular-nums text-text-secondary">
-                        {item.precision === 'estimated' ? `估 ${item.currentAchievements.toFixed(1)}%` : `${item.currentAchievements.toFixed(1)}%`}
+                      <span className="tabular-nums font-medium" style={{ color: item.levelValue >= 14.5 ? '#DC2626' : item.levelValue >= 13.5 ? '#D97706' : item.levelValue >= 12 ? '#5BA4CF' : '#22C55E' }}>{item.levelValue.toFixed(1)}</span>
+                      <span className="tabular-nums">
+                        {item.precision === 'estimated' ? <><span className="text-text-secondary">估 </span>{item.currentAchievements.toFixed(1)}%</> : `${item.currentAchievements.toFixed(1)}%`}
                       </span>
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: diff.color + '20', color: diff.color }}>{diff.label}</span>
                       <span className="px-1 py-0.5 rounded text-[9px] font-medium" style={{ backgroundColor: configTag.color + '20', color: configTag.color }} title={configTag.desc}>{configTag.label}</span>
                     </div>
                     <div className="flex gap-3 text-xs">
                       {item.gains.map((gain, gi) => (
-                        <span key={gi} className="text-text-secondary" title={`目标 ${gain.targetAch}% → 增益 +${gain.ratingGain}`}>
-                          <span className="font-medium text-text">{gain.ratingGain > 0 ? `+${gain.ratingGain}` : '—'}</span>
+                        <span key={gi} className={gain.ratingGain > 0 ? 'text-success' : 'text-text-secondary'} title={`目标 ${gain.targetAch}% → 增益 +${gain.ratingGain}`}>
+                          <span className={`font-medium ${gain.ratingGain > 0 ? 'text-success' : 'text-text'}`}>{gain.ratingGain > 0 ? `+${gain.ratingGain}` : '—'}</span>
                           <span className="text-[10px] ml-0.5">{['SS+ 99%', 'SSS 100%', 'SSS+ 100.5%'][gi]}</span>
                         </span>
                       ))}
@@ -378,17 +378,17 @@ function PushRow({ item, index, faded }: { item: PushSuggestion; index: number; 
           </span>
         )}
       </td>
-      <td className="py-1.5 px-1 text-center tabular-nums font-medium">{item.levelValue.toFixed(1)}</td>
-      <td className="py-1.5 px-1 text-right tabular-nums text-text-secondary whitespace-nowrap">
+      <td className="py-1.5 px-1 text-center tabular-nums font-medium" style={{ color: item.levelValue >= 14.5 ? '#DC2626' : item.levelValue >= 13.5 ? '#D97706' : item.levelValue >= 12 ? '#5BA4CF' : '#22C55E' }}>{item.levelValue.toFixed(1)}</td>
+      <td className="py-1.5 px-1 text-right tabular-nums whitespace-nowrap">
         {item.precision === 'estimated'
-          ? `估 ${item.currentAchievements.toFixed(1)}%`
+          ? <><span className="text-text-secondary">估 </span>{item.currentAchievements.toFixed(1)}%</>
           : `${item.currentAchievements.toFixed(1)}%`
         }
       </td>
       {item.gains.map((gain, idx) => (
         <td
           key={idx}
-          className="py-1.5 px-1 text-right tabular-nums text-text-secondary"
+          className={`py-1.5 px-1 text-right tabular-nums font-medium ${gain.ratingGain > 0 ? 'text-success' : 'text-text-secondary'}`}
           title={`目标达成率 ${gain.targetAch}% → Rating ${gain.targetRating}（增益 +${gain.ratingGain}）`}
         >
           {gain.ratingGain > 0 ? `+${gain.ratingGain}` : '—'}
