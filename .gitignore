@@ -32,4 +32,5 @@ public/docs-index.json
 .worktrees/
 *.adx
 *.zip
+charts/
 参考谱面/
