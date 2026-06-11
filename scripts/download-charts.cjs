@@ -8,7 +8,7 @@ const fs = require('fs')
 const path = require('path')
 const https = require('https')
 
-const CHART_DIR = path.resolve(__dirname, '..', 'charts')
+const CHART_DIR = path.resolve(__dirname, '..', '参考谱面')
 const LXNS_BASE = 'https://assets2.lxns.net/maimai/chart'
 const CONCURRENT = 5
 
