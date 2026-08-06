@@ -8,40 +8,21 @@ import { Target, Download, Upload, Trash2, Plus } from 'lucide-react'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
-import { LEVEL_INDEX_MAP, LEVEL_LABELS } from '@/data/constants'
-import { FC_LABELS, FS_LABELS, RATE_DISPLAY } from '@/data/constants'
-import { computeDxStar, renderStars } from '@/utils/dxStar'
+import { LEVEL_INDEX_MAP } from '@/data/constants'
+import { FC_LABELS, FS_LABELS } from '@/data/constants'
+import { computeDxStar } from '@/utils/dxStar'
 import PushSuggestions from '@/components/shared/PushSuggestions'
 import QuickScoreEntry from '@/components/shared/QuickScoreEntry'
 import { exportScoresToFile } from '@/utils/exportScores'
 import NextTargetPanel from '@/components/shared/NextTargetPanel'
+import GradeBadge from '@/components/shared/GradeBadge'
+import DxStars from '@/components/shared/DxStars'
 import ScoreOverviewCards from '@/components/shared/ScoreOverviewCards'
 import { generateStrategy } from '@/utils/strategy'
 import { computeTheoreticalMaxBoth } from '@/utils/b50'
 import type { LevelIndex, Song } from '@/types'
 import type { B50Result } from '@/utils/b50'
 import type { ScoreRecord } from '@/db/database'
-
-/** 评级色块（社区 B50 图风格：背景色块 + 白字） */
-function GradeBlock({ rate }: { rate: string }) {
-  const colors: Record<string, { bg: string; text?: string }> = {
-    sssp: { bg: '#B8860B' },  // 金（SSS+）
-    sss: { bg: '#C62828' },   // 红（SSS）
-    ssp: { bg: '#E65100' },   // 橙（SS+）
-    ss: { bg: '#E65100' },
-    sp: { bg: '#1565C0' },    // 蓝（S+）
-    s: { bg: '#1565C0' },
-  }
-  const c = colors[rate] || { bg: '#37474F' }
-  return (
-    <span
-      className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold text-white tabular-nums"
-      style={{ backgroundColor: c.bg }}
-    >
-      {RATE_DISPLAY[rate as import('@/types').RateType] ?? rate}
-    </span>
-  )
-}
 
 function B50Row({ index, levelIndex, level, title, achievements, rate, dxRating, fcType, fsType, dxScore, totalNotes, songId }: {
   index: number
@@ -53,13 +34,13 @@ function B50Row({ index, levelIndex, level, title, achievements, rate, dxRating,
   return (
     <div className="grid grid-cols-subgrid col-span-full items-center p-2.5 rounded bg-bg-gray text-sm">
       <span className="text-xs text-text-secondary tabular-nums justify-self-center">{index}</span>
-      <span className="px-1.5 py-0.5 rounded text-[11px] font-medium text-white justify-self-center" style={{ backgroundColor: levelColors.color }}>{LEVEL_LABELS[levelIndex as LevelIndex]}</span>
-      <span className="text-xs font-medium text-text-secondary justify-self-center" style={{ color: levelColors.color }}>{level}</span>
+      {/* 难度整合进颜色：彩色徽章内为定数，颜色代表难度等级（同曲目搜索页） */}
+      <span className="px-1.5 py-0.5 rounded text-[11px] font-medium text-white justify-self-center tabular-nums" style={{ backgroundColor: levelColors.color }}>{level}</span>
       <Link to={"/songs/" + songId} className="truncate font-medium hover:text-primary hover:underline">{title}</Link>
       <span className="tabular-nums font-medium justify-self-end">{achievements.toFixed(4)}%</span>
-      <span className="justify-self-center"><GradeBlock rate={rate} /></span>
+      <span className="justify-self-center"><GradeBadge rate={rate as import('@/types').RateType} /></span>
       <span className="text-xs">{fcType && <span className="text-success font-medium">{FC_LABELS[fcType]}</span>}{fsType && <span className="text-success font-medium ml-1">{FS_LABELS[fsType]}</span>}</span>
-      <span className="text-xs text-text-secondary justify-self-end tabular-nums" title={dxStar ? `DX ${dxScore}/${dxStar.maxDxScore}` : undefined}>{dxStar ? <>{renderStars(dxStar.stars) || '☆'} {dxStar.ratio.toFixed(2)}%</> : null}</span>
+      <span className="justify-self-end" title={dxStar ? `DX ${dxScore}/${dxStar.maxDxScore} (${dxStar.ratio.toFixed(2)}%)` : undefined}>{dxStar ? <DxStars stars={dxStar.stars} /> : null}</span>
       <span className="tabular-nums font-semibold text-xs justify-self-end">{dxRating}</span>
     </div>
   )
@@ -77,16 +58,16 @@ function B50MobileCard({ index, isNew, levelIndex, level, title, achievements, r
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-xs text-text-secondary tabular-nums shrink-0">{index}</span>
         <span className="px-1 py-0.5 rounded text-[9px] font-medium text-white shrink-0" style={{ backgroundColor: isNew ? '#B8A0E8' : '#5BA4CF' }}>{isNew ? '新' : '旧'}</span>
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium text-white shrink-0" style={{ backgroundColor: levelColors.color }}>{LEVEL_LABELS[levelIndex as LevelIndex]}</span>
-        <span className="text-xs font-medium shrink-0" style={{ color: levelColors.color }}>{level}</span>
+        {/* 难度整合进颜色：彩色徽章内为定数 */}
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium text-white shrink-0 tabular-nums" style={{ backgroundColor: levelColors.color }}>{level}</span>
         <Link to={`/songs/${songId}`} className="text-sm font-medium truncate hover:text-primary hover:underline min-w-0">{title}</Link>
       </div>
       <div className="flex items-center gap-2 text-xs flex-wrap">
         <span className="tabular-nums font-medium">{achievements.toFixed(4)}%</span>
-        <GradeBlock rate={rate} />
+        <GradeBadge rate={rate as import('@/types').RateType} />
         {fcType && <span className="text-success font-medium">{FC_LABELS[fcType]}</span>}
         {fsType && <span className="text-success font-medium">{FS_LABELS[fsType]}</span>}
-        {dxStar && <span className="text-text-secondary tabular-nums text-[11px]">{renderStars(dxStar.stars) || '☆'} {dxStar.ratio.toFixed(2)}%</span>}
+        {dxStar && <DxStars stars={dxStar.stars} />}
         <span className="tabular-nums font-semibold ml-auto">{dxRating}</span>
       </div>
     </div>
