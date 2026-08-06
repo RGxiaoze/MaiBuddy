@@ -8,7 +8,8 @@ import { Target, ClipboardList, BarChart3 } from 'lucide-react'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
 import { usePlayerStore } from '@/store/playerStore'
-import { computeChartDimensions, computeChartDimensionsRaw, computePlayerDimensions, type DimensionScores } from '@/utils/dimensions'
+import { computeChartDimensions, computePlayerDimensions, type DimensionScores } from '@/utils/dimensions'
+import { loadFeatures, getChartFeatures, getChartFeaturesRaw, isFeaturesLoaded } from '@/services/featureService'
 import { analyzeWeakness } from '@/utils/weaknessAnalysis'
 import { computeAchievementMetrics } from '@/utils/achievementMetrics'
 import { computeTheoreticalMaxBoth } from '@/utils/b50'
@@ -45,43 +46,63 @@ export default function DimensionAnalysis() {
   const [kb, setKb] = useState<KnowledgeBase | null>(null)
   useEffect(() => { loadKB().then(setKb) }, [])
 
+  // Load simai features — with reactive state to trigger chart dimension recompute
+  const [featuresReady, setFeaturesReady] = useState(isFeaturesLoaded())
+  useEffect(() => {
+    if (!isFeaturesLoaded()) {
+      loadFeatures().then(() => setFeaturesReady(true)).catch(() => {})
+    }
+  }, [])
+
   // Build chart dimension map (normalized + raw)
   const chartDimensions = useMemo(() => {
     const map = new Map<string, DimensionScores>()
     for (const song of songs) {
       if (!song?.difficulties) continue
+      const isDx = !!(song.difficulties as any).dx
       const allDiffs: ChartDifficulty[] = [...(song.difficulties.standard || []), ...(song.difficulties.dx || [])]
       for (const diff of allDiffs) {
         if (!diff || diff.levelValue <= 0) continue
         const key = `${song.id}-${diff.levelIndex}`
         try {
-          map.set(key, computeChartDimensions(diff, song.bpm))
+          // Try pre-computed features first; fall back to old method
+          const features = getChartFeatures(song.title, diff.levelIndex, song.id, isDx)
+          if (features) {
+            map.set(key, features)
+          } else {
+            map.set(key, computeChartDimensions(diff, song.bpm))
+          }
         } catch {
           // Skip charts with invalid note data
         }
       }
     }
     return map
-  }, [songs])
+  }, [songs, featuresReady])
 
   // Build raw dimension map (for topCharts selection)
   const chartRawDimensions = useMemo(() => {
     const map = new Map<string, DimensionScores>()
     for (const song of songs) {
       if (!song?.difficulties) continue
+      const isDx = !!(song.difficulties as any).dx
       const allDiffs: ChartDifficulty[] = [...(song.difficulties.standard || []), ...(song.difficulties.dx || [])]
       for (const diff of allDiffs) {
         if (!diff || diff.levelValue <= 0) continue
         const key = `${song.id}-${diff.levelIndex}`
         try {
-          map.set(key, computeChartDimensionsRaw(diff, song.bpm))
+          // Use features raw when available; skip old method to prevent scale mixing
+          const featuresRaw = getChartFeaturesRaw(song.title, diff.levelIndex, song.id, isDx)
+          if (featuresRaw) {
+            map.set(key, featuresRaw)
+          }
         } catch {
           // Skip
         }
       }
     }
     return map
-  }, [songs])
+  }, [songs, featuresReady])
 
   // Compute player dimensions
   const playerDims = useMemo(() => {
