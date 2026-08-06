@@ -1401,6 +1401,18 @@ async function main() {
   fs.writeFileSync(outPath, JSON.stringify(output, null, 2), 'utf-8')
   console.log(`Output written to ${outPath}`)
 
+  // Write jacket map: normalized title → LXNS musicId (for 曲绘 URL)
+  const jacketMap: Record<string, number> = {}
+  for (const [key, entry] of allEntries) {
+    if (entry.musicId) {
+      const clean = entry.title.replace(/\s*\[(SD|DX)\]\s*/g, '').trim().toLowerCase()
+      if (!(clean in jacketMap)) jacketMap[clean] = entry.musicId
+    }
+  }
+  const jacketPath = path.join(outDir, 'jacket-map.json')
+  fs.writeFileSync(jacketPath, JSON.stringify(jacketMap), 'utf-8')
+  console.log(`Jacket map written to ${jacketPath} (${Object.keys(jacketMap).length} entries)`)
+
   // Write error log
   if (errors.length > 0) {
     const errPath = path.resolve('scripts/extract-errors.log')
