@@ -34,3 +34,4 @@ public/docs-index.json
 *.zip
 charts/
 参考谱面/
+public/data/simai_features.json
