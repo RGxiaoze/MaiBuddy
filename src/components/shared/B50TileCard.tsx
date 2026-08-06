@@ -55,9 +55,9 @@ export default function B50TileCard({
       className="flex flex-col gap-1.5 p-2 rounded-lg bg-bg-gray hover:bg-surface-light transition-colors no-underline min-w-0"
     >
       {/* 曲绘（顶部） */}
-      <div className="w-full aspect-square rounded-md overflow-hidden shrink-0 bg-surface-light flex items-center justify-center">
+      <div className="w-full aspect-square rounded-md overflow-hidden shrink-0 flex items-center justify-center" style={{ backgroundColor: imgError || !jacketSrc ? (levelColors.color + '22') : undefined }}>
         {imgError || !jacketSrc ? (
-          <span className="text-[8px] text-text-tertiary">无曲绘</span>
+          <span className="text-lg font-bold" style={{ color: levelColors.color }}>{title.charAt(0)}</span>
         ) : (
           <img
             src={jacketSrc}
