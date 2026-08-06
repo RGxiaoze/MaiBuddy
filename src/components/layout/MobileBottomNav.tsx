@@ -3,11 +3,12 @@
 // ============================================================
 
 import { NavLink } from 'react-router'
-import { Music, User, BarChart3 } from 'lucide-react'
+import { Music, User, BarChart3, Sparkles } from 'lucide-react'
 
 const tabs = [
   { to: '/songs',    label: '曲目',   Icon: Music },
-  { to: '/player',   label: 'B50',    Icon: User },
+  { to: '/player',   label: '成绩',   Icon: User },
+  { to: '/recommend', label: '推荐',   Icon: Sparkles },
   { to: '/analysis', label: '分析',   Icon: BarChart3 },
 ]
 

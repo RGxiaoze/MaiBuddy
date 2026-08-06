@@ -16,6 +16,7 @@ const SongList = lazy(() => import('@/pages/SongList'))
 const SongDetail = lazy(() => import('@/pages/SongDetail'))
 const PlayerInfo = lazy(() => import('@/pages/PlayerInfo'))
 const DimensionAnalysis = lazy(() => import('@/pages/DimensionAnalysis'))
+const Recommend = lazy(() => import('@/pages/Recommend'))
 const Guide = lazy(() => import('@/pages/Guide'))
 const Changelog = lazy(() => import('@/pages/Changelog'))
 const Docs = lazy(() => import('@/pages/Docs'))
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/songs/:songId" element={<Suspense fallback={<PageLoader />}><SongDetail /></Suspense>} />
           <Route path="/player" element={<Suspense fallback={<PageLoader />}><ErrorBoundary title="B50 一览页面渲染出错"><PlayerInfo /></ErrorBoundary></Suspense>} />
           <Route path="/analysis" element={<Suspense fallback={<PageLoader />}><ErrorBoundary title="五维分析页面渲染出错"><DimensionAnalysis /></ErrorBoundary></Suspense>} />
+          <Route path="/recommend" element={<Suspense fallback={<PageLoader />}><ErrorBoundary title="推荐页面渲染出错"><Recommend /></ErrorBoundary></Suspense>} />
           <Route path="/guide" element={<Suspense fallback={<PageLoader />}><Guide /></Suspense>} />
           <Route path="/changelog" element={<Suspense fallback={<PageLoader />}><Changelog /></Suspense>} />
           <Route path="/docs" element={<Suspense fallback={<PageLoader />}><Docs /></Suspense>} />

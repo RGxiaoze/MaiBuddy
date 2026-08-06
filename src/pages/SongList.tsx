@@ -12,10 +12,8 @@ import Pagination from '@/components/shared/Pagination'
 import { LEVEL_INDEX_MAP } from '@/data/constants'
 import { VERSION_ORDER, getVersionDisplay } from '@/data/versions'
 import { loginToProber, generateImportToken } from '@/services/divingFishApi'
-import { Settings, Download, Upload, Music, FolderOpen, X } from 'lucide-react'
-import { exportScoresToFile } from '@/utils/exportScores'
+import { Settings, Music, FolderOpen, X } from 'lucide-react'
 import { importScoresFromFile } from '@/utils/importScores'
-import { getAllScores } from '@/db/database'
 import type { LevelIndex, Song } from '@/types'
 
 const PAGE_SIZE = 50
@@ -187,7 +185,6 @@ export default function SongList() {
   const [importResult, setImportResult] = useState<{
     total: number; imported: number; updated: number; skipped: number; nickname: string
   } | null>(null)
-  const [exporting, setExporting] = useState(false)
   const [fileImporting, setFileImporting] = useState(false)
   const [fileImportResult, setFileImportResult] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -303,16 +300,7 @@ export default function SongList() {
     }
   }, [importDivingFishScores, saveImportToken])
 
-  // ---- Export handler ----
-  const handleExport = async () => {
-    setExporting(true)
-    try {
-      const scores = await getAllScores()
-      exportScoresToFile(scores)
-    } finally {
-      setExporting(false)
-    }
-  }
+  // ---- (Export moved to B50 page toolbar & sidebar user menu) ----
 
   // ---- File import handler ----
   const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -430,22 +418,6 @@ export default function SongList() {
           >
             <Settings size={14} className="mr-1" />高级搜索
           </button>
-          <button
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border transition-colors cursor-pointer
-                       bg-surface text-text-secondary border-border hover:border-primary"
-          >
-            <Download size={14} className="mr-1" />导入成绩
-          </button>
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border transition-colors cursor-pointer
-                       bg-surface text-text-secondary border-border hover:border-primary
-                       disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Upload size={14} className="mr-1" />导出成绩
-          </button>
         </div>
 
         {/* Mobile toolbar — search full-width + icon buttons */}
@@ -482,24 +454,6 @@ export default function SongList() {
               title="高级搜索"
             >
               <Settings size={14} />
-            </button>
-            <button
-              onClick={() => setShowImport(true)}
-              className="px-2 py-1.5 rounded-md text-xs border transition-colors cursor-pointer
-                         bg-surface text-text-secondary border-border hover:border-primary"
-              title="导入成绩"
-            >
-<Download size={14} />
-            </button>
-            <button
-              onClick={handleExport}
-              disabled={exporting}
-              className="px-2 py-1.5 rounded-md text-xs border transition-colors cursor-pointer
-                         bg-surface text-text-secondary border-border hover:border-primary
-                         disabled:opacity-50 disabled:cursor-not-allowed"
-              title="导出成绩"
-            >
-              <Upload size={14} />
             </button>
           </div>
         </div>

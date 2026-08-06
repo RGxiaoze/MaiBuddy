@@ -1,10 +1,14 @@
 // ============================================================
-// User info card — sidebar player status widget
+// UserInfoCard — sidebar player status + score management menu
+// 点击用户名 → 成绩管理菜单（导入/导出/清除/查看 B50）
 // ============================================================
 
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { usePlayerStore } from '@/store/playerStore'
-import { User } from 'lucide-react'
+import { useScoreStore } from '@/store/scoreStore'
+import { exportScoresToFile } from '@/utils/exportScores'
+import { User, Download, Upload, Trash2, BarChart3, ChevronDown } from 'lucide-react'
 
 interface UserInfoCardProps {
   collapsed: boolean
@@ -12,39 +16,72 @@ interface UserInfoCardProps {
 
 export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
   const navigate = useNavigate()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const playerName = usePlayerStore((s) => s.dfPlayerName)
   const playerRating = usePlayerStore((s) => s.dfRating)
   const localB50 = usePlayerStore((s) => s.localB50)
+  const scores = useScoreStore((s) => s.scores)
+  const clearAllScores = useScoreStore((s) => s.clearAllScores)
 
-  // Priority: localB50 totalRating → dfRating → unauthenticated
   const hasLocalData = localB50 && localB50.totalRating > 0
   const hasOnlineData = !!playerName
   const isLoggedIn = hasLocalData || hasOnlineData
 
   const displayRating = hasLocalData ? localB50!.totalRating : playerRating
-  const displayName = hasLocalData
-    ? playerName || '本地玩家'
-    : playerName
+  const displayName = hasLocalData ? playerName || '本地玩家' : playerName
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuOpen])
+
+  const handleExport = async () => {
+    setMenuOpen(false)
+    if (scores.length === 0) {
+      alert('暂无本地成绩可导出')
+      return
+    }
+    await exportScoresToFile(scores)
+  }
+
+  const handleClear = async () => {
+    setMenuOpen(false)
+    if (!window.confirm(`确定清除全部 ${scores.length} 条本地成绩？此操作不可撤销。`)) return
+    await clearAllScores()
+    usePlayerStore.setState({ localB50: null })
+  }
+
+  const menuItems = [
+    { label: '导入成绩', desc: 'Diving-Fish 账号 / Token / 备份文件', Icon: Download, onClick: () => { setMenuOpen(false); navigate('/songs?import=1') } },
+    { label: '导出成绩', desc: '导出为 JSON 备份文件', Icon: Upload, onClick: handleExport },
+    { label: '查看 B50', desc: '本地成绩与在线查分', Icon: BarChart3, onClick: () => { setMenuOpen(false); navigate('/player') } },
+    { label: '清除本地成绩', desc: `共 ${scores.length} 条，不可撤销`, Icon: Trash2, danger: true, onClick: handleClear },
+  ]
 
   // Collapsed: compact icon view
   if (collapsed) {
     if (isLoggedIn) {
       return (
-        <div
-          className="flex justify-center py-3 border-b border-border"
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="flex justify-center py-3 border-b border-border w-full cursor-pointer border-none bg-transparent hover:bg-surface-light transition-colors relative"
           title={`${displayName} · Rating ${displayRating}`}
         >
-          <span className="text-xs font-bold text-primary tabular-nums">
-            {displayRating}
-          </span>
-        </div>
+          <span className="text-xs font-bold text-primary tabular-nums">{displayRating}</span>
+          {menuOpen && <MenuPanel items={menuItems} ref={menuRef} />}
+        </button>
       )
     }
     return (
       <button
         onClick={() => navigate('/songs?import=1')}
-        className="flex justify-center py-3 border-b border-border w-full cursor-pointer border-none bg-transparent
-                   hover:bg-surface-light transition-colors"
+        className="flex justify-center py-3 border-b border-border w-full cursor-pointer border-none bg-transparent hover:bg-surface-light transition-colors"
         title="导入完整成绩"
       >
         <span className="text-sm"><User size={18} /></span>
@@ -52,22 +89,31 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
     )
   }
 
-  // Expanded: full card
+  // Expanded: full card with management menu
   return (
-    <div className="px-4 py-3 border-b border-border">
+    <div className="px-4 py-3 border-b border-border relative" ref={menuRef}>
       {isLoggedIn ? (
-        <div className="flex flex-col gap-0.5">
-          <div className="text-sm font-medium text-text truncate">{displayName}</div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-xs text-text-secondary">Rating</span>
-            <span className="text-base font-bold text-primary tabular-nums">{displayRating}</span>
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="w-full text-left cursor-pointer border-none bg-transparent p-0 hover:opacity-80 transition-opacity"
+          title="成绩管理"
+        >
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-text truncate">{displayName}</span>
+              <ChevronDown size={12} className={`text-text-tertiary transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xs text-text-secondary">Rating</span>
+              <span className="text-base font-bold text-primary tabular-nums">{displayRating}</span>
+            </div>
+            <span className="text-[10px] text-text-tertiary mt-0.5">{scores.length} 条本地成绩 · 点击管理</span>
           </div>
-        </div>
+        </button>
       ) : (
         <button
           onClick={() => navigate('/songs?import=1')}
-          className="w-full text-left cursor-pointer border-none bg-transparent p-0
-                     hover:opacity-80 transition-opacity"
+          className="w-full text-left cursor-pointer border-none bg-transparent p-0 hover:opacity-80 transition-opacity"
         >
           <div className="flex items-center gap-2">
             <span className="text-sm"><User size={18} /></span>
@@ -78,6 +124,33 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
           </div>
         </button>
       )}
+
+      {menuOpen && isLoggedIn && <MenuPanel items={menuItems} ref={menuRef} />}
     </div>
   )
 }
+
+/** Dropdown menu panel for score management */
+const MenuPanel = ({ items, ref }: {
+  items: Array<{ label: string; desc: string; Icon: typeof Download; danger?: boolean; onClick: () => void }>
+  ref: React.Ref<HTMLDivElement>
+}) => (
+  <div
+    ref={ref}
+    className="absolute left-3 right-3 top-full mt-1 z-50 bg-surface border border-border rounded-lg shadow-lg py-1 overflow-hidden"
+  >
+    {items.map(({ label, desc, Icon, danger, onClick }) => (
+      <button
+        key={label}
+        onClick={onClick}
+        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left cursor-pointer border-none bg-transparent transition-colors hover:bg-surface-light ${danger ? 'text-error' : 'text-text'}`}
+      >
+        <Icon size={15} className={danger ? 'text-error' : 'text-text-secondary'} />
+        <span className="flex-1 min-w-0">
+          <span className="block text-xs font-medium">{label}</span>
+          <span className={`block text-[10px] truncate ${danger ? 'text-error/70' : 'text-text-tertiary'}`}>{desc}</span>
+        </span>
+      </button>
+    ))}
+  </div>
+)

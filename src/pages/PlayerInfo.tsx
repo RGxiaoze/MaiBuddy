@@ -3,8 +3,8 @@
 // ============================================================
 
 import { useEffect, useState, useMemo } from 'react'
-import { Link } from 'react-router'
-import { Target } from 'lucide-react'
+import { Link, useNavigate } from 'react-router'
+import { Target, Download, Upload, Trash2, Plus } from 'lucide-react'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
@@ -13,6 +13,10 @@ import GradeBadge from '@/components/shared/GradeBadge'
 import { FC_LABELS, FS_LABELS } from '@/data/constants'
 import { computeDxStar, renderStars } from '@/utils/dxStar'
 import PushSuggestions from '@/components/shared/PushSuggestions'
+import QuickScoreEntry from '@/components/shared/QuickScoreEntry'
+import { exportScoresToFile } from '@/utils/exportScores'
+import NextTargetPanel from '@/components/shared/NextTargetPanel'
+import ScoreOverviewCards from '@/components/shared/ScoreOverviewCards'
 import { generateStrategy } from '@/utils/strategy'
 import { computeTheoreticalMaxBoth } from '@/utils/b50'
 import type { LevelIndex, Song } from '@/types'
@@ -81,8 +85,6 @@ function StrategyPanel({ b50, scores, songs, theoreticalMax }: {
 
 export default function PlayerInfo() {
   const [activeTab, setActiveTab] = useState<'online' | 'local'>('local')
-  const [clearConfirming, setClearConfirming] = useState(false)
-  const [clearing, setClearing] = useState(false)
   const [b15Collapsed, setB15Collapsed] = useState(true)
   const [b35Collapsed, setB35Collapsed] = useState(true)
   const [dfB15Collapsed, setDfB15Collapsed] = useState(true)
@@ -92,6 +94,8 @@ export default function PlayerInfo() {
   const { songs, fetchSongs } = useSongStore()
   const { dfBest35, dfBest15, dfRating, dfLoading, dfError, dfPlayerName, queryPlayer, clearQuery, localB50, computeLocalB50, recomputeFlag } = usePlayerStore()
   const [username, setUsername] = useState(dfPlayerName)
+  const [showQuickEntry, setShowQuickEntry] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => { if (songs.length === 0) fetchSongs(); if (!scoresLoaded) fetchAllScores() }, [])
   useEffect(() => { if (scores.length > 0 && songs.length > 0) computeLocalB50() }, [scores.length, songs.length, recomputeFlag])
@@ -116,15 +120,47 @@ export default function PlayerInfo() {
 
   const handleQuery = () => { if (username.trim()) queryPlayer(username.trim()) }
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleQuery() }
-  const handleClearScores = async () => { setClearing(true); await clearAllScores(); usePlayerStore.setState({ localB50: null }); setClearing(false); setClearConfirming(false) }
+  const handleClearScores = async () => { await clearAllScores(); usePlayerStore.setState({ localB50: null }) }
+
+  const handleClearScoresWithConfirm = () => {
+    if (scores.length === 0) { alert('暂无本地成绩可清除'); return }
+    if (!window.confirm(`确定清除全部 ${scores.length} 条本地成绩？此操作不可撤销。`)) return
+    handleClearScores()
+  }
+
+  const handleExport = async () => {
+    if (scores.length === 0) { alert('暂无本地成绩可导出'); return }
+    await exportScoresToFile(scores)
+  }
 
   return (
     <div className="max-w-4xl">
-      <h2 className="text-lg font-semibold text-text mb-4">B50 一览</h2>
+      <h2 className="text-lg font-semibold text-text mb-4">成绩统计</h2>
 
-      <div className="flex gap-1 mb-4">
-        <button onClick={() => setActiveTab('local')} className={`px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors border-none ${activeTab === 'local' ? 'bg-primary text-white' : 'bg-bg-gray text-text-secondary hover:bg-primary/10'}`}>本地成绩</button>
-        <button onClick={() => setActiveTab('online')} className={`px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors border-none ${activeTab === 'online' ? 'bg-primary text-white' : 'bg-bg-gray text-text-secondary hover:bg-primary/10'}`}><span className="sm:hidden">在线查分</span><span className="hidden sm:inline">Diving-Fish 查分</span></button>
+      {/* 成绩总览卡（Rating 进度 / 完成度 / 定数分布） */}
+      <ScoreOverviewCards />
+
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex gap-1">
+          <button onClick={() => setActiveTab('local')} className={`px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors border-none ${activeTab === 'local' ? 'bg-primary text-white' : 'bg-bg-gray text-text-secondary hover:bg-primary/10'}`}>本地成绩</button>
+          <button onClick={() => setActiveTab('online')} className={`px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors border-none ${activeTab === 'online' ? 'bg-primary text-white' : 'bg-bg-gray text-text-secondary hover:bg-primary/10'}`}><span className="sm:hidden">在线查分</span><span className="hidden sm:inline">Diving-Fish 查分</span></button>
+        </div>
+
+        {/* 成绩管理工具栏 */}
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setShowQuickEntry(true)} className="px-2.5 py-1.5 rounded-md bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors cursor-pointer border-none" title="快捷录入成绩">
+            <Plus size={13} className="inline mr-0.5" /><span className="hidden sm:inline">录入</span>
+          </button>
+          <button onClick={() => navigate('/songs?import=1')} className="px-2.5 py-1.5 rounded-md bg-surface border border-border text-xs text-text-secondary hover:border-primary hover:text-primary transition-colors cursor-pointer" title="导入成绩">
+            <Download size={13} className="inline mr-0.5" /><span className="hidden sm:inline">导入</span>
+          </button>
+          <button onClick={handleExport} className="px-2.5 py-1.5 rounded-md bg-surface border border-border text-xs text-text-secondary hover:border-primary hover:text-primary transition-colors cursor-pointer" title="导出成绩">
+            <Upload size={13} className="inline mr-0.5" /><span className="hidden sm:inline">导出</span>
+          </button>
+          <button onClick={handleClearScoresWithConfirm} className="px-2.5 py-1.5 rounded-md border border-error/40 text-error/80 text-xs hover:bg-error/10 transition-colors cursor-pointer" title="清除本地成绩">
+            <Trash2 size={13} className="inline mr-0.5" /><span className="hidden sm:inline">清除</span>
+          </button>
+        </div>
       </div>
 
       {activeTab === 'online' && (<>
@@ -235,14 +271,14 @@ export default function PlayerInfo() {
             </div>}
           </div>
           {localB50 && localB50.best35.length + localB50.best15.length > 0 && <StrategyPanel b50={localB50} scores={scores} songs={songs} theoreticalMax={theoreticalMax} />}
-          <div className="mt-6 pt-4 border-t border-border">
-            {!clearConfirming ? <button onClick={() => setClearConfirming(true)} disabled={clearing} className="px-3 py-1.5 rounded-md border border-error/40 text-error/80 text-xs hover:bg-error/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{clearing ? '清除中...' : '清除本地成绩数据'}</button>
-            : <div className="flex items-center gap-3"><span className="text-sm text-text-secondary">确认清除全部本地成绩？此操作不可撤销。</span><button onClick={handleClearScores} disabled={clearing} className="px-3 py-1.5 rounded-md bg-error text-white text-xs font-medium hover:bg-error/80 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{clearing ? '清除中...' : '确认清除'}</button><button onClick={() => setClearConfirming(false)} disabled={clearing} className="px-3 py-1.5 rounded-md border border-border text-text-secondary text-xs hover:bg-bg-gray transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">取消</button></div>}
-          </div>
         </>)}
       </>)}
 
+      <NextTargetPanel />
       <PushSuggestions theoreticalMax={theoreticalMax} />
+
+      {/* 快捷录入弹窗 */}
+      {showQuickEntry && <QuickScoreEntry onClose={() => setShowQuickEntry(false)} />}
     </div>
   )
 }
