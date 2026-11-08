@@ -6,6 +6,15 @@
 // ============================================================
 
 import type { Song } from '@/types'
+import { normalizeDesignerName } from '@/data/designer-aliases'
+
+/** 从已游玩数据推断出的偏好画像 */
+export interface PreferenceProfile {
+  /** 偏好的谱师（归一化名） */
+  designers: Set<string>
+  /** 较少游玩的曲风 */
+  rareGenres: Set<string>
+}
 
 export interface VoteStat {
   /** 原始胜率 = (total - down) / total */
@@ -31,6 +40,8 @@ export interface ExploreOptions {
   seenKeys?: Set<string>
   /** 随机源，便于测试注入 */
   random?: () => number
+  /** 偏好画像：命中偏好谱师 / 冷门曲风时小幅加权 */
+  preference?: PreferenceProfile
 }
 
 export interface ExploreItem {
@@ -45,6 +56,54 @@ export interface ExploreItem {
   totalVote: number
   /** 平滑后胜率（排序用） */
   smoothRate: number
+  /** 最终排序分 = 平滑胜率 + 偏好加成 */
+  score: number
+}
+
+/** 偏好加成的权重（相对胜率，量级小，只做微调） */
+const PREFERENCE_BOOST = 0.05
+
+/**
+ * 从已游玩数据推断偏好画像。
+ *
+ * - 谱师：按已游玩谱面频次取 Top N（使用归一化后的常用名）
+ * - 曲风：游玩数低于中位数的曲风视为「冷门」，给探索加成
+ */
+export function buildPreferenceProfile(
+  songs: Song[],
+  playedChartKeys: Set<string>,
+  topN = 3,
+): PreferenceProfile {
+  const designerCounts = new Map<string, number>()
+  const genreCounts = new Map<string, number>()
+
+  for (const song of songs) {
+    for (const key of ['standard', 'dx'] as const) {
+      for (const diff of (song.difficulties?.[key] ?? [])) {
+        if (!diff || !playedChartKeys.has(`${song.id}-${diff.levelIndex}`)) continue
+        const name = normalizeDesignerName(diff.noteDesigner)
+        if (name && name !== '未知') designerCounts.set(name, (designerCounts.get(name) ?? 0) + 1)
+        if (song.genre) genreCounts.set(song.genre, (genreCounts.get(song.genre) ?? 0) + 1)
+      }
+    }
+  }
+
+  const designers = new Set(
+    [...designerCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, topN)
+      .map(([name]) => name),
+  )
+
+  const sortedCounts = [...genreCounts.values()].sort((a, b) => a - b)
+  const median = sortedCounts.length > 0
+    ? sortedCounts[Math.floor(sortedCounts.length / 2)]
+    : 0
+  const rareGenres = new Set(
+    [...genreCounts.entries()].filter(([, count]) => count <= median).map(([genre]) => genre),
+  )
+
+  return { designers, rareGenres }
 }
 
 /** 票数门槛：实测 1294 首中 1265 首达到 30 票 */
@@ -123,6 +182,7 @@ export function buildExplorePool(
     blockedSongIds,
     seenKeys,
     random = Math.random,
+    preference,
   } = options
 
   const highestPlayed = highestPlayedBySong(playedKeys)
@@ -147,6 +207,15 @@ export function buildExplorePool(
       if (minLevel != null && diff.levelValue < minLevel) continue
       if (maxLevel != null && diff.levelValue > maxLevel) continue
 
+      const smoothRate = smoothWinRate(stat.upVote, stat.totalVote)
+
+      // 偏好加成：命中偏好谱师 / 冷门曲风各 +0.05（相对胜率是微调，不喧宾夺主）
+      let score = smoothRate
+      if (preference) {
+        if (preference.designers.has(normalizeDesignerName(diff.noteDesigner))) score += PREFERENCE_BOOST
+        if (song.genre && preference.rareGenres.has(song.genre)) score += PREFERENCE_BOOST
+      }
+
       const candidate: ExploreItem = {
         songId: song.id,
         title: song.title,
@@ -156,7 +225,8 @@ export function buildExplorePool(
         noteDesigner: diff.noteDesigner,
         winRate: stat.winRate,
         totalVote: stat.totalVote,
-        smoothRate: smoothWinRate(stat.upVote, stat.totalVote),
+        smoothRate,
+        score,
       }
 
       const prev = picked.get(song.id)
@@ -164,7 +234,7 @@ export function buildExplorePool(
     }
   }
 
-  const ranked = [...picked.values()].sort((a, b) => b.smoothRate - a.smoothRate)
+  const ranked = [...picked.values()].sort((a, b) => b.score - a.score)
   if (ranked.length === 0) return []
 
   const poolSize = Math.max(limit, Math.ceil(ranked.length * (topPercent / 100)))

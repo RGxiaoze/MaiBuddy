@@ -98,17 +98,33 @@ export default function Guide() {
       </Section>
 
       {/* Push Suggestions */}
-      <Section icon={<TrendingUp size={20} />} title="推分建议">
+      <Section icon={<TrendingUp size={20} />} title="推分与探索">
         <div className="space-y-3 text-sm text-text-secondary leading-relaxed">
-          <p>帮助玩家找到当前最值得投入练习的谱面——花最少精力换取最大 Rating 提升。</p>
-          <ul className="list-disc list-inside space-y-1 ml-1">
-            <li>基于 B50 地板替换逻辑的增益计算</li>
-            <li>按众数区间过滤 + SSS+ 率加权排序</li>
-            <li>4 档目标方案：SS+ 99% / SSS 100% / SSS+ 100.5% / <strong className="text-success">AP +1</strong></li>
-            <li>B35（旧曲）/ B15（新曲）双表分区展示</li>
-            <li>全服 AP 率排序 — 优先推荐更容易 AP 的曲目</li>
-            <li>手机端卡片式布局，四档增益横向排列</li>
-          </ul>
+          <p>推荐页有两个 Tab，分别回答两个不同的问题：<strong className="text-text">「怎么把分推上去」</strong>和<strong className="text-text">「接下来打什么」</strong>。</p>
+
+          <div className="space-y-2">
+            <p className="font-medium text-text">推分</p>
+            <ul className="list-disc list-inside space-y-1 ml-1">
+              <li>基于 B50 地板替换逻辑计算增益，按最大收益排序</li>
+              <li><strong>B15 池优先展开</strong>：池子小、每个版本理论上都能推；B35 对老玩家的可推空间往往已被历史成绩占满，默认折叠</li>
+              <li>4 档目标方案：SS+ 99% / SSS 100% / SSS+ 100.5% / <strong className="text-success">AP +1</strong></li>
+              <li>每张卡片直接标出「打它能涨多少分」</li>
+            </ul>
+          </div>
+
+          <div className="space-y-2">
+            <p className="font-medium text-text">探索</p>
+            <ul className="list-disc list-inside space-y-1 ml-1">
+              <li>只推荐<strong>你没打过</strong>的谱面，按社区投票喜好随机挑选</li>
+              <li>数据来源：Diving-Fish 投票箱（二选一的累计结果），缓存 24 小时</li>
+              <li>难度上限为你的 <strong>B15 最高定数 + 0.5</strong>，不会推打不动的谱</li>
+              <li><strong>禁止降级</strong>：某首歌打过 Master 后，不会再推荐它的 Basic / Advanced / Expert</li>
+              <li>「换一批」重新抽取，本次已看过的会优先排除</li>
+              <li>不感兴趣的谱面点 <strong>×</strong> 隐藏，底部可一键恢复</li>
+            </ul>
+          </div>
+
+          <p className="text-text-tertiary text-xs">推荐结果会在一定范围内随机，社区高人气不等于适合你——多翻几次往往能挖到惊喜。</p>
         </div>
       </Section>
 

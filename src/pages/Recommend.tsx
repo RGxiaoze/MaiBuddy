@@ -11,7 +11,7 @@ import { useScoreStore } from '@/store/scoreStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { usePushSuggestions } from '@/hooks/usePushSuggestions'
 import { loadVoteStats, getAllVoteStats, isVoteStatsLoaded, isVoteStatsFailed } from '@/services/voteService'
-import { buildExplorePool, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
+import { buildExplorePool, buildPreferenceProfile, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
 import { getBlockedSongIds, blockSong, clearBlockedSongs } from '@/db/database'
 import RecommendCard from '@/components/shared/RecommendCard'
 import { truncatePercent } from '@/utils/format'
@@ -104,6 +104,11 @@ export default function Recommend() {
     return { minLevel, maxLevel }
   }, [effectiveB50])
 
+  const preference = useMemo(
+    () => buildPreferenceProfile(songs, playedKeys),
+    [songs, playedKeys],
+  )
+
   const exploreList = useMemo(() => {
     if (voteState !== 'ready' || songs.length === 0) return []
     const votes = getAllVoteStats()
@@ -113,8 +118,9 @@ export default function Recommend() {
       ...(exploreWide ? {} : levelRange),
       seenKeys,
       blockedSongIds: blockedIds,
+      preference,
     })
-  }, [voteState, songs, playedKeys, exploreWide, levelRange, seenKeys, blockedIds])
+  }, [voteState, songs, playedKeys, exploreWide, levelRange, seenKeys, blockedIds, preference])
 
   const refreshExplore = () => {
     setSeenKeys(prev => {

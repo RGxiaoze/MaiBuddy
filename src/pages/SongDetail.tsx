@@ -14,6 +14,7 @@ import type { ScoreRecord } from '@/db/database'
 import { computeRating } from '@/utils/rating'
 import { computeDxStar, renderStars } from '@/utils/dxStar'
 import { getAliasesForSong, loadAliasData } from '@/data/aliases'
+import { formatDesignerName } from '@/data/designer-aliases'
 import { getVersionDisplay } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
 import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff } from '@/services/statsService'
@@ -284,7 +285,7 @@ export default function SongDetail() {
             </div>
             <div>
               <span className="text-text-secondary">谱师：</span>
-              <strong>{currentDiff.noteDesigner}</strong>
+              <strong>{formatDesignerName(currentDiff.noteDesigner)}</strong>
             </div>
 
             {currentDiff.notes && (

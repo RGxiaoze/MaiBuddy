@@ -174,3 +174,41 @@ describe('buildExplorePool', () => {
     expect(item.winRate).toBeCloseTo(0.7, 5)
   })
 })
+
+describe('偏好加权', () => {
+  const songWith = (id: number, designer: string, genre = '舞萌'): Song => ({
+    id, title: `S${id}`, artist: 'a', bpm: 150, from: 'maimai', genre,
+    imageUrl: '', isNew: false,
+    difficulties: {
+      standard: [{ type: 'standard', levelIndex: 3, level: '13', levelValue: 13, noteDesigner: designer, notes: null }],
+      dx: [],
+    },
+  } as unknown as Song)
+
+  it('命中偏好谱师时排序上浮（可反超微弱胜率差）', () => {
+    const songs = [songWith(1, 'Jack'), songWith(2, 'はっぴー')]
+    const votes = new Map([[1, vote(0.60, 800)], [2, vote(0.62, 800)]])
+    const preference = { designers: new Set(['Jack']), rareGenres: new Set<string>() }
+    const pool = buildExplorePool(songs, new Set(), votes, {
+      minVotes: 30, random: noShuffle, preference,
+    })
+    expect(pool.map(p => p.songId)).toEqual([1, 2])
+  })
+
+  it('无偏好画像时保持纯胜率排序', () => {
+    const songs = [songWith(1, 'Jack'), songWith(2, 'はっぴー')]
+    const votes = new Map([[1, vote(0.60, 800)], [2, vote(0.62, 800)]])
+    const pool = buildExplorePool(songs, new Set(), votes, { minVotes: 30, random: noShuffle })
+    expect(pool.map(p => p.songId)).toEqual([2, 1])
+  })
+
+  it('谱师别名归一化后仍能命中偏好', () => {
+    const songs = [songWith(1, '緑風 犬三郎'), songWith(2, 'Jack')]
+    const votes = new Map([[1, vote(0.60, 800)], [2, vote(0.62, 800)]])
+    const preference = { designers: new Set(['はっぴー']), rareGenres: new Set<string>() }
+    const pool = buildExplorePool(songs, new Set(), votes, {
+      minVotes: 30, random: noShuffle, preference,
+    })
+    expect(pool.map(p => p.songId)).toEqual([1, 2])
+  })
+})
