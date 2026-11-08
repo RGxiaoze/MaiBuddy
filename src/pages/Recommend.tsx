@@ -196,6 +196,8 @@ function TabButton({ active, onClick, icon, label }: {
 // ---- 推分 ----
 
 function PushTab({ items }: { items: Array<{ s: PushSuggestion; maxGain: number }> }) {
+  const [showChallenging, setShowChallenging] = useState(false)
+
   if (items.length === 0) {
     return (
       <div className="bg-surface border border-border rounded-lg p-5">
@@ -204,70 +206,63 @@ function PushTab({ items }: { items: Array<{ s: PushSuggestion; maxGain: number 
     )
   }
 
-  const b15 = items.filter(i => i.s.pool !== 'b35').slice(0, 10)
-  const b35 = items.filter(i => i.s.pool === 'b35').slice(0, 10)
+  // 按「推分是否有挑战」拆分，而不是按池子隐藏
+  const approachable = items.filter(i => i.s.difficulty !== 'hard')
+  const challenging = items.filter(i => i.s.difficulty === 'hard')
+  // 全都「有挑战」时直接全部展示，避免主区域空着
+  const mainList = approachable.length > 0 ? approachable : challenging
+  const foldedList = approachable.length > 0 ? challenging : []
+  const b15Count = items.filter(i => i.s.pool === 'b15').length
 
-  return (
-    <div className="space-y-4">
-      <PushGroup
-        title="B15 池（新版本）"
-        hint="池子小，每个版本理论上都能推"
-        items={b15}
-        tagColor="#B8A0E8"
-      />
-      <PushGroup
-        title="B35 池（旧版本）"
-        hint="老玩家的可推空间往往已被历史成绩占满"
-        items={b35}
-        tagColor="#5BA4CF"
-        defaultCollapsed
-      />
-    </div>
+  const renderCard = ({ s, maxGain }: { s: PushSuggestion; maxGain: number }) => (
+    <RecommendCard
+      key={`${s.songId}-${s.levelIndex}`}
+      songId={s.songId}
+      title={s.songTitle}
+      levelIndex={s.levelIndex}
+      levelValue={s.levelValue}
+      reason={s.precision === 'estimated'
+        ? `当前达成率约 ${truncatePercent(s.currentAchievements)}%，推到 SSS 即可吃分`
+        : `当前 ${truncatePercent(s.currentAchievements)}%，推到 SSS+ 稳稳收分`}
+      tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
+      tagColor={s.pool === 'b35' ? '#5BA4CF' : '#B8A0E8'}
+      gainText={maxGain > 0 ? `+${maxGain.toFixed(1)} 分` : undefined}
+    />
   )
-}
-
-function PushGroup({ title, hint, items, tagColor, defaultCollapsed = false }: {
-  title: string
-  hint: string
-  items: Array<{ s: PushSuggestion; maxGain: number }>
-  tagColor: string
-  defaultCollapsed?: boolean
-}) {
-  const [open, setOpen] = useState(!defaultCollapsed)
-
-  if (items.length === 0) return null
 
   return (
-    <div>
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-2 mb-2 cursor-pointer border-none bg-transparent p-0 text-left"
-      >
-        <span className="text-sm font-semibold text-text">{title}</span>
-        <span className="text-[10px] text-text-tertiary tabular-nums">{items.length} 条</span>
-        <span className="text-[10px] text-text-tertiary ml-auto shrink-0">{open ? '收起 ▾' : '展开 ▸'}</span>
-      </button>
-      {open && (
+    <div className="space-y-3">
+      <p className="text-xs text-text-secondary">
+        按推分收益排序
+        {foldedList.length > 0 && '，当前水平下较难吃分的已折叠在下方'}
+        。
+      </p>
+
+      <div className="space-y-2">
+        {mainList.map(renderCard)}
+      </div>
+
+      {foldedList.length > 0 && (
         <>
-          <p className="text-[11px] text-text-tertiary mb-2">{hint}</p>
-          <div className="space-y-2">
-            {items.map(({ s, maxGain }) => (
-              <RecommendCard
-                key={`${s.songId}-${s.levelIndex}`}
-                songId={s.songId}
-                title={s.songTitle}
-                levelIndex={s.levelIndex}
-                levelValue={s.levelValue}
-                reason={s.precision === 'estimated'
-                  ? `当前达成率约 ${truncatePercent(s.currentAchievements)}%，推到 SSS 即可吃分`
-                  : `当前 ${truncatePercent(s.currentAchievements)}%，推到 SSS+ 稳稳收分`}
-                tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
-                tagColor={tagColor}
-                gainText={maxGain > 0 ? `+${maxGain.toFixed(1)} 分` : undefined}
-              />
-            ))}
-          </div>
+          <button
+            onClick={() => setShowChallenging(v => !v)}
+            className="w-full flex items-center justify-center gap-1 py-2 rounded-md text-[11px] font-medium text-text-secondary bg-surface border border-border hover:border-primary hover:text-primary transition-colors cursor-pointer"
+          >
+            {showChallenging ? '收起' : `展开 ${foldedList.length} 条更有挑战的推荐`}
+            <span>{showChallenging ? '▾' : '▸'}</span>
+          </button>
+          {showChallenging && (
+            <div className="space-y-2">
+              {foldedList.map(renderCard)}
+            </div>
+          )}
         </>
+      )}
+
+      {b15Count < 3 && (
+        <p className="text-[11px] text-text-tertiary leading-snug">
+          B15 池只产出 {b15Count} 条建议——新曲地板已接近你的实力上限，可推空间本就有限，属正常现象。
+        </p>
       )}
     </div>
   )
