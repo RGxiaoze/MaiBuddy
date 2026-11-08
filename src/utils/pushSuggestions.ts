@@ -96,7 +96,9 @@ function makeSuggestion(
     const cappedTarget = Math.min(realisticTargetAch(levelValue, mode), targetAch)
     const targetRating = computeRating(levelValue, Math.min(cappedTarget, MAX_ACHIEVEMENTS))
     const ratingGain = targetRating - floorRating
-    return { targetAch, targetRating, ratingGain: Math.max(0, ratingGain) }
+    // targetAch 存「实际可达成的目标」（可能被现实目标截断），
+    // 否则 UI 会显示「推到 SSS+」却按 SSS 的收益计算，文案与数字对不上
+    return { targetAch: Math.min(cappedTarget, MAX_ACHIEVEMENTS), targetRating, ratingGain: Math.max(0, ratingGain) }
   })
 
   // AP gain: only when SSS+ gain is already 0 (no more rating from achievement)
@@ -316,7 +318,8 @@ export function computePushSuggestions(
           const cappedTarget = capFor(targetAch)
           const targetRating = computeRating(lv, Math.min(cappedTarget, MAX_ACHIEVEMENTS))
           const ratingGain = Math.max(0, targetRating - currentRating)
-          return { targetAch, targetRating, ratingGain }
+          // 同上：存实际可达成的目标，保证文案与收益一致
+          return { targetAch: Math.min(cappedTarget, MAX_ACHIEVEMENTS), targetRating, ratingGain }
         })
 
         // AP gain for floor entry — compute before filter check

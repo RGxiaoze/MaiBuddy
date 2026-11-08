@@ -200,6 +200,22 @@ function TabButton({ active, onClick, icon, label }: {
   )
 }
 
+/**
+ * 根据「实际收益最大的目标档」生成推荐理由。
+ * 目标可能被「现实目标」截断（如 14.9 定数只能期望 100.0%），
+ * 写死 SSS+ 会出现「文案说推 SSS+、但 +9 分其实是推 SSS 得来的」。
+ */
+function describePushReason(s: PushSuggestion, maxGain: number): string {
+  const cur = truncatePercent(s.currentAchievements)
+  if (s.apGain && s.apGain.ratingGain >= maxGain) {
+    return `当前 ${cur}%，打到 AP 可额外 +1 Rating`
+  }
+  const best = s.gains.reduce((a, b) => (b.ratingGain > a.ratingGain ? b : a))
+  const label = best.targetAch >= 100.5 ? 'SSS+' : best.targetAch >= 100 ? 'SSS' : 'SS+'
+  const prefix = s.precision === 'estimated' ? '当前达成率约' : '当前'
+  return `${prefix} ${cur}%，推到 ${label} 可吃分`
+}
+
 // ---- 推分 ----
 
 function PushTab({ items, newVersion }: {
@@ -231,9 +247,7 @@ function PushTab({ items, newVersion }: {
       title={s.songTitle}
       levelIndex={s.levelIndex}
       levelValue={s.levelValue}
-      reason={s.precision === 'estimated'
-        ? `当前达成率约 ${truncatePercent(s.currentAchievements)}%，推到 SSS 即可吃分`
-        : `当前 ${truncatePercent(s.currentAchievements)}%，推到 SSS+ 稳稳收分`}
+      reason={describePushReason(s, maxGain)}
       tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
       tagColor={s.pool === 'b35' ? '#5BA4CF' : '#B8A0E8'}
       difficulty={s.difficulty}
