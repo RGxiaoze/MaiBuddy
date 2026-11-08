@@ -236,6 +236,7 @@ function PushTab({ items, newVersion }: {
         : `当前 ${truncatePercent(s.currentAchievements)}%，推到 SSS+ 稳稳收分`}
       tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
       tagColor={s.pool === 'b35' ? '#5BA4CF' : '#B8A0E8'}
+      difficulty={s.difficulty}
       gainText={maxGain > 0 ? `+${maxGain.toFixed(1)} 分` : undefined}
     />
   )

@@ -284,18 +284,37 @@ describe('computePushSuggestions', () => {
     expect(floorSug!.gains[2].ratingGain).toBeGreaterThan(0)
   })
 
-  it('does not suggest non-floor B50 entries', () => {
+  it('把池内非地板条目也纳入建议（提升它同样能加分）', () => {
     const s1 = makeSong({ id: 1, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.0 })] } })
     const s2 = makeSong({ id: 2, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.0 })] } })
     const map = new Map([[1, s1], [2, s2]])
     const scores = [
-      makeScore({ songId: 1, levelIndex: 3, levelValue: 14.0, achievements: 100.0 }), // top
-      makeScore({ songId: 2, levelIndex: 3, levelValue: 13.0, achievements: 97.0 }),  // floor
+      makeScore({ songId: 1, levelIndex: 3, levelValue: 14.0, achievements: 100.0 }), // 池内非地板
+      makeScore({ songId: 2, levelIndex: 3, levelValue: 13.0, achievements: 97.0 }),  // 地板
     ]
     const b50 = computeB50(scores, map)
     const sug = computePushSuggestions(b50, map, { allScores: scores }).suggestions
-    // Song 1 is in B50 but NOT the floor → should NOT be suggested
-    expect(sug.find(s => s.songId === 1)).toBeUndefined()
+    // 池内非地板条目推到 SSS+ 同样能提高总分，应该被推荐
+    const found = sug.find(s => s.songId === 1)
+    expect(found).toBeDefined()
+    expect(found!.gains.some(g => g.ratingGain > 0)).toBe(true)
+  })
+
+  it('已有成绩超过「现实目标」时不再向下截断', () => {
+    // 14.0 定数、mode≈13.x，现实目标会被压到 100.0；
+    // 但玩家实际已打到 100.4，说明模型低估，应允许以 SSS+ 为目标
+    const s1 = makeSong({ id: 1, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.0 })] } })
+    const s2 = makeSong({ id: 2, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.0 })] } })
+    const map = new Map([[1, s1], [2, s2]])
+    const scores = [
+      makeScore({ songId: 1, levelIndex: 3, levelValue: 14.0, achievements: 100.4 }), // 已超过 100.0 目标
+      makeScore({ songId: 2, levelIndex: 3, levelValue: 13.0, achievements: 97.0 }),
+    ]
+    const b50 = computeB50(scores, map)
+    const sug = computePushSuggestions(b50, map, { allScores: scores }).suggestions
+    const found = sug.find(s => s.songId === 1)
+    expect(found).toBeDefined()
+    expect(found!.gains[2].ratingGain).toBeGreaterThan(0)
   })
 
   it('excludes utage from suggestions', () => {

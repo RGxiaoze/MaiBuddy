@@ -300,13 +300,20 @@ export function computePushSuggestions(
         if (cand.gains.some(g => g.ratingGain > 0) || (cand.apGain && cand.apGain.ratingGain > 0)) {
           suggestions.push(cand)
         }
-      } else if (floorKeys.has(key)) {
-        // This is the B50 floor — suggest improving it
+      } else if (inB50.has(key)) {
+        // 已在 B50 池内（地板或非地板都算）：把当前成绩往上推，总分直接增加。
+        // 此前只处理地板，导致「池内但非地板」的条目（如 B15 第 5 位还差一点 SSS+）
+        // 既不进新候选分支、也不进地板分支，被完全跳过。
         const pool = currentB50.best35.some(e => `${e.songId}-${e.levelIndex}` === key) ? 'b35' as const : 'b15' as const
 
         // Calculate gains against current rating (improving this score)
+        const realistic = realisticTargetAch(lv, mode)
+        // 已有成绩已超过「现实目标」时，说明模型低估了玩家在此定数的水平，
+        // 不再把目标向下截断——否则「100.24% 打到 100.0 目标」会被判为无提升空间。
+        const capFor = (targetAch: number) =>
+          currentAch >= realistic ? targetAch : Math.min(realistic, targetAch)
         const lifts: PushGain[] = TARGET_LEVELS.map((targetAch) => {
-          const cappedTarget = Math.min(realisticTargetAch(lv, mode), targetAch)
+          const cappedTarget = capFor(targetAch)
           const targetRating = computeRating(lv, Math.min(cappedTarget, MAX_ACHIEVEMENTS))
           const ratingGain = Math.max(0, targetRating - currentRating)
           return { targetAch, targetRating, ratingGain }

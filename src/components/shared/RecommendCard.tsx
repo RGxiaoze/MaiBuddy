@@ -9,8 +9,14 @@ import { bilibiliSearchUrl } from '@/utils/bilibiliSearch'
 import { LEVEL_LABELS, LEVEL_INDEX_MAP, getCoverUrl } from '@/data/constants'
 import type { LevelIndex } from '@/types'
 
-export interface RecommendCardProps {
-  songId: number
+/** 推分难度评估的展示文案 */
+const DIFFICULTY_META: Record<'easy' | 'medium' | 'hard', { label: string; color: string }> = {
+  easy: { label: '容易', color: '#22C55E' },
+  medium: { label: '适中', color: '#D97706' },
+  hard: { label: '挑战', color: '#DC2626' },
+}
+
+export interface RecommendCardProps {  songId: number
   title: string
   levelIndex: number
   levelValue: number
@@ -25,10 +31,12 @@ export interface RecommendCardProps {
   showExternalLink?: boolean
   /** 加入「不感兴趣」，不传则不显示该按钮 */
   onBlock?: () => void
+  /** 推分难度评估（仅推分场景） */
+  difficulty?: 'easy' | 'medium' | 'hard'
 }
 
 export default function RecommendCard({
-  songId, title, levelIndex, levelValue, reason, tag, tagColor = '#5BA4CF', gainText, showExternalLink = true, onBlock,
+  songId, title, levelIndex, levelValue, reason, tag, tagColor = '#5BA4CF', gainText, showExternalLink = true, onBlock, difficulty,
 }: RecommendCardProps) {
   const [imgError, setImgError] = useState(false)
   const levelMeta = LEVEL_INDEX_MAP[levelIndex as LevelIndex]
@@ -101,6 +109,17 @@ export default function RecommendCard({
             {tag && (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0" style={{ backgroundColor: tagColor + '20', color: tagColor }}>
                 {tag}
+              </span>
+            )}
+            {difficulty && (
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
+                style={{
+                  backgroundColor: DIFFICULTY_META[difficulty].color + '20',
+                  color: DIFFICULTY_META[difficulty].color,
+                }}
+              >
+                {DIFFICULTY_META[difficulty].label}
               </span>
             )}
             {gainText && <span className="text-sm font-semibold text-success tabular-nums truncate">{gainText}</span>}
