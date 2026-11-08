@@ -9,7 +9,7 @@ import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import SearchBar from '@/components/shared/SearchBar'
 import Pagination from '@/components/shared/Pagination'
-import { LEVEL_INDEX_MAP } from '@/data/constants'
+import { LEVEL_INDEX_MAP, getCoverUrl } from '@/data/constants'
 import { VERSION_ORDER, getVersionDisplay } from '@/data/versions'
 import { loginToProber, generateImportToken } from '@/services/divingFishApi'
 import { Settings, Music, FolderOpen, X } from 'lucide-react'
@@ -141,6 +141,14 @@ export default function SongList() {
   // 成绩维度钻取过滤（?rate= / ?fc= / ?fs=）：仅显示有匹配成绩的曲目
   const [playedFilter, setPlayedFilter] = useState<string | null>(null)
   const scores = useScoreStore((s) => s.scores)
+
+  // 页面环境底图：进入时随机取一张曲绘，模糊后作为背景（纯装饰，加载失败即无背景）
+  const [bgCover, setBgCover] = useState<string | null>(null)
+  useEffect(() => {
+    if (songs.length === 0 || bgCover) return
+    const pick = songs[Math.floor(Math.random() * songs.length)]
+    if (pick?.id != null) setBgCover(getCoverUrl(pick.id))
+  }, [songs, bgCover])
 
   // ---- Import modal state ----
   const [searchParams, setSearchParams] = useSearchParams()
@@ -415,6 +423,20 @@ export default function SongList() {
   // ---- Render: Content ----
   return (
     <div className="max-w-5xl">
+      {/* 环境底图：随机曲绘放大模糊，纯装饰，不参与交互 */}
+      {bgCover && (
+        <div
+          aria-hidden
+          className="fixed inset-0 pointer-events-none bg-center bg-cover"
+          style={{
+            backgroundImage: `url(${bgCover})`,
+            filter: 'blur(50px) saturate(1.3)',
+            opacity: 0.16,
+            transform: 'scale(1.15)',
+          }}
+        />
+      )}
+
       {/* Header + search */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-text mb-4">曲目检索</h2>
@@ -621,7 +643,7 @@ export default function SongList() {
                 key={song.id}
                 onClick={() => navigate(`/songs/${song.id}`)}
                 className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 rounded-lg bg-surface border border-border/50
-                           hover:border-primary hover:shadow-sm transition-all text-left cursor-pointer w-full"
+                           shadow-sm hover:border-primary hover:shadow-md transition-all text-left cursor-pointer w-full"
               >
                 {/* Mobile: cover + title row, desktop: cover thumbnail inline */}
                 <div className="flex items-center gap-3 sm:gap-4">
