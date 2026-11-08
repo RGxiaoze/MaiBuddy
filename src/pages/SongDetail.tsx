@@ -7,7 +7,7 @@ import { useNavigate, useParams } from 'react-router'
 import { Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { useSongStore } from '@/store/songStore'
 import { useScoreStore } from '@/store/scoreStore'
-import { FC_LABELS, FS_LABELS, LEVEL_INDEX_MAP, LEVEL_LABELS } from '@/data/constants'
+import { FC_LABELS, FS_LABELS, LEVEL_INDEX_MAP, LEVEL_LABELS, getCoverUrl } from '@/data/constants'
 import GradeBadge from '@/components/shared/GradeBadge'
 import type { ChartDifficulty, LevelIndex, Score } from '@/types'
 import type { ScoreRecord } from '@/db/database'
@@ -185,6 +185,19 @@ export default function SongDetail() {
   // ---- Render ----
   return (
     <div className="max-w-3xl">
+      {/* 环境底图：本曲曲绘模糊，纯装饰，不参与交互 */}
+      {song && (
+        <div
+          aria-hidden
+          className="fixed inset-0 pointer-events-none bg-center bg-cover"
+          style={{
+            backgroundImage: `url(${getCoverUrl(song.id)})`,
+            filter: 'blur(50px) saturate(1.3)',
+            opacity: 0.16,
+            transform: 'scale(1.15)',
+          }}
+        />
+      )}
       {/* Back link */}
       <button
         onClick={() => navigate('/songs')}
