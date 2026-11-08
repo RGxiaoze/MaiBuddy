@@ -722,7 +722,7 @@ function RateDiffCard({ label, rate, levelAvg, officialLevelAvgRate, officialLev
 
       {rank ? (
         <div className="text-xs font-semibold text-text-secondary tabular-nums mt-1">
-          同档第 {rank.rank} 易
+          同档第 {rank.rank}
         </div>
       ) : primary ? (
         <>
