@@ -52,6 +52,12 @@ export interface ExploreItem {
   level: string
   levelValue: number
   noteDesigner: string
+  /** 曲目分类（POPS&ANIME 等） */
+  genre: string
+  /** 所属版本（maimai MiLK 等） */
+  from: string
+  /** BPM */
+  bpm: number
   /** 原始胜率（展示用） */
   winRate: number
   totalVote: number
@@ -225,6 +231,9 @@ export function buildExplorePool(
         level: diff.level,
         levelValue: diff.levelValue,
         noteDesigner: diff.noteDesigner,
+        genre: song.genre ?? '',
+        from: song.from ?? '',
+        bpm: song.bpm ?? 0,
         winRate: stat.winRate,
         totalVote: stat.totalVote,
         smoothRate,

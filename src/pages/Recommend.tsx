@@ -16,6 +16,7 @@ import { getBlockedSongIds, blockSong, clearBlockedSongs } from '@/db/database'
 import { getCoverUrl } from '@/data/constants'
 import { useBackgroundStore } from '@/store/backgroundStore'
 import RecommendCard from '@/components/shared/RecommendCard'
+import ExploreCard from '@/components/shared/ExploreCard'
 import { truncatePercent } from '@/utils/format'
 import type { PushSuggestion } from '@/utils/pushSuggestions'
 
@@ -399,18 +400,9 @@ function ExploreTab({ items, state, playerLevel, wide, onWiden, onRefresh, onBlo
         </button>
       </div>
       {items.map(it => (
-        <RecommendCard
+        <ExploreCard
           key={`${it.songId}-${it.levelIndex}`}
-          songId={it.songId}
-          title={it.title}
-          levelIndex={it.levelIndex}
-          levelValue={it.levelValue}
-          reason={`社区胜率 ${(it.winRate * 100).toFixed(1)}% · ${it.totalVote.toLocaleString()} 人投过${
-            it.noteDesigner && it.noteDesigner !== '未知' ? ` · 谱师 ${it.noteDesigner}` : ''
-          }`}
-          tag="探索"
-          tagColor="#5BA4CF"
-          showExternalLink={false}
+          item={it}
           onBlock={() => onBlock(it.songId)}
         />
       ))}
