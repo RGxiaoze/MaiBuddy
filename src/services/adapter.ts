@@ -38,6 +38,18 @@ function notesArrayToObj(arr: number[]): Notes {
 
 // ---- Public converters ----
 
+/**
+ * 谱师名归一化。
+ * Diving-Fish / LXNS 对无谱师的难度（主要是 BASIC、ADVANCED，
+ * 游戏本身不标注）返回 `"-"`，直接透传会让「搜 - 命中 2762 个谱面」
+ * 这类问题，也让详情页显示成一个孤零零的横杠。
+ */
+export function normalizeDesigner(charter?: string | null): string {
+  const name = (charter ?? '').trim()
+  if (!name || name === '-' || name === '未知') return '未知'
+  return name
+}
+
 /** Convert Diving-Fish Music → internal Song */
 export function toInternalSong(m: DfMusic, imageUrl: string): Song {
   const songType = m.type === 'SD' ? 'standard' as const : 'dx' as const
@@ -47,7 +59,7 @@ export function toInternalSong(m: DfMusic, imageUrl: string): Song {
     levelIndex: i as LevelIndex,
     level: m.level[i] ?? '?',
     levelValue: m.ds[i] ?? 0,
-    noteDesigner: chart.charter || '未知',
+    noteDesigner: normalizeDesigner(chart.charter),
     notes: chart.notes.length > 0 ? notesArrayToObj(chart.notes) : null,
   }))
 

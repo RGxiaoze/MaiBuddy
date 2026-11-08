@@ -154,9 +154,10 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
           if (song.title.toLowerCase().includes(t)) return true
           // b. 曲师
           if (song.artist.toLowerCase().includes(t)) return true
-          // c. 谱师（遍历所有难度，排除 '未知' fallback）
+          // c. 谱师（遍历所有难度，排除无谱师的占位值；
+          //    历史曲库缓存里未经过 normalizeDesigner 的 '-' 也要排除）
           for (const d of [...song.difficulties.standard, ...song.difficulties.dx]) {
-            if (d.noteDesigner && d.noteDesigner !== '未知' &&
+            if (d.noteDesigner && d.noteDesigner !== '未知' && d.noteDesigner !== '-' &&
                 d.noteDesigner.toLowerCase().includes(t)) return true
           }
           // d. 别名
