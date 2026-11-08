@@ -9,6 +9,7 @@ import type { ChartStatSummary } from '@/services/statsService'
 import { type B50Result } from './b50'
 import { computeRating } from './rating'
 import { classifyDifficulty, realisticTargetAch } from './difficultyTier'
+import { isChartExcluded } from '@/data/excluded-charts'
 import { predictLevelToAch } from './regression'
 import {
   MAX_ACHIEVEMENTS, UTAGE_ID_THRESHOLD, B35_FALLBACK_LEVEL, B35_MODE_MIN_COUNT,
@@ -267,6 +268,9 @@ export function computePushSuggestions(
 
       const currentRating = computeRating(lv, currentAch)
       if (currentRating <= 0) continue
+
+      // 数据源异常、暂不推荐的谱面（见 excluded-charts）
+      if (isChartExcluded(song.id, diff.levelIndex)) continue
 
       const stats = getStats?.(song.id, diff.level)
 

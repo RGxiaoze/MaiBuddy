@@ -7,6 +7,7 @@
 
 import type { Song } from '@/types'
 import { normalizeDesignerName } from '@/data/designer-aliases'
+import { isChartExcluded } from '@/data/excluded-charts'
 
 /** 从已游玩数据推断出的偏好画像 */
 export interface PreferenceProfile {
@@ -201,6 +202,7 @@ export function buildExplorePool(
 
     for (const diff of diffs) {
       if (!diff || diff.levelValue <= 0) continue
+      if (isChartExcluded(song.id, diff.levelIndex)) continue
       if (playedKeys.has(`${song.id}-${diff.levelIndex}`)) continue
       // 禁止降级：不推荐低于该曲已游玩最高难度的谱面
       if (highest != null && diff.levelIndex < highest) continue
