@@ -3,19 +3,20 @@
 // 社区用语文案：冲分、水分曲、越级、吃分
 // ============================================================
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { TrendingUp, Rocket, Sparkles } from 'lucide-react'
+import { TrendingUp, Compass, Sparkles } from 'lucide-react'
 import { useSongStore } from '@/store/songStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { usePushSuggestions } from '@/hooks/usePushSuggestions'
-import { getChartStats } from '@/services/statsService'
+import { loadVoteStats, getAllVoteStats, isVoteStatsLoaded, isVoteStatsFailed } from '@/services/voteService'
+import { buildExplorePool, DEFAULT_MIN_VOTES, type ExploreItem } from '@/utils/explore'
 import RecommendCard from '@/components/shared/RecommendCard'
 import { truncatePercent } from '@/utils/format'
 import type { PushSuggestion } from '@/utils/pushSuggestions'
 
-type TabKey = 'push' | 'advance'
+type TabKey = 'push' | 'explore'
 
 export default function Recommend() {
   const [tab, setTab] = useState<TabKey>('push')
@@ -46,47 +47,39 @@ export default function Recommend() {
     return best
   }, [effectiveB50])
 
-  // ---- 越级榜：未游玩谱面，定数 = 玩家水平 +0.5 ~ +1.0 ----
-  const advanceList = useMemo(() => {
-    if (!playerLevel || songs.length === 0) return []
+  // ---- 探索：社区偏好（投票箱）+ 未游玩 + 难度适配 ----
+  const [voteState, setVoteState] = useState<'idle' | 'ready' | 'failed'>('idle')
+  useEffect(() => {
+    let alive = true
+    loadVoteStats().then(() => {
+      if (!alive) return
+      setVoteState(isVoteStatsLoaded() ? 'ready' : isVoteStatsFailed() ? 'failed' : 'idle')
+    })
+    return () => { alive = false }
+  }, [])
 
-    // 已游玩谱面集合
-    const played = new Set<string>()
-    for (const s of scores) played.add(`${s.songId}-${s.levelIndex}`)
-    for (const s of dfBest35) played.add(`${s.songId}-${s.levelIndex}`)
-    for (const s of dfBest15) played.add(`${s.songId}-${s.levelIndex}`)
+  // 已游玩谱面：本地成绩 + 在线查分（有则合并）
+  const playedKeys = useMemo(() => {
+    const set = new Set<string>()
+    for (const s of scores) set.add(`${s.songId}-${s.levelIndex}`)
+    for (const s of dfBest35) set.add(`${s.songId}-${s.levelIndex}`)
+    for (const s of dfBest15) set.add(`${s.songId}-${s.levelIndex}`)
+    return set
+  }, [scores, dfBest35, dfBest15])
 
-    const lo = playerLevel + 0.5
-    const hi = playerLevel + 1.0
+  const [exploreWide, setExploreWide] = useState(false)
 
-    const items: Array<{
-      songId: number; title: string; levelIndex: number; levelValue: number
-      sssPlusRate?: number; water: number
-    }> = []
-
-    for (const song of songs) {
-      if (!song?.difficulties) continue
-      const allDiffs = [...(song.difficulties.standard || []), ...(song.difficulties.dx || [])]
-      for (const diff of allDiffs) {
-        if (!diff || diff.levelValue <= 0) continue
-        if (diff.levelValue < lo || diff.levelValue > hi) continue
-        // 15 级谱面只有 3 首且都是顶格难度，不适合作为「越级」练习目标
-        if (diff.levelValue >= 15) continue
-        if (played.has(`${song.id}-${diff.levelIndex}`)) continue
-        const stats = getChartStats(song.id, diff.level)
-        const sssPlusRate = stats?.sssPlusRate
-        // 水分度：定数低 + SSS+ 率低 → 更水（好推）
-        const water = (hi - diff.levelValue) / (hi - lo) * 0.5 + (sssPlusRate !== undefined ? (1 - sssPlusRate) * 0.5 : 0.3)
-        items.push({
-          songId: song.id, title: song.title, levelIndex: diff.levelIndex,
-          levelValue: diff.levelValue, sssPlusRate, water,
-        })
-      }
-    }
-
-    items.sort((a, b) => b.water - a.water)
-    return items.slice(0, 20)
-  }, [playerLevel, songs, scores, dfBest35, dfBest15])
+  const exploreList = useMemo(() => {
+    if (voteState !== 'ready' || songs.length === 0) return []
+    const votes = getAllVoteStats()
+    // 有水平数据且未放宽时收窄到 ±0.5；否则全难度按社区胜率排
+    const band = playerLevel != null && !exploreWide
+      ? { minLevel: playerLevel - 0.5, maxLevel: playerLevel + 0.5 }
+      : {}
+    return buildExplorePool(songs, playedKeys, votes, {
+      minVotes: DEFAULT_MIN_VOTES, limit: 20, ...band,
+    })
+  }, [voteState, songs, playedKeys, playerLevel, exploreWide])
 
   const hasB50 = !!effectiveB50
 
@@ -97,16 +90,16 @@ export default function Recommend() {
         <h2 className="text-base font-semibold text-text m-0">推荐</h2>
       </div>
       <p className="text-xs text-text-secondary mb-4">
-        基于你的成绩与能力画像，推荐值得冲分、值得越级挑战的谱面。
+        基于你的成绩与能力画像，推荐值得冲分的谱面，或探索还没打过的作品。
       </p>
 
       {/* Tab 切换 */}
       <div className="flex gap-2 mb-4">
-        <TabButton active={tab === 'push'} onClick={() => setTab('push')} icon={<TrendingUp size={14} />} label="冲分榜" />
-        <TabButton active={tab === 'advance'} onClick={() => setTab('advance')} icon={<Rocket size={14} />} label="越级榜" />
+        <TabButton active={tab === 'push'} onClick={() => setTab('push')} icon={<TrendingUp size={14} />} label="推分" />
+        <TabButton active={tab === 'explore'} onClick={() => setTab('explore')} icon={<Compass size={14} />} label="探索" />
       </div>
 
-      {!hasB50 ? (
+      {tab === 'push' && !hasB50 ? (
         <div className="bg-surface border border-border rounded-lg p-5">
           <h3 className="text-sm font-semibold text-text m-0">暂无成绩数据</h3>
           <p className="text-xs text-text-secondary mt-1">
@@ -117,7 +110,13 @@ export default function Recommend() {
       ) : tab === 'push' ? (
         <PushTab items={pushList} />
       ) : (
-        <AdvanceTab items={advanceList} playerLevel={playerLevel} />
+        <ExploreTab
+          items={exploreList}
+          state={voteState}
+          playerLevel={playerLevel}
+          wide={exploreWide}
+          onWiden={() => setExploreWide(true)}
+        />
       )}
     </div>
   )
@@ -177,20 +176,49 @@ function PushTab({ items }: { items: Array<{ s: PushSuggestion; maxGain: number 
   )
 }
 
-// ---- 越级榜 ----
+// ---- 探索 ----
 
-function AdvanceTab({ items, playerLevel }: { items: Array<{
-  songId: number; title: string; levelIndex: number; levelValue: number
-  sssPlusRate?: number
-}>; playerLevel: number | null }) {
-  if (playerLevel === null || items.length === 0) {
+function ExploreTab({ items, state, playerLevel, wide, onWiden }: {
+  items: ExploreItem[]
+  state: 'idle' | 'ready' | 'failed'
+  playerLevel: number | null
+  wide: boolean
+  onWiden: () => void
+}) {
+  if (state === 'failed') {
     return (
       <div className="bg-surface border border-border rounded-lg p-5">
         <p className="text-xs text-text-secondary m-0">
-          {playerLevel === null
-            ? '暂无玩家水平数据，导入成绩后生成越级推荐。'
-            : '当前定数区间暂无未游玩的合适谱面，试试其他难度或继续冲分！'}
+          社区偏好数据暂不可用，探索功能稍后再试。
         </p>
+      </div>
+    )
+  }
+
+  if (state === 'idle') {
+    return (
+      <div className="bg-surface border border-border rounded-lg p-5">
+        <p className="text-xs text-text-secondary m-0">正在获取社区偏好数据…</p>
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="bg-surface border border-border rounded-lg p-5">
+        <p className="text-xs text-text-secondary m-0">
+          {playerLevel != null && !wide
+            ? '这个难度区间里你几乎都打过了。'
+            : '暂无可探索的谱面。'}
+        </p>
+        {playerLevel != null && !wide && (
+          <button
+            onClick={onWiden}
+            className="mt-2 px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-white border-none cursor-pointer hover:bg-primary-dark transition-colors"
+          >
+            显示全部难度
+          </button>
+        )}
       </div>
     )
   }
@@ -198,8 +226,11 @@ function AdvanceTab({ items, playerLevel }: { items: Array<{
   return (
     <div className="space-y-2">
       <p className="text-xs text-text-secondary">
-        当前水平约 <strong className="text-text">{playerLevel.toFixed(1)}</strong>，推荐
-        <strong className="text-text"> +0.5 ~ +1.0</strong> 越级谱面（未游玩，水分优先）。
+        都是你<strong className="text-text">没打过</strong>的谱面
+        {playerLevel != null && !wide && (
+          <>，难度在 <strong className="text-text">{(playerLevel - 0.5).toFixed(1)} ~ {(playerLevel + 0.5).toFixed(1)}</strong> 之间</>
+        )}
+        ，按社区投票喜好排序。
       </p>
       {items.map(it => (
         <RecommendCard
@@ -208,10 +239,12 @@ function AdvanceTab({ items, playerLevel }: { items: Array<{
           title={it.title}
           levelIndex={it.levelIndex}
           levelValue={it.levelValue}
-          reason={`适合越级练习（当前 ${playerLevel.toFixed(1)} → ${it.levelValue.toFixed(1)}），全服达成率尚可，值得一试`}
-          sssPlusRate={it.sssPlusRate}
-          tag="越级"
-          tagColor="#D97706"
+          reason={`社区胜率 ${(it.winRate * 100).toFixed(1)}% · ${it.totalVote.toLocaleString()} 人投过${
+            it.noteDesigner && it.noteDesigner !== '未知' ? ` · 谱师 ${it.noteDesigner}` : ''
+          }`}
+          tag="探索"
+          tagColor="#5BA4CF"
+          showWater={false}
         />
       ))}
     </div>

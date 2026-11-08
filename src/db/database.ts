@@ -51,6 +51,20 @@ export interface CachedStats {
   updatedAt: number       // timestamp (ms)
 }
 
+/** 投票箱（二选一）累计结果条目 — Diving-Fish vote_result */
+export interface CachedVoteEntry {
+  music_id: string
+  total_vote: number
+  down_vote: number
+}
+
+/** 投票箱偏好数据缓存（singleton） */
+export interface CachedVote {
+  id?: number             // always 1 (singleton)
+  data: CachedVoteEntry[]
+  updatedAt: number       // timestamp (ms)
+}
+
 /** Settings entry (key-value store) */
 export interface SettingsEntry {
   key: string             // PK
@@ -63,6 +77,7 @@ class MaimaiDB extends Dexie {
   songCache!: EntityTable<CachedSongs, 'id'>
   aliasCache!: EntityTable<CachedAliases, 'id'>
   statsCache!: EntityTable<CachedStats, 'id'>
+  voteCache!: EntityTable<CachedVote, 'id'>
   settings!: EntityTable<SettingsEntry, 'key'>
 
   constructor() {
@@ -100,6 +115,16 @@ class MaimaiDB extends Dexie {
       aliasCache: 'id',
       statsCache: 'id',
       settings: '&key',
+    })
+
+    // v6: add vote cache table (投票箱偏好数据)
+    this.version(6).stores({
+      scores: '++id, songId, [songId+levelIndex], playDate',
+      songCache: 'id',
+      aliasCache: 'id',
+      statsCache: 'id',
+      settings: '&key',
+      voteCache: 'id',
     })
   }
 }
@@ -302,6 +327,34 @@ export async function setCachedStats(
 ): Promise<void> {
   try {
     await db.statsCache.put({ id: STATS_CACHE_KEY, data, updatedAt: Date.now() })
+  } catch {
+    // Silently fail — cache is optional
+  }
+}
+
+// ---- Vote cache helpers ----
+
+const VOTE_CACHE_KEY = 1
+/** 投票箱结果每天最多拉一次：接口未文档化，尽量低频 */
+const VOTE_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+/** Get cached vote_result if still fresh */
+export async function getCachedVotes(): Promise<CachedVoteEntry[] | null> {
+  try {
+    const entry = await db.voteCache.get(VOTE_CACHE_KEY)
+    if (entry && Date.now() - entry.updatedAt < VOTE_CACHE_TTL_MS) {
+      return entry.data
+    }
+  } catch {
+    // Table might not exist yet (v5 → v6 migration)
+  }
+  return null
+}
+
+/** Cache vote_result in IndexedDB */
+export async function setCachedVotes(data: CachedVoteEntry[]): Promise<void> {
+  try {
+    await db.voteCache.put({ id: VOTE_CACHE_KEY, data, updatedAt: Date.now() })
   } catch {
     // Silently fail — cache is optional
   }

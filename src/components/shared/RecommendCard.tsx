@@ -33,10 +33,12 @@ export interface RecommendCardProps {
   tagColor?: string
   /** 主数值（如 +0.8 分） */
   gainText?: string
+  /** 是否显示水分度（探索场景语义不同，可关闭） */
+  showWater?: boolean
 }
 
 export default function RecommendCard({
-  songId, title, levelIndex, levelValue, reason, sssPlusRate, tag, tagColor = '#5BA4CF', gainText,
+  songId, title, levelIndex, levelValue, reason, sssPlusRate, tag, tagColor = '#5BA4CF', gainText, showWater = true,
 }: RecommendCardProps) {
   const stars = waterScore(levelValue, sssPlusRate)
   const levelMeta = LEVEL_INDEX_MAP[levelIndex as LevelIndex]
@@ -79,12 +81,14 @@ export default function RecommendCard({
       <p className="mt-1.5 text-xs text-text-secondary">{reason}</p>
 
       <div className="mt-1.5 flex items-center gap-2">
-        <span className="text-[10px] text-text-secondary">
-          水分度{' '}
-          <span className="text-amber-500">
-            {'★'.repeat(stars)}{'☆'.repeat(5 - stars)}
+        {showWater && (
+          <span className="text-[10px] text-text-secondary">
+            水分度{' '}
+            <span className="text-amber-500">
+              {'★'.repeat(stars)}{'☆'.repeat(5 - stars)}
+            </span>
           </span>
-        </span>
+        )}
         {sssPlusRate !== undefined && (
           <span className="text-[10px] text-text-secondary tabular-nums">
             全服SSS+ {(sssPlusRate * 100).toFixed(1)}%
