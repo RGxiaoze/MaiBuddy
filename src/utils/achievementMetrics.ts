@@ -15,7 +15,7 @@ export interface LevelDistEntry {
 export interface AchievementMetrics {
   apCount: number
   sssPlusCount: number
-  /** 已获 AP 带来的 Rating 加成（每个 AP +1） */
+  /** 已获 AP 带来的 Rating 加成（国服未实装 → 恒为 0，见 rating.ts 的 AP_RATING_BONUS_ENABLED） */
   apRatingBonus: number
   /** Rating progress as percentage (0–100) */
   ratingProgress: number
@@ -47,9 +47,9 @@ export function computeAchievementMetrics(
   const apCount = scores.filter(s => s.fcType === 'ap' || s.fcType === 'app').length
   const sssPlusCount = scores.filter(s => s.achievements >= 100.5).length
 
-  // Rating progress
+  // Rating progress（AP 加成未实装，从总分中扣除历史数据可能含有的加成）
   const ratingProgress = theoreticalMax > 0
-    ? Math.round((totalRating / theoreticalMax) * 10000) / 100
+    ? Math.round(((totalRating - apCount) / theoreticalMax) * 10000) / 100
     : 0
 
   // Level distribution (4 tiers)
@@ -61,5 +61,5 @@ export function computeAchievementMetrics(
     return { range, avgAch, count: bucket.length }
   })
 
-  return { apCount, sssPlusCount, apRatingBonus: apCount, ratingProgress, levelDist }
+  return { apCount, sssPlusCount, apRatingBonus: 0, ratingProgress, levelDist }
 }

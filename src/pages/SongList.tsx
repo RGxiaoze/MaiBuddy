@@ -14,6 +14,7 @@ import { VERSION_ORDER, getVersionDisplay } from '@/data/versions'
 import { loginToProber, generateImportToken } from '@/services/divingFishApi'
 import { Settings, Music, FolderOpen, X } from 'lucide-react'
 import { importScoresFromFile } from '@/utils/importScores'
+import { matchRateValue } from '@/utils/stats'
 import type { LevelIndex, Song } from '@/types'
 
 const PAGE_SIZE = 50
@@ -137,6 +138,10 @@ export default function SongList() {
 
   const [showAdvanced, setShowAdvanced] = useState(false)
 
+  // 成绩维度钻取过滤（?rate= / ?fc= / ?fs=）：仅显示有匹配成绩的曲目
+  const [playedFilter, setPlayedFilter] = useState<string | null>(null)
+  const scores = useScoreStore((s) => s.scores)
+
   // ---- Import modal state ----
   const [searchParams, setSearchParams] = useSearchParams()
   const [showImport, setShowImport] = useState(false)
@@ -147,6 +152,26 @@ export default function SongList() {
       setShowImport(true)
     }
   }, [searchParams])
+
+  // Apply drill-down filters from URL (?lv= ?level= ?genre= ?rate= ?fc= ?fs=)
+  useEffect(() => {
+    const lv = searchParams.get('lv')
+    const level = searchParams.get('level')
+    const genre = searchParams.get('genre')
+    const rate = searchParams.get('rate')
+    const fc = searchParams.get('fc')
+    const fs = searchParams.get('fs')
+    if (lv || level || genre) {
+      setAdvancedFilters({
+        ...(lv ? { difficultyLevel: Number(lv) } : {}),
+        ...(level ? { level } : {}),
+        ...(genre ? { genre } : {}),
+      })
+    }
+    const played = rate || fc || fs
+    if (played) setPlayedFilter(played)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Lock body scroll when import modal is open
   useEffect(() => {
@@ -224,8 +249,20 @@ export default function SongList() {
 
   // Memoize filtered results
   const filteredSongs = useMemo(
-    () => getFilteredSongs(deferredSearchQuery),
-    [songs, deferredSearchQuery, advancedFilters, sortBy, sortOrder, getFilteredSongs]
+    () => {
+      const base = getFilteredSongs(deferredSearchQuery)
+      // 成绩维度钻取：仅保留有匹配成绩的曲目。
+      // 若同时带难度（?lv=），难度应作用于「成绩所属难度」而非「曲目包含该难度」，
+      // 否则统计卡上的数字（如 SSS+ & MASTER = 1241）与列表条数（1318）对不上。
+      if (!playedFilter) return base
+      const drillLevel = advancedFilters.difficultyLevel
+      return base.filter(song => scores.some(sc =>
+        sc.songId === song.id &&
+        matchRateValue(sc, playedFilter) &&
+        (drillLevel == null || sc.levelIndex === drillLevel)
+      ))
+    },
+    [songs, deferredSearchQuery, advancedFilters, sortBy, sortOrder, getFilteredSongs, playedFilter, scores]
   )
 
   // Reset page when any filter or sort changes

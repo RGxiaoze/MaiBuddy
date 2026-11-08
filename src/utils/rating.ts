@@ -15,21 +15,27 @@ if (import.meta.env.DEV) {
 }
 
 /**
+ * AP Rating 加成开关：`fcType === 'ap'/'app'` 时每条额外 +1。
+ * 日服已实装；**国服未实装，暂时禁用**。国服实装后改为 `true`。
+ */
+export const AP_RATING_BONUS_ENABLED = false
+
+/**
  * 根据达成率计算单首谱面的 DX Rating。
  *
  * 公式：`floor(coefficient × levelValue × min(achievements, 100.5) / 100)`
- * AP 加成：`fcType === 'ap' || 'app'` 时额外 +1（日服已实装，国服待跟进）
+ * AP 加成：`fcType === 'ap' || 'app'` 时额外 +1（受 AP_RATING_BONUS_ENABLED 控制）
  *
  * 算法步骤：
  * 1. 将达成率截断至 100.5%（超出部分无效）
  * 2. 遍历 24 段 COEFFICIENT_TABLE 查找达成率对应的系数
  * 3. 计算 `floor(系数 × 定数 × 达成率 / 100)` 并返回整数
  * 4. 达成率 ≤ 0 或定数 ≤ 0 时返回 0
- * 5. AP 判定时额外 +1
+ * 5. AP 判定时额外 +1（开关开启时）
  *
  * @param levelValue - 谱面定数（如 14.3）
  * @param achievements - 达成率百分比（如 98.5）
- * @param fcType - FC 类型，'ap'/'app' 时额外 +1
+ * @param fcType - FC 类型，'ap'/'app' 时额外 +1（受开关控制）
  * @returns DX Rating 整数值
  */
 export function computeRating(levelValue: number, achievements: number, fcType?: string | null): number {
@@ -44,8 +50,8 @@ export function computeRating(levelValue: number, achievements: number, fcType?:
     }
   }
 
-  // AP bonus: +1 rating for All Perfect
-  if (fcType === 'ap' || fcType === 'app') {
+  // AP bonus: +1 rating for All Perfect（国服未实装，见 AP_RATING_BONUS_ENABLED）
+  if (AP_RATING_BONUS_ENABLED && (fcType === 'ap' || fcType === 'app')) {
     rating += 1
   }
 

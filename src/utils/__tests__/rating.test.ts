@@ -3,7 +3,7 @@
 // ============================================================
 
 import { describe, it, expect } from 'vitest'
-import { computeRating } from '@/utils/rating'
+import { computeRating, AP_RATING_BONUS_ENABLED } from '@/utils/rating'
 import { computeB50, computeTheoreticalMaxRating, computeTheoreticalMaxBoth } from '@/utils/b50'
 import { computePushSuggestions } from '@/utils/pushSuggestions'
 import type { ScoreRecord } from '@/db/database'
@@ -77,11 +77,15 @@ describe('computeRating', () => {
     for (let i = 1; i < r.length; i++) expect(r[i]).toBeGreaterThanOrEqual(r[i - 1])
   })
 
-  // ---- AP bonus ----
+  // ---- AP bonus（国服未实装 → 开关关闭，无加成）----
 
-  it('adds +1 for fcType=ap', () => {
-    expect(computeRating(14.0, 100.5, 'ap')).toBe(computeRating(14.0, 100.5) + 1)
-    expect(computeRating(13.0, 97.0, 'ap')).toBe(computeRating(13.0, 97.0) + 1)
+  it('AP 加成开关应处于关闭状态（国服未实装）', () => {
+    expect(AP_RATING_BONUS_ENABLED).toBe(false)
+  })
+
+  it('开关关闭：fcType=ap 不加分', () => {
+    expect(computeRating(14.0, 100.5, 'ap')).toBe(computeRating(14.0, 100.5))
+    expect(computeRating(13.0, 97.0, 'ap')).toBe(computeRating(13.0, 97.0))
   })
 
   it('treats fcType=app same as ap', () => {
@@ -96,7 +100,7 @@ describe('computeRating', () => {
   })
 
   it('applies AP bonus after achievement cap', () => {
-    // capped at 100.5% → +1 AP = same as capped +1
+    // 达成率截断后应用（若开关重新开启，该断言仍成立）
     expect(computeRating(14.0, 101.0, 'ap')).toBe(computeRating(14.0, 100.5, 'ap'))
   })
 })

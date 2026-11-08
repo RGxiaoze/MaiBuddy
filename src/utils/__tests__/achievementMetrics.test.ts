@@ -43,6 +43,13 @@ describe('computeAchievementMetrics', () => {
     expect(result.apCount).toBe(2)
   })
 
+  it('AP 加成已禁用：apRatingBonus 为 0，进度扣除 AP 加成', () => {
+    const scores = [makeScore({ fcType: 'ap', achievements: 100.0, levelValue: 14.0 })]
+    const result = computeAchievementMetrics(scores, 15001, 16000)
+    expect(result.apRatingBonus).toBe(0)
+    expect(result.ratingProgress).toBe(93.75)  // (15001 - 1) / 16000
+  })
+
   it('counts SSS+ correctly', () => {
     const scores = [
       makeScore({ achievements: 100.5, levelValue: 14.0 }),

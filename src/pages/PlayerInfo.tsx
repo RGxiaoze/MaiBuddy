@@ -13,7 +13,7 @@ import QuickScoreEntry from '@/components/shared/QuickScoreEntry'
 import { exportScoresToFile } from '@/utils/exportScores'
 import NextTargetPanel from '@/components/shared/NextTargetPanel'
 import B50TileCard from '@/components/shared/B50TileCard'
-import ScoreOverviewCards from '@/components/shared/ScoreOverviewCards'
+import StatsDashboard from '@/components/shared/StatsDashboard'
 import { generateStrategy } from '@/utils/strategy'
 import { computeTheoreticalMaxBoth } from '@/utils/b50'
 import type { Song } from '@/types'
@@ -89,8 +89,8 @@ export default function PlayerInfo() {
     <div className="max-w-4xl">
       <h2 className="text-lg font-semibold text-text mb-4">成绩统计</h2>
 
-      {/* 成绩总览卡（Rating 进度 / 完成度 / 定数分布） */}
-      <ScoreOverviewCards />
+      {/* 成绩统计面板（筛选联动 + 钻取） */}
+      <StatsDashboard />
 
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex gap-1">
@@ -139,7 +139,7 @@ export default function PlayerInfo() {
                 const hasMore = dfB15Collapsed && dfBest15.length > 5
                 return <>
                   <div className="relative">
-                    <div className="grid grid-cols-3 md:grid-cols-5 gap-2">{displayed.map((entry, i) => <B50TileCard key={`new-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} songTitle={entry.title} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    <div className="grid grid-cols-3 md:grid-cols-5 gap-2">{displayed.map((entry, i) => <B50TileCard key={`new-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
                     {hasMore && (
                       <button onClick={() => setDfB15Collapsed(false)} className="absolute bottom-0 left-0 right-0 flex items-end justify-center pb-2 pt-12 cursor-pointer border-none bg-transparent w-full" style={{ background: 'linear-gradient(to top, var(--color-bg-surface, #fff) 20%, transparent 100%)' }}>
                         <span className="text-xs text-primary font-medium hover:underline">展开全部 {dfBest15.length} 条 ▾</span>
@@ -156,7 +156,7 @@ export default function PlayerInfo() {
                 const hasMore = dfB35Collapsed && dfBest35.length > 5
                 return <>
                   <div className="relative">
-                    <div className="grid grid-cols-3 md:grid-cols-5 gap-2">{displayed.map((entry, i) => <B50TileCard key={`old-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} songTitle={entry.title} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    <div className="grid grid-cols-3 md:grid-cols-5 gap-2">{displayed.map((entry, i) => <B50TileCard key={`old-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
                     {hasMore && (
                       <button onClick={() => setDfB35Collapsed(false)} className="absolute bottom-0 left-0 right-0 flex items-end justify-center pb-2 pt-12 cursor-pointer border-none bg-transparent w-full" style={{ background: 'linear-gradient(to top, var(--color-bg-surface, #fff) 20%, transparent 100%)' }}>
                         <span className="text-xs text-primary font-medium hover:underline">展开全部 {dfBest35.length} 条 ▾</span>
@@ -190,7 +190,7 @@ export default function PlayerInfo() {
                 const hasMore = b15Collapsed && localB50.best15.length > 5
                 return <>
                   <div className="relative">
-                    <div className="grid grid-cols-3 md:grid-cols-5 gap-2">{displayed.map((entry, i) => <B50TileCard key={`loc-new-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} songTitle={entry.songTitle} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    <div className="grid grid-cols-3 md:grid-cols-5 gap-2">{displayed.map((entry, i) => <B50TileCard key={`loc-new-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
                     {hasMore && (
                       <button onClick={() => setB15Collapsed(false)} className="absolute bottom-0 left-0 right-0 flex items-end justify-center pb-2 pt-12 cursor-pointer border-none bg-transparent w-full" style={{ background: 'linear-gradient(to top, var(--color-bg-surface, #fff) 20%, transparent 100%)' }}>
                         <span className="text-xs text-primary font-medium hover:underline">展开全部 {localB50.best15.length} 条 ▾</span>
@@ -207,7 +207,7 @@ export default function PlayerInfo() {
                 const hasMore = b35Collapsed && localB50.best35.length > 5
                 return <>
                   <div className="relative">
-                    <div className="grid grid-cols-3 md:grid-cols-5 gap-2">{displayed.map((entry, i) => <B50TileCard key={`loc-old-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} songTitle={entry.songTitle} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
+                    <div className="grid grid-cols-3 md:grid-cols-5 gap-2">{displayed.map((entry, i) => <B50TileCard key={`loc-old-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} title={entry.songTitle} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
                     {hasMore && (
                       <button onClick={() => setB35Collapsed(false)} className="absolute bottom-0 left-0 right-0 flex items-end justify-center pb-2 pt-12 cursor-pointer border-none bg-transparent w-full" style={{ background: 'linear-gradient(to top, var(--color-bg-surface, #fff) 20%, transparent 100%)' }}>
                         <span className="text-xs text-primary font-medium hover:underline">展开全部 {localB50.best35.length} 条 ▾</span>

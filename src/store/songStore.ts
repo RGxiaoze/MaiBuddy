@@ -34,6 +34,7 @@ interface AdvancedFilters {
   genre?: string
   version?: string           // from (e.g. "FESTiVAL")
   difficultyLevel?: number   // LevelIndex (0-4)
+  level?: string             // 歌曲等级标签（如 "14+"），谱面级精确匹配
 }
 
 interface SongState {
@@ -188,6 +189,12 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
           return true
         })
         if (!inRange) return false
+      }
+
+      // 歌曲等级标签筛选（谱面级精确匹配，如 "14+"）
+      if (advancedFilters.level) {
+        const hasLevel = [...song.difficulties.standard, ...song.difficulties.dx].some(d => d.level === advancedFilters.level)
+        if (!hasLevel) return false
       }
 
       return true

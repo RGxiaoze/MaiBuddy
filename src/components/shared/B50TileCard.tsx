@@ -1,22 +1,22 @@
 // ============================================================
 // B50TileCard — 曲绘横向小卡片（移动端 3 列 / 桌面 5 列）
-// 曲绘：!webp 优先，转换失败回退原始 PNG，再失败本地占位
+// 曲绘：与曲目列表/详情一致的 Diving-Fish covers CDN（getCoverUrl），
+//       加载失败本地占位（难度色 + 曲名首字）
 // 排版：曲名固定两行，底部信息行 mt-auto 对齐
 // ============================================================
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router'
 import GradeBadge from '@/components/shared/GradeBadge'
 import DxStars from '@/components/shared/DxStars'
 import { LEVEL_INDEX_MAP } from '@/data/constants'
 import { FC_LABELS, FS_LABELS } from '@/data/constants'
+import { getCoverUrl } from '@/data/constants'
 import { computeDxStar } from '@/utils/dxStar'
-import { loadJacketMap } from '@/utils/jacket'
 import type { LevelIndex } from '@/types'
 
 interface B50TileCardProps {
   songId: number
-  songTitle: string
   levelIndex: number
   level: string
   title: string
@@ -30,32 +30,12 @@ interface B50TileCardProps {
 }
 
 export default function B50TileCard({
-  songId, songTitle, levelIndex, level, title, achievements, rate, dxRating, fcType, fsType, dxScore, totalNotes,
+  songId, levelIndex, level, title, achievements, rate, dxRating, fcType, fsType, dxScore, totalNotes,
 }: B50TileCardProps) {
   const [imgError, setImgError] = useState(false)
-  const [usePng, setUsePng] = useState(false)
-  const [jacketId, setJacketId] = useState<number | null>(null)
   const levelColors = LEVEL_INDEX_MAP[levelIndex as LevelIndex]
   const dxStar = dxScore != null && totalNotes && totalNotes > 0 ? computeDxStar(dxScore, totalNotes) : null
-
-  // Resolve correct LXNS id via song title (DF songId → LXNS musicId)
-  useEffect(() => {
-    let cancelled = false
-    loadJacketMap().then(map => {
-      if (!cancelled) {
-        const key = songTitle.replace(/\s*\[(SD|DX)\]\s*/g, '').trim().toLowerCase()
-        setJacketId(map[key] ?? songId)
-      }
-    })
-    return () => { cancelled = true }
-  }, [songTitle, songId])
-
-  // Fallback chain: !webp → .png (raw) → local placeholder
-  const src = jacketId != null
-    ? (usePng
-        ? `https://assets.lxns.net/maimai/jacket/${jacketId}.png`
-        : `https://assets.lxns.net/maimai/jacket/${jacketId}.png!webp`)
-    : null
+  const src = getCoverUrl(songId)
 
   return (
     <Link
@@ -63,8 +43,8 @@ export default function B50TileCard({
       className="flex flex-col gap-1.5 p-2 rounded-lg bg-bg-gray hover:bg-surface-light transition-colors no-underline min-w-0 h-full"
     >
       {/* 曲绘（顶部） */}
-      <div className="w-full aspect-square rounded-md overflow-hidden shrink-0 flex items-center justify-center" style={{ backgroundColor: imgError || !src ? (levelColors.color + '22') : undefined }}>
-        {imgError || !src ? (
+      <div className="w-full aspect-square rounded-md overflow-hidden shrink-0 flex items-center justify-center" style={{ backgroundColor: imgError ? (levelColors.color + '22') : undefined }}>
+        {imgError ? (
           <span className="text-lg font-bold" style={{ color: levelColors.color }}>{title.charAt(0)}</span>
         ) : (
           <img
@@ -73,20 +53,20 @@ export default function B50TileCard({
             loading="lazy"
             decoding="async"
             className="w-full h-full object-cover"
-            onError={() => {
-              if (!usePng) setUsePng(true)  // webp 失败 → 回退原始 PNG
-              else setImgError(true)        // PNG 也失败 → 本地占位
-            }}
+            onError={() => setImgError(true)}
           />
         )}
       </div>
 
       {/* 信息区（底部行 mt-auto 对齐） */}
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-        {/* 评级 + 达成率 */}
+        {/* 评级 + 达成率：移动端 3 列卡片窄，降到 2 位小数避免截断；桌面保留 4 位 */}
         <div className="flex items-center justify-between gap-1">
           <GradeBadge rate={rate as import('@/types').RateType} />
-          <span className="tabular-nums text-xs font-semibold text-text truncate">{achievements.toFixed(4)}%</span>
+          <span className="tabular-nums text-[10px] md:text-xs font-semibold text-text truncate">
+            <span className="md:hidden">{achievements.toFixed(2)}%</span>
+            <span className="hidden md:inline">{achievements.toFixed(4)}%</span>
+          </span>
         </div>
 
         {/* 曲名：固定两行高度 */}
