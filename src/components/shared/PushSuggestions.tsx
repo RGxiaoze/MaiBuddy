@@ -300,7 +300,7 @@ function SuggestionSection({
                       <Link to={`/songs/${item.songId}`} className="font-medium text-xs truncate hover:text-primary hover:underline min-w-0">
                         {item.songTitle}
                       </Link>
-                      <span className="px-1 py-0.5 rounded text-[9px] font-medium text-white shrink-0" style={{ backgroundColor: LEVEL_INDEX_MAP[item.levelIndex as LevelIndex]?.color || '#6B7280' }}>{LEVEL_LABELS[item.levelIndex as LevelIndex]}</span>
+                      <span className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0" style={{ backgroundColor: LEVEL_INDEX_MAP[item.levelIndex as LevelIndex]?.badgeBg || '#6B7280', color: LEVEL_INDEX_MAP[item.levelIndex as LevelIndex]?.badgeFg || '#FFFFFF' }}>{LEVEL_LABELS[item.levelIndex as LevelIndex]}</span>
                       <a href={bilibiliSearchUrl(item.songTitle, item.level)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-text-secondary hover:text-primary shrink-0" onClick={(e) => e.stopPropagation()}>
                         <ExternalLink size={11} />
                       </a>
@@ -372,7 +372,7 @@ function PushRow({ item, index, faded }: { item: PushSuggestion; index: number; 
         <Link to={"/songs/" + item.songId} className="hover:text-primary hover:underline">
           {item.songTitle}
         </Link>
-        <span className="px-1 py-0.5 rounded text-[10px] font-medium text-white ml-1" style={{ backgroundColor: LEVEL_INDEX_MAP[item.levelIndex as LevelIndex]?.color || '#6B7280' }}>
+        <span className="px-1 py-0.5 rounded text-[10px] font-medium ml-1" style={{ backgroundColor: LEVEL_INDEX_MAP[item.levelIndex as LevelIndex]?.badgeBg || '#6B7280', color: LEVEL_INDEX_MAP[item.levelIndex as LevelIndex]?.badgeFg || '#FFFFFF' }}>
           {LEVEL_LABELS[item.levelIndex as LevelIndex]}
         </span>
         <a

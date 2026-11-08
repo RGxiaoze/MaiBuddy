@@ -14,8 +14,8 @@ export default function DifficultyBadge({ levelIndex, className = '' }: Difficul
   const colors = LEVEL_INDEX_MAP[levelIndex]
   return (
     <span
-      className={`px-1.5 py-0.5 rounded text-[11px] font-medium text-white leading-tight ${className}`}
-      style={{ backgroundColor: colors.color }}
+      className={`px-1.5 py-0.5 rounded text-[11px] font-medium leading-tight ${className}`}
+      style={{ backgroundColor: colors.badgeBg, color: colors.badgeFg }}
     >
       {LEVEL_LABELS[levelIndex]}
     </span>

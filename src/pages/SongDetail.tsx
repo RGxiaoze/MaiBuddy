@@ -250,8 +250,8 @@ export default function SongDetail() {
                   onClick={() => setSelectedLevel(idx)}
                   className="px-2 sm:px-3 py-1 sm:py-1.5 rounded text-[11px] sm:text-xs font-medium transition-colors cursor-pointer border-none"
                   style={{
-                    backgroundColor: isSelected ? colors.color : 'transparent',
-                    color: isSelected ? '#fff' : colors.color,
+                    backgroundColor: isSelected ? colors.badgeBg : 'transparent',
+                    color: isSelected ? colors.badgeFg : colors.color,
                     border: isSelected ? '1px solid transparent' : `1px solid ${colors.color}40`,
                   }}
                 >
@@ -496,7 +496,7 @@ function ScoreMobileCard({ score, allDiffs, onEdit, onDelete }: { score: ScoreRe
     <div className="bg-bg-gray rounded-lg p-3 space-y-1.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium text-white" style={{ backgroundColor: levelColors.color }}>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: levelColors.badgeBg, color: levelColors.badgeFg }}>
             {LEVEL_LABELS[score.levelIndex as LevelIndex]}
           </span>
           <span className="tabular-nums font-semibold text-sm">{score.achievements.toFixed(4)}%</span>
@@ -536,8 +536,8 @@ const ScoreRow = memo(function ScoreRow({ score, allDiffs, onEdit, onDelete }: {
     <div className="grid grid-cols-subgrid col-span-full items-center p-3 rounded bg-bg-gray text-sm">
       {/* Difficulty badge */}
       <span
-        className="px-1.5 py-0.5 rounded text-[11px] font-medium text-white justify-self-center"
-        style={{ backgroundColor: levelColors.color }}
+        className="px-1.5 py-0.5 rounded text-[11px] font-medium justify-self-center"
+        style={{ backgroundColor: levelColors.badgeBg, color: levelColors.badgeFg }}
       >
         {LEVEL_LABELS[score.levelIndex as LevelIndex]}
       </span>

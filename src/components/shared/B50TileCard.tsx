@@ -74,7 +74,7 @@ export default function B50TileCard({
 
         {/* 定数 + FC/FS */}
         <div className="flex items-center gap-1.5 text-[10px]">
-          <span className="px-1 py-px rounded text-[9px] font-medium text-white tabular-nums" style={{ backgroundColor: levelColors.color }}>{level}</span>
+          <span className="px-1 py-px rounded text-[9px] font-medium tabular-nums" style={{ backgroundColor: levelColors.badgeBg, color: levelColors.badgeFg }}>{level}</span>
           {(fcType || fsType) && (
             <span className="text-success font-medium truncate">
               {fcType && FC_LABELS[fcType]}{fsType && ` ${FS_LABELS[fsType]}`}

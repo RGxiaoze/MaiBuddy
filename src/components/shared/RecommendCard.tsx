@@ -49,7 +49,7 @@ export default function RecommendCard({
             {title}
           </Link>
           {levelMeta && (
-            <span className="px-1 py-0.5 rounded text-[9px] font-medium text-white shrink-0" style={{ backgroundColor: levelMeta.color }}>
+            <span className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0" style={{ backgroundColor: levelMeta.badgeBg, color: levelMeta.badgeFg }}>
               {LEVEL_LABELS[levelIndex as LevelIndex]}
             </span>
           )}

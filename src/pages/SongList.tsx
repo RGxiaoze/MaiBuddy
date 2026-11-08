@@ -303,12 +303,12 @@ export default function SongList() {
       const hasPair = pair && pair.standard && pair.dx
 
       // Level labels from this song only (not merged)
-      const levelLabels: { idx: LevelIndex; label: string; color: string }[] = []
+      const levelLabels: { idx: LevelIndex; label: string; badgeBg: string; badgeFg: string }[] = []
       const diffs = [...song.difficulties.standard, ...song.difficulties.dx]
       for (const d of diffs) {
         if (d.level && d.level !== '0') {
           const colors = LEVEL_INDEX_MAP[d.levelIndex]
-          if (colors) levelLabels.push({ idx: d.levelIndex, label: d.level, color: colors.color })
+          if (colors) levelLabels.push({ idx: d.levelIndex, label: d.level, badgeBg: colors.badgeBg, badgeFg: colors.badgeFg })
         }
       }
       levelLabels.sort((a, b) => a.idx - b.idx)
@@ -637,11 +637,11 @@ export default function SongList() {
                   <div className="sm:hidden flex-1 min-w-0">
                     <div className="font-medium text-sm text-text truncate">{song.title}</div>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {levelLabels.map(({ idx, label, color }) => (
+                      {levelLabels.map(({ idx, label, badgeBg, badgeFg }) => (
                         <span
                           key={idx}
-                          className="px-1.5 py-0.5 rounded text-[10px] font-medium text-white leading-tight"
-                          style={{ backgroundColor: color }}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-medium leading-tight"
+                          style={{ backgroundColor: badgeBg, color: badgeFg }}
                         >
                           {label}
                         </span>
@@ -698,11 +698,11 @@ export default function SongList() {
                 {/* Desktop: Difficulty badges + BPM + version */}
                 <div className="hidden sm:flex items-center gap-2 shrink-0 flex-wrap justify-end">
                   <div className="flex gap-1">
-                    {levelLabels.map(({ idx, label, color }) => (
+                    {levelLabels.map(({ idx, label, badgeBg, badgeFg }) => (
                       <span
                         key={idx}
-                        className="px-1.5 py-0.5 rounded text-[11px] font-medium text-white leading-tight"
-                        style={{ backgroundColor: color }}
+                        className="px-1.5 py-0.5 rounded text-[11px] font-medium leading-tight"
+                        style={{ backgroundColor: badgeBg, color: badgeFg }}
                       >
                         {label}
                       </span>

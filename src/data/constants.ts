@@ -2,12 +2,23 @@ import type { LevelIndex, RateType, SongType } from '@/types'
 
 // ---- Difficulty level mappings ----
 
-export const LEVEL_INDEX_MAP: Record<LevelIndex, { label: string; color: string }> = {
-  0: { label: 'BASIC',   color: '#22C55E' },
-  1: { label: 'ADVANCED', color: '#EAB308' },
-  2: { label: 'EXPERT',   color: '#EF4444' },
-  3: { label: 'MASTER',   color: '#A855F7' },
-  4: { label: 'Re:MASTER', color: '#EC4899' },
+export interface LevelColor {
+  label: string
+  /** 主标识色：用于曲绘占位、星标、图表等强调处 */
+  color: string
+  /** 徽章底色 */
+  badgeBg: string
+  /** 徽章字色 */
+  badgeFg: string
+}
+
+// Re:MASTER 采用游戏内一致的浅底紫字（白底在带阴影的卡片上仍可分辨）
+export const LEVEL_INDEX_MAP: Record<LevelIndex, LevelColor> = {
+  0: { label: 'BASIC',     color: '#22C55E', badgeBg: '#22C55E', badgeFg: '#FFFFFF' },
+  1: { label: 'ADVANCED',  color: '#EAB308', badgeBg: '#EAB308', badgeFg: '#FFFFFF' },
+  2: { label: 'EXPERT',    color: '#EF4444', badgeBg: '#EF4444', badgeFg: '#FFFFFF' },
+  3: { label: 'MASTER',    color: '#A855F7', badgeBg: '#A855F7', badgeFg: '#FFFFFF' },
+  4: { label: 'Re:MASTER', color: '#7C3AED', badgeBg: '#F5F3FF', badgeFg: '#7C3AED' },
 }
 
 export const LEVEL_LABELS: Record<LevelIndex, string> = {
