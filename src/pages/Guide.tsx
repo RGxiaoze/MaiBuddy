@@ -76,25 +76,23 @@ export default function Guide() {
       {/* 达成分布 */}
       <Section icon={<Music size={20} />} title="达成率分布对比">
         <div className="space-y-3 text-sm text-text-secondary leading-relaxed">
-          <p>曲目详情页每个难度卡片中可查看<strong className="text-text">三行对比数据</strong>：</p>
+          <p>曲目详情页每个难度卡片会显示一个<strong className="text-text">同类对比</strong>，说明这个谱面拿该评级的难度在同级里处于什么位置：</p>
           <div className="bg-surface-light rounded-lg p-4 space-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <span className="shrink-0 w-3 h-3 rounded bg-red-400" />
-              <span><strong>vs 官标等级</strong> — 与相同难度等级（如 14+）的 SSS/SSS+/AP 率均值对比</span>
+              <span className="shrink-0 w-3 h-3 rounded bg-green-400" />
+              <span><strong>同实际难度</strong> — 与社区拟合定数（如 15.1）相近的谱面比较，最贴近实际体感</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="shrink-0 w-3 h-3 rounded bg-accent" />
-              <span><strong>vs 官标定数</strong> — 与相同官方定数（如 14.7）的均值对比</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="shrink-0 w-3 h-3 rounded bg-green-400" />
-              <span><strong>vs 拟合定数</strong> — 与社区拟合定数（如 14.9）相近谱面的均值对比</span>
+              <span><strong>更多对比</strong> — 展开后可见「同官标定数」（如 14.9）与「同级」（如 14+）两级参照</span>
             </div>
           </div>
           <p>
-            颜色含义：<span className="text-green-600 font-medium">绿色</span> = 该谱面达成率高于同类均值，
-            <span className="text-red-500 font-medium">红色</span> = 低于同类均值，灰色 = 差距不大。
+            「略容易 / 明显偏难」描述的是达成率高低：
+            <span className="text-green-600 font-medium">容易</span> = 比参照组更容易拿到该评级，
+            <span className="text-red-500 font-medium">偏难</span> = 更难，灰色 = 差距不大。
           </p>
+          <p className="text-text-tertiary text-xs">15 级谱面全服仅 3 首，同级对比没有统计意义，因此不显示。</p>
           <p className="text-text-tertiary text-xs">数据来源：Diving-Fish 社区统计，每日更新。</p>
         </div>
       </Section>
@@ -119,7 +117,7 @@ export default function Guide() {
         <div className="space-y-3 text-sm text-text-secondary leading-relaxed">
           <p>从<span className="font-medium text-text">底力/体力/爆发/定位/技巧</span>五个维度，基于手臂位移量客观评估谱面表现。</p>
           <ul className="list-disc list-inside space-y-1 ml-1">
-            <li><strong>底力</strong>：贯穿全程的基本功——让你在交互、双押、扫键等基础配置中游刃有余</li>
+            <li><strong>底力</strong>：对 note 的掌控程度——拍速打得越稳越快，越能拿下 BPM 高但配置不出格的谱面</li>
             <li><strong>体力</strong>：长时间高密度不掉速的耐力——扛住消耗、稳扎稳打出成绩</li>
             <li><strong>爆发</strong>：处理瞬时高密度的能力——从容面对超高速配置</li>
             <li><strong>定位</strong>：手臂移动中准确击中判定——应对变换位置的配置</li>

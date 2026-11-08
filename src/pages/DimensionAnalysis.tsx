@@ -25,7 +25,7 @@ import ErrorBoundary from '@/components/shared/ErrorBoundary'
 const DIM_ORDER: (keyof DimensionScores)[] = ['processing', 'stamina', 'burst', 'positioning', 'technique']
 
 const DIM_META: Record<keyof DimensionScores, { name: string; color: string; desc: string }> = {
-  processing:  { name: '底力', color: '#DC2626', desc: '贯穿全程的基本功——良好的节奏感、协调与发力，让你在交互、双押、扫键、纵连等基础配置中游刃有余。底力越强，越能从容应对高 BPM 谱面，下位谱面的难点也不再棘手。' },
+  processing:  { name: '底力', color: '#DC2626', desc: '对 note 的掌控程度——底力越高，稳定拍速下的常规配置打得越稳，能稳定驾驭的拍速也随之提高。典型表现：BPM 较高但配置不出格的谱面可以稳稳拿下。' },
   stamina:     { name: '体力', color: '#D97706', desc: '身体素质的体现——支持你长时间处理高密度配置而不掉速。体力越好，越能在反复推分中保持状态，扛住高难度谱面的持续消耗，稳扎稳打出成绩。' },
   burst:       { name: '爆发', color: '#A855F7', desc: '手速与协调的体现——处理瞬时高密度音符的能力。爆发越高，越能从容面对当前水平谱面的超高速配置。' },
   positioning: { name: '定位', color: '#22C55E', desc: '手臂在不断移动中准确击中判定点的能力。定位越准，越能从容应对反复变换位置的配置，处理一般的星星配置也更稳定。' },

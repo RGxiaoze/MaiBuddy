@@ -46,12 +46,13 @@ export interface FitDiffAvg {
   apRate: number
 }
 
-/** std_dev 分级阈值 — 对齐 Diving-Fish Prober 官方前端 */
+/** std_dev 分级阈值 — 阈值对齐 Diving-Fish Prober 官方前端；
+ *  desc 写成直接结论，σ 数值在界面上只作为次要信息展示 */
 export const STDEV_LEVELS = [
-  { max: 3.6, label: '正常', color: '#22c55e', desc: '数据分布集中，参考价值高' },
-  { max: 4.2, label: '较高', color: '#eab308', desc: '数据有一定离散，整体可信' },
-  { max: 4.8, label: '高',   color: '#f97316', desc: '数据离散度偏高，可能有人差/越级因素' },
-  { max: Infinity, label: '极高', color: '#ef4444', desc: '数据离散度极高，个人差或越级严重，仅供参考' },
+  { max: 3.6, label: '正常', color: '#22c55e', desc: '这个谱面大家的成绩很集中，横向对比可信' },
+  { max: 4.2, label: '较高', color: '#eab308', desc: '成绩略有分散，整体参考价值仍然可靠' },
+  { max: 4.8, label: '高',   color: '#f97316', desc: '成绩分散偏大，可能受个人差或越级影响' },
+  { max: Infinity, label: '极高', color: '#ef4444', desc: '成绩非常分散，数据仅供参考' },
 ] as const
 
 // ---- Internal state ----

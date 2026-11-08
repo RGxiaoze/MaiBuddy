@@ -314,7 +314,10 @@ export default function SongDetail() {
               className="mb-3 px-3 py-2 rounded-md text-xs"
               style={{ backgroundColor: `${stdDevLevel.color}10`, border: `1px solid ${stdDevLevel.color}30`, color: stdDevLevel.color }}
             >
-              σ = {chartStats.stdDev.toFixed(1)} — {stdDevLevel.label}：{stdDevLevel.desc}
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-medium">{stdDevLevel.desc}</span>
+                <span className="tabular-nums opacity-50 shrink-0">σ {chartStats.stdDev.toFixed(1)}</span>
+              </div>
             </div>
           )}
 
@@ -328,6 +331,7 @@ export default function SongDetail() {
               officialLevelAvgRate={officialLevelAvg?.sssRate}
               officialLevelCount={officialLevelAvg?.chartCount}
               levelValue={currentDiff?.levelValue}
+              levelLabel={currentDiff?.level}
               fitDiffAvgRate={fitDiffAvg?.sssRate}
               fitDiffCount={fitDiffAvg?.chartCount}
               fitDiffValue={chartStats.fitDiff}
@@ -341,6 +345,7 @@ export default function SongDetail() {
               officialLevelAvgRate={officialLevelAvg?.sssPlusRate}
               officialLevelCount={officialLevelAvg?.chartCount}
               levelValue={currentDiff?.levelValue}
+              levelLabel={currentDiff?.level}
               fitDiffAvgRate={fitDiffAvg?.sssPlusRate}
               fitDiffCount={fitDiffAvg?.chartCount}
               fitDiffValue={chartStats.fitDiff}
@@ -354,6 +359,7 @@ export default function SongDetail() {
               officialLevelAvgRate={officialLevelAvg?.apRate}
               officialLevelCount={officialLevelAvg?.chartCount}
               levelValue={currentDiff?.levelValue}
+              levelLabel={currentDiff?.level}
               fitDiffAvgRate={fitDiffAvg?.apRate}
               fitDiffCount={fitDiffAvg?.chartCount}
               fitDiffValue={chartStats.fitDiff}
@@ -629,48 +635,95 @@ function diffSign(d: number): string {
   return d >= 0 ? `+${(d * 100).toFixed(1)}` : (d * 100).toFixed(1)
 }
 
-/** Single rate column: absolute value + vs 官标等级 + vs 官标定数 + 拟合后 vs 官标定数 */
-function RateDiffCard({ label, rate, levelAvg, officialLevelAvgRate, officialLevelCount, levelValue, fitDiffAvgRate, fitDiffCount, fitDiffValue }: {
+/** 差值 → 定性描述，避免让用户自己解读正负号 */
+function diffWord(d: number): string {
+  const abs = Math.abs(d) * 100
+  if (abs < 1) return '基本持平'
+  const dir = d >= 0 ? '容易' : '偏难'
+  if (abs < 3) return `略${dir}`
+  if (abs < 6) return `明显${dir}`
+  return `显著${dir}`
+}
+
+/**
+ * 单列达成率卡片。
+ * 主对比只显示最贴近实际难度的一档（优先「同实际难度」），
+ * 其余参照收进「更多对比」折叠区，避免三行术语并列造成困惑。
+ * 15 级谱面全服仅 3 首，同级 / 同官标对比无统计意义，直接隐藏。
+ */
+function RateDiffCard({ label, rate, levelAvg, officialLevelAvgRate, officialLevelCount, levelValue, levelLabel, fitDiffAvgRate, fitDiffCount, fitDiffValue }: {
   label: string
   rate: number
   levelAvg?: number
   officialLevelAvgRate?: number
   officialLevelCount?: number
   levelValue?: number
+  levelLabel?: string
   fitDiffAvgRate?: number
   fitDiffCount?: number
   fitDiffValue?: number
 }) {
+  const [expanded, setExpanded] = useState(false)
   const pct = (rate * 100).toFixed(1)
-  const diffVsLevel = levelAvg != null ? rate - levelAvg : null
-  const diffVsOfficial = officialLevelAvgRate != null ? rate - officialLevelAvgRate : null
-  const showOfficial = diffVsOfficial != null && officialLevelCount != null && officialLevelCount >= 3
-  const diffVsFit = fitDiffAvgRate != null ? rate - fitDiffAvgRate : null
-  const showFitDiff = diffVsFit != null && fitDiffCount != null && fitDiffCount >= 3
+  const isTopTier = (levelValue ?? 0) >= 15
+
+  const comparisons: { key: string; name: string; ref: string; diff: number }[] = []
+  if (fitDiffAvgRate != null && (fitDiffCount ?? 0) >= 3) {
+    comparisons.push({
+      key: 'fit', name: '同实际难度', ref: fitDiffValue?.toFixed(1) ?? '',
+      diff: rate - fitDiffAvgRate,
+    })
+  }
+  if (!isTopTier && officialLevelAvgRate != null && (officialLevelCount ?? 0) >= 3) {
+    comparisons.push({
+      key: 'official', name: '同官标定数', ref: levelValue?.toFixed(1) ?? '',
+      diff: rate - officialLevelAvgRate,
+    })
+  }
+  if (!isTopTier && levelAvg != null) {
+    comparisons.push({
+      key: 'level', name: '同级', ref: levelLabel ?? '',
+      diff: rate - levelAvg,
+    })
+  }
+
+  const primary = comparisons[0]
+  const rest = comparisons.slice(1)
 
   return (
     <div className="bg-bg-gray rounded-md px-3 py-4">
       <div className="text-xs mb-1" style={LABEL_STYLES[label] || {}}>{label}</div>
       <div className="text-lg font-bold text-text tabular-nums">{pct}%</div>
-      {/* Row 1: vs 官标等级 */}
-      {diffVsLevel != null ? (
-        <div className="text-xs mt-0.5 tabular-nums font-medium" style={{ color: getDiffColor(diffVsLevel, label) }}>
-          {diffSign(diffVsLevel)}% vs 官标等级
-        </div>
+
+      {primary ? (
+        <>
+          <div className="text-[11px] mt-1 text-text-tertiary truncate">
+            {primary.name} {primary.ref}
+          </div>
+          <div className="text-xs font-medium tabular-nums mt-0.5" style={{ color: getDiffColor(primary.diff, label) }}>
+            {diffWord(primary.diff)}（{diffSign(primary.diff)}%）
+          </div>
+        </>
       ) : (
-        <div className="text-xs text-text-tertiary mt-0.5">--</div>
-      )}
-      {/* Row 2: vs 官标定数 */}
-      {showOfficial && diffVsOfficial != null && (
-        <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: getDiffColor(diffVsOfficial, label) }}>
-          {diffSign(diffVsOfficial)}% vs 官标定数({levelValue?.toFixed(1)})
+        <div className="text-[11px] mt-1 text-text-tertiary">
+          {isTopTier ? '15 级仅 3 首，无同级对比' : '样本不足'}
         </div>
       )}
-      {/* Row 3: 拟合后 vs 官标定数 */}
-      {showFitDiff && diffVsFit != null && (
-        <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: getDiffColor(diffVsFit, label) }}>
-          {diffSign(diffVsFit)}% 拟合后 vs 官标定数({fitDiffValue?.toFixed(1)})
-        </div>
+
+      {rest.length > 0 && (
+        <>
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className="text-[10px] text-text-tertiary mt-1.5 cursor-pointer border-none bg-transparent p-0 hover:text-primary"
+          >
+            {expanded ? '▾ 收起对比' : '▸ 更多对比'}
+          </button>
+          {expanded && rest.map(c => (
+            <div key={c.key} className="text-[10px] mt-0.5 tabular-nums" style={{ color: getDiffColor(c.diff, label) }}>
+              {c.name} {c.ref}：{diffWord(c.diff)}（{diffSign(c.diff)}%）
+            </div>
+          ))}
+        </>
       )}
     </div>
   )

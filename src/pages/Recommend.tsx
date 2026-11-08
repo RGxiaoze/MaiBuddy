@@ -12,6 +12,7 @@ import { usePlayerStore } from '@/store/playerStore'
 import { usePushSuggestions } from '@/hooks/usePushSuggestions'
 import { getChartStats } from '@/services/statsService'
 import RecommendCard from '@/components/shared/RecommendCard'
+import { truncatePercent } from '@/utils/format'
 import type { PushSuggestion } from '@/utils/pushSuggestions'
 
 type TabKey = 'push' | 'advance'
@@ -69,6 +70,8 @@ export default function Recommend() {
       for (const diff of allDiffs) {
         if (!diff || diff.levelValue <= 0) continue
         if (diff.levelValue < lo || diff.levelValue > hi) continue
+        // 15 级谱面只有 3 首且都是顶格难度，不适合作为「越级」练习目标
+        if (diff.levelValue >= 15) continue
         if (played.has(`${song.id}-${diff.levelIndex}`)) continue
         const stats = getChartStats(song.id, diff.level)
         const sssPlusRate = stats?.sssPlusRate
@@ -162,8 +165,8 @@ function PushTab({ items }: { items: Array<{ s: PushSuggestion; maxGain: number 
           levelIndex={s.levelIndex}
           levelValue={s.levelValue}
           reason={s.precision === 'estimated'
-            ? `当前达成率约 ${s.currentAchievements.toFixed(1)}%，推到 SSS 即可吃分`
-            : `当前 ${s.currentAchievements.toFixed(1)}%，推到 SSS+ 稳稳收分`}
+            ? `当前达成率约 ${truncatePercent(s.currentAchievements)}%，推到 SSS 即可吃分`
+            : `当前 ${truncatePercent(s.currentAchievements)}%，推到 SSS+ 稳稳收分`}
           sssPlusRate={s.sssPlusRate}
           tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
           tagColor={s.pool === 'b35' ? '#5BA4CF' : '#B8A0E8'}
