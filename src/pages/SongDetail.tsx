@@ -16,7 +16,7 @@ import { computeDxStar, renderStars } from '@/utils/dxStar'
 import { getAliasesForSong, loadAliasData } from '@/data/aliases'
 import { getVersionDisplay } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
-import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS } from '@/services/statsService'
+import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff } from '@/services/statsService'
 
 export default function SongDetail() {
   const { songId } = useParams<{ songId: string }>()
@@ -366,19 +366,36 @@ export default function SongDetail() {
             />
           </div>
 
-          {/* 拟合定数行 */}
+          {/* 拟合定数行：SSS+ 口径（社区 fit_diff）+ SSS 口径（本地推算） */}
           {currentDiff && chartStats.fitDiff != null && (() => {
-            const delta = chartStats.fitDiff - currentDiff.levelValue
-            const sign = delta >= 0 ? '+' : ''
-            const deltaColor = Math.abs(delta) <= FIT_DIFF_GRAY ? '#9CA3AF'
-              : delta > 0 ? '#ef4444' : '#22c55e'
+            const official = currentDiff.levelValue
+            const delta = chartStats.fitDiff - official
+            const sign = (d: number) => d >= 0 ? '+' : '-'
+            const color = (d: number) => Math.abs(d) <= FIT_DIFF_GRAY ? '#9CA3AF' : d > 0 ? '#ef4444' : '#22c55e'
+
+            const sssFit = computeSssFitDiff(chartStats, officialLevelAvg, official)
+            const sssDelta = sssFit == null ? null : sssFit - official
+
             return (
-              <div className="mt-3 pt-3 border-t border-border/30 text-xs text-center">
-                <span className="text-text-secondary">拟合定数 </span>
-                <span className="font-semibold text-text">{chartStats.fitDiff.toFixed(2)}</span>
-                <span className="text-text-tertiary"> — </span>
-                <span style={{ color: deltaColor }}>{sign}{Math.abs(delta).toFixed(2)}</span>
-                <span className="text-text-tertiary"> vs 官方定数 {currentDiff.levelValue.toFixed(1)}</span>
+              <div className="mt-3 pt-3 border-t border-border/30 text-xs text-center space-y-1">
+                <div>
+                  <span className="text-text-secondary">拟合定数（SSS+） </span>
+                  <span className="font-semibold text-text">{chartStats.fitDiff.toFixed(2)}</span>
+                  <span className="text-text-tertiary"> — </span>
+                  <span style={{ color: color(delta) }}>{sign(delta)}{Math.abs(delta).toFixed(2)}</span>
+                  <span className="text-text-tertiary"> vs 官方 {official.toFixed(1)}</span>
+                </div>
+                {sssFit != null && sssDelta != null && (
+                  <div>
+                    <span className="text-text-secondary">拟合定数（SSS） </span>
+                    <span className="font-semibold text-text">{sssFit.toFixed(2)}</span>
+                    <span className="text-text-tertiary"> — </span>
+                    <span style={{ color: color(sssDelta) }}>
+                      {sign(sssDelta)}{Math.abs(sssDelta).toFixed(2)}
+                    </span>
+                    <span className="text-text-tertiary"> vs 官方 {official.toFixed(1)}</span>
+                  </div>
+                )}
               </div>
             )
           })()}

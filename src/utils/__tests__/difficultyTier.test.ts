@@ -62,44 +62,44 @@ describe('classifyDifficulty', () => {
 
   it('15 级谱面永远为 hard', () => {
     const s = makeScore({ levelValue: 15.0, achievements: 100.5 })
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 5, fitDiff: 15 })).toBe('hard')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 5, fitDiff: 15 })).toBe('hard')
   })
 
   it('大水分曲（diff > 2.0）→ easy', () => {
     const s = makeScore({ levelValue: 14.0 })
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 3.0, fitDiff: 14 })).toBe('easy')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 3.0, fitDiff: 14 })).toBe('easy')
   })
 
   it('硬谱（diff ≤ -1.0）→ hard', () => {
     const s = makeScore({ levelValue: 14.0 })
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 14 })).toBe('hard')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 14 })).toBe('hard')
   })
 
   it('高 SSS+ 率可将 hard 提升至 medium', () => {
     const s = makeScore({ levelValue: 14.0 })
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0.2, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 14 })).toBe('medium')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0.2, cumSssRate: 0.2, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 14 })).toBe('medium')
   })
 
   // ---- 加权模式（有 targetAchievements） ----
 
   it('小gap(2%)+水分曲(diff=+2.5) → easy', () => {
     const s = makeScore({ levelValue: 14.0, achievements: 98.5 })
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14 }, 100.5)).toBe('easy')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14 }, 100.5)).toBe('easy')
   })
 
   it('中gap(6%)+平均谱(diff=0) → medium', () => {
     const s = makeScore({ levelValue: 14.0, achievements: 94.5 })
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14 }, 100.5)).toBe('medium')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14 }, 100.5)).toBe('medium')
   })
 
   it('大gap(12%)+水分曲(diff=+2.5) → medium', () => {
     const s = makeScore({ levelValue: 14.0, achievements: 88.5 })
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14 }, 100.5)).toBe('medium')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14 }, 100.5)).toBe('medium')
   })
 
   it('大gap(12%)+硬谱(diff=-2) → hard', () => {
     const s = makeScore({ levelValue: 14.0, achievements: 88.5 })
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 14 }, 100.5)).toBe('hard')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 14 }, 100.5)).toBe('hard')
   })
 
   // ---- 无 chart_stats + targetAchievements（gap 修正） ----
@@ -120,35 +120,35 @@ describe('classifyDifficulty', () => {
 
   it('14.5 水分曲+小gap(2%) → medium（阈值上调）', () => {
     const s = makeScore({ levelValue: 14.5, achievements: 98.5 })
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14.5 }, 100.5)).toBe('medium')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 14.5 }, 100.5)).toBe('medium')
   })
 
   it('14.5 平均谱+中gap(6%) → medium', () => {
     const s = makeScore({ levelValue: 14.5, achievements: 94.5 })
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.5 }, 100.5)).toBe('medium')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 14.5 }, 100.5)).toBe('medium')
   })
 
   it('14.5 硬谱+大gap(12%) → hard（未达 0.475 medium 线）', () => {
     const s = makeScore({ levelValue: 14.5, achievements: 88.5 })
     // composite=0.26, mediumThreshold=0.475 → hard
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 14.5 }, 100.5)).toBe('hard')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 14.5 }, 100.5)).toBe('hard')
   })
 
   it('13.0 水分曲+中gap(6%) → easy（阈值不变，0.54 >= 0.65？不，0.54 < 0.65 → medium）', () => {
     const s = makeScore({ levelValue: 13.0, achievements: 94.5 })
     // composite=0.54, easyThreshold=0.65+0=0.65, mediumThreshold=0.35+0=0.35 → medium
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 13.0 }, 100.5)).toBe('medium')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 0, fitDiff: 13.0 }, 100.5)).toBe('medium')
   })
 
   it('13.0 水分曲+小gap(2%) → easy（阈值不变）', () => {
     const s = makeScore({ levelValue: 13.0, achievements: 98.5 })
     // composite=0.797, easyThreshold=0.65 → easy
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 13.0 }, 100.5)).toBe('easy')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 2.5, fitDiff: 13.0 }, 100.5)).toBe('easy')
   })
 
   it('12.0 硬谱+大gap → hard（阈值完全不调整）', () => {
     const s = makeScore({ levelValue: 12.0, achievements: 88.5 })
     // composite=0.26, mediumThreshold=0.35 → hard
-    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 12.0 }, 100.5)).toBe('hard')
+    expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: -2.0, fitDiff: 12.0 }, 100.5)).toBe('hard')
   })
 })

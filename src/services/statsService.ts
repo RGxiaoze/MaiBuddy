@@ -16,6 +16,8 @@ export interface ChartStatSummary {
   sssRate: number
   /** SSS+ 率（dist[13] / total） */
   sssPlusRate: number
+  /** 累计 SSS 及以上率（(dist[12] + dist[13]) / total）—— 达到 SSS 的宽松口径 */
+  cumSssRate: number
   /** AP 率（(fc_dist[3] + fc_dist[4]) / total_fc） */
   apRate: number
   /** 全服平均达成率 - 同难度平均达成率（正 = 比同定数容易） */
@@ -42,6 +44,8 @@ export interface FitDiffAvg {
   sssRate: number
   /** SSS+ 率（人口加权） */
   sssPlusRate: number
+  /** 累计 SSS 及以上率（人口加权） */
+  cumSssRate: number
   /** AP 率（人口加权） */
   apRate: number
 }
@@ -54,6 +58,45 @@ export const STDEV_LEVELS = [
   { max: 4.8, label: '高',   color: '#f97316', desc: '成绩分散偏大，可能受个人差或越级影响' },
   { max: Infinity, label: '极高', color: '#ef4444', desc: '成绩非常分散，数据仅供参考' },
 ] as const
+
+// ---- SSS 口径拟合定数 ----
+
+/**
+ * SSS 口径拟合定数的斜率。
+ *
+ * 来源：2026-11-09 用全量 chart_stats（5561 个样本谱面）试算 —— 以「累计 SSS
+ * 及以上率」(dist[12]+dist[13]) 相对同官方定数档的偏差，对社区 fit_diff 偏差
+ * 做线性回归，斜率 -1.132（R² 0.376）。
+ *
+ * 局限：单指标解释力有限。分段验证中 12~13.9 区间方向一致率 78%；
+ * 低于 12 的谱面 SSS 率接近饱和（部分谱面 60%~90% 玩家都能 SSS），无区分度；
+ * 15 级样本太少。因此只在 12 级以上展示。
+ */
+export const SSS_FIT_SLOPE = -1.132
+
+/** 推算 SSS 定数所需的最低官方定数 */
+export const SSS_FIT_MIN_LEVEL = 12
+
+/**
+ * 推算「SSS 口径拟合定数」。
+ *
+ * 社区 fit_diff 主要由 SSS+ 率驱动（相关 -0.81），几乎不反映 SSS 难度
+ * （与本谱 SSS 率相关仅 -0.16）。这里改用「达到 SSS 及以上」的比例相对
+ * 同官方定数档的偏差来估算。
+ *
+ * @returns SSS 口径定数；定数低于 12 或样本不足时返回 null
+ */
+export function computeSssFitDiff(
+  chartStat: ChartStatSummary | undefined,
+  officialLevelAvg: FitDiffAvg | undefined,
+  officialLevelValue: number,
+): number | null {
+  if (!chartStat || !officialLevelAvg) return null
+  if (officialLevelValue < SSS_FIT_MIN_LEVEL) return null
+  if (officialLevelAvg.chartCount < 3) return null
+  const deviation = chartStat.cumSssRate - officialLevelAvg.cumSssRate
+  return officialLevelValue + SSS_FIT_SLOPE * deviation
+}
 
 // ---- Internal state ----
 
@@ -180,6 +223,8 @@ function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary
       const totalDist = entry.dist.reduce((s, v) => s + v, 0) || 1
       const sssRate = (entry.dist[12] || 0) / totalDist
       const sssPlusRate = (entry.dist[13] || 0) / totalDist
+      // 累计 SSS 及以上：SSS 与 SSS+ 是互斥区间（100.0~100.4999 / ≥100.5），相加才是「达到 SSS」
+      const cumSssRate = ((entry.dist[12] || 0) + (entry.dist[13] || 0)) / totalDist
 
       // AP rate: (AP + AP+) from fc_dist
       const totalFcDist = entry.fc_dist.reduce((s, v) => s + v, 0) || 1
@@ -194,6 +239,7 @@ function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary
         stdDev: entry.std_dev,
         sssRate,
         sssPlusRate,
+        cumSssRate,
         apRate,
         diffFromLevelAvg,
         fitDiff: entry.fit_diff,
@@ -247,6 +293,7 @@ function buildFitDiffAvgs(data: ChartStatsResponse): Map<number, FitDiffAvg> {
       chartCount: group.count,
       sssRate: (group.dist[12] || 0) / totalDist,
       sssPlusRate: (group.dist[13] || 0) / totalDist,
+      cumSssRate: ((group.dist[12] || 0) + (group.dist[13] || 0)) / totalDist,
       apRate: ((group.fc_dist[3] || 0) + (group.fc_dist[4] || 0)) / totalFcDist,
     })
   }
@@ -292,6 +339,7 @@ function buildOfficialLevelAvgs(
       chartCount: group.count,
       sssRate: (group.dist[12] || 0) / totalDist,
       sssPlusRate: (group.dist[13] || 0) / totalDist,
+      cumSssRate: ((group.dist[12] || 0) + (group.dist[13] || 0)) / totalDist,
       apRate: ((group.fc_dist[3] || 0) + (group.fc_dist[4] || 0)) / totalFcDist,
     })
   }
