@@ -11,7 +11,8 @@ import { useScoreStore } from '@/store/scoreStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { usePushSuggestions } from '@/hooks/usePushSuggestions'
 import { loadVoteStats, getAllVoteStats, isVoteStatsLoaded, isVoteStatsFailed } from '@/services/voteService'
-import { buildExplorePool, DEFAULT_MIN_VOTES, type ExploreItem } from '@/utils/explore'
+import { buildExplorePool, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
+import { getBlockedSongIds, blockSong, clearBlockedSongs } from '@/db/database'
 import RecommendCard from '@/components/shared/RecommendCard'
 import { truncatePercent } from '@/utils/format'
 import type { PushSuggestion } from '@/utils/pushSuggestions'
@@ -68,18 +69,60 @@ export default function Recommend() {
   }, [scores, dfBest35, dfBest15])
 
   const [exploreWide, setExploreWide] = useState(false)
+  const [seenKeys, setSeenKeys] = useState<Set<string>>(new Set())
+  const [blockedIds, setBlockedIds] = useState<Set<number>>(new Set())
+
+  useEffect(() => {
+    getBlockedSongIds().then(setBlockedIds)
+  }, [])
+
+  const handleBlock = (songId: number) => {
+    blockSong(songId)
+    setBlockedIds(prev => new Set(prev).add(songId))
+  }
+
+  const handleRestoreBlocked = () => {
+    clearBlockedSongs()
+    setBlockedIds(new Set())
+    setSeenKeys(new Set())
+  }
+
+  // 难度范围：上限 = B15 最高定数 + 0.5（不推打不动的）
+  //           下限 = B35 中位数 − 1.0（不推太简单的）
+  const levelRange = useMemo(() => {
+    const b15 = effectiveB50?.best15 ?? []
+    const b35 = effectiveB50?.best35 ?? []
+    if (b15.length === 0 && b35.length === 0) return {}
+    const maxLevel = b15.length > 0
+      ? Math.max(...b15.map(e => e.levelValue)) + 0.5
+      : undefined
+    let minLevel: number | undefined
+    if (b35.length > 0) {
+      const sorted = b35.map(e => e.levelValue).sort((a, b) => a - b)
+      minLevel = sorted[Math.floor(sorted.length / 2)] - 1.0
+    }
+    return { minLevel, maxLevel }
+  }, [effectiveB50])
 
   const exploreList = useMemo(() => {
     if (voteState !== 'ready' || songs.length === 0) return []
     const votes = getAllVoteStats()
-    // 有水平数据且未放宽时收窄到 ±0.5；否则全难度按社区胜率排
-    const band = playerLevel != null && !exploreWide
-      ? { minLevel: playerLevel - 0.5, maxLevel: playerLevel + 0.5 }
-      : {}
     return buildExplorePool(songs, playedKeys, votes, {
-      minVotes: DEFAULT_MIN_VOTES, limit: 20, ...band,
+      minVotes: DEFAULT_MIN_VOTES,
+      limit: DEFAULT_LIMIT,
+      ...(exploreWide ? {} : levelRange),
+      seenKeys,
+      blockedSongIds: blockedIds,
     })
-  }, [voteState, songs, playedKeys, playerLevel, exploreWide])
+  }, [voteState, songs, playedKeys, exploreWide, levelRange, seenKeys, blockedIds])
+
+  const refreshExplore = () => {
+    setSeenKeys(prev => {
+      const next = new Set(prev)
+      for (const it of exploreList) next.add(`${it.songId}-${it.levelIndex}`)
+      return next
+    })
+  }
 
   const hasB50 = !!effectiveB50
 
@@ -116,6 +159,10 @@ export default function Recommend() {
           playerLevel={playerLevel}
           wide={exploreWide}
           onWiden={() => setExploreWide(true)}
+          onRefresh={refreshExplore}
+          onBlock={handleBlock}
+          blockedCount={blockedIds.size}
+          onRestore={handleRestoreBlocked}
         />
       )}
     </div>
@@ -140,50 +187,98 @@ function TabButton({ active, onClick, icon, label }: {
   )
 }
 
-// ---- 冲分榜 ----
+// ---- 推分 ----
 
 function PushTab({ items }: { items: Array<{ s: PushSuggestion; maxGain: number }> }) {
   if (items.length === 0) {
     return (
       <div className="bg-surface border border-border rounded-lg p-5">
-        <p className="text-xs text-text-secondary m-0">暂无冲分推荐——B50 地板分已接近理论 SSS+ 天花板，继续保持！</p>
+        <p className="text-xs text-text-secondary m-0">暂无推分建议——B50 地板分已接近理论 SSS+ 天花板，继续保持！</p>
       </div>
     )
   }
 
+  const b15 = items.filter(i => i.s.pool !== 'b35').slice(0, 10)
+  const b35 = items.filter(i => i.s.pool === 'b35').slice(0, 10)
+
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-text-secondary">
-        按推分收益排序，优先吃分率高的水分曲。
-      </p>
-      {items.map(({ s, maxGain }) => (
-        <RecommendCard
-          key={`${s.songId}-${s.levelIndex}`}
-          songId={s.songId}
-          title={s.songTitle}
-          levelIndex={s.levelIndex}
-          levelValue={s.levelValue}
-          reason={s.precision === 'estimated'
-            ? `当前达成率约 ${truncatePercent(s.currentAchievements)}%，推到 SSS 即可吃分`
-            : `当前 ${truncatePercent(s.currentAchievements)}%，推到 SSS+ 稳稳收分`}
-          sssPlusRate={s.sssPlusRate}
-          tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
-          tagColor={s.pool === 'b35' ? '#5BA4CF' : '#B8A0E8'}
-          gainText={maxGain > 0 ? `+${maxGain.toFixed(1)} 分` : undefined}
-        />
-      ))}
+    <div className="space-y-4">
+      <PushGroup
+        title="B15 池（新版本）"
+        hint="池子小，每个版本理论上都能推"
+        items={b15}
+        tagColor="#B8A0E8"
+      />
+      <PushGroup
+        title="B35 池（旧版本）"
+        hint="老玩家的可推空间往往已被历史成绩占满"
+        items={b35}
+        tagColor="#5BA4CF"
+        defaultCollapsed
+      />
+    </div>
+  )
+}
+
+function PushGroup({ title, hint, items, tagColor, defaultCollapsed = false }: {
+  title: string
+  hint: string
+  items: Array<{ s: PushSuggestion; maxGain: number }>
+  tagColor: string
+  defaultCollapsed?: boolean
+}) {
+  const [open, setOpen] = useState(!defaultCollapsed)
+
+  if (items.length === 0) return null
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-2 mb-2 cursor-pointer border-none bg-transparent p-0 text-left"
+      >
+        <span className="text-sm font-semibold text-text">{title}</span>
+        <span className="text-[10px] text-text-tertiary tabular-nums">{items.length} 条</span>
+        <span className="text-[10px] text-text-tertiary ml-auto shrink-0">{open ? '收起 ▾' : '展开 ▸'}</span>
+      </button>
+      {open && (
+        <>
+          <p className="text-[11px] text-text-tertiary mb-2">{hint}</p>
+          <div className="space-y-2">
+            {items.map(({ s, maxGain }) => (
+              <RecommendCard
+                key={`${s.songId}-${s.levelIndex}`}
+                songId={s.songId}
+                title={s.songTitle}
+                levelIndex={s.levelIndex}
+                levelValue={s.levelValue}
+                reason={s.precision === 'estimated'
+                  ? `当前达成率约 ${truncatePercent(s.currentAchievements)}%，推到 SSS 即可吃分`
+                  : `当前 ${truncatePercent(s.currentAchievements)}%，推到 SSS+ 稳稳收分`}
+                tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
+                tagColor={tagColor}
+                gainText={maxGain > 0 ? `+${maxGain.toFixed(1)} 分` : undefined}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
 
 // ---- 探索 ----
 
-function ExploreTab({ items, state, playerLevel, wide, onWiden }: {
+function ExploreTab({ items, state, playerLevel, wide, onWiden, onRefresh, onBlock, blockedCount, onRestore }: {
   items: ExploreItem[]
   state: 'idle' | 'ready' | 'failed'
   playerLevel: number | null
   wide: boolean
   onWiden: () => void
+  onRefresh: () => void
+  onBlock: (songId: number) => void
+  blockedCount: number
+  onRestore: () => void
 }) {
   if (state === 'failed') {
     return (
@@ -225,13 +320,18 @@ function ExploreTab({ items, state, playerLevel, wide, onWiden }: {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-text-secondary">
-        都是你<strong className="text-text">没打过</strong>的谱面
-        {playerLevel != null && !wide && (
-          <>，难度在 <strong className="text-text">{(playerLevel - 0.5).toFixed(1)} ~ {(playerLevel + 0.5).toFixed(1)}</strong> 之间</>
-        )}
-        ，按社区投票喜好排序。
-      </p>
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <p className="text-xs text-text-secondary flex-1 leading-snug">
+          都是你<strong className="text-text">没打过</strong>的谱面，
+          {wide ? '覆盖全部难度' : '难度适合当前水平'}，按社区投票喜好随机挑选。
+        </p>
+        <button
+          onClick={onRefresh}
+          className="shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium border border-border text-text-secondary bg-surface hover:border-primary hover:text-primary transition-colors cursor-pointer"
+        >
+          换一批
+        </button>
+      </div>
       {items.map(it => (
         <RecommendCard
           key={`${it.songId}-${it.levelIndex}`}
@@ -244,9 +344,21 @@ function ExploreTab({ items, state, playerLevel, wide, onWiden }: {
           }`}
           tag="探索"
           tagColor="#5BA4CF"
-          showWater={false}
+          showExternalLink={false}
+          onBlock={() => onBlock(it.songId)}
         />
       ))}
+
+      {blockedCount > 0 && (
+        <div className="pt-2 text-center">
+          <button
+            onClick={onRestore}
+            className="text-[11px] text-text-tertiary hover:text-primary cursor-pointer border-none bg-transparent p-0 transition-colors"
+          >
+            已隐藏 {blockedCount} 首 · 恢复
+          </button>
+        </div>
+      )}
     </div>
   )
 }

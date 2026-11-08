@@ -65,6 +65,12 @@ export interface CachedVote {
   updatedAt: number       // timestamp (ms)
 }
 
+/** 探索页「不感兴趣」屏蔽的歌曲 */
+export interface BlockedSong {
+  songId: number
+  blockedAt: number
+}
+
 /** Settings entry (key-value store) */
 export interface SettingsEntry {
   key: string             // PK
@@ -78,6 +84,7 @@ class MaimaiDB extends Dexie {
   aliasCache!: EntityTable<CachedAliases, 'id'>
   statsCache!: EntityTable<CachedStats, 'id'>
   voteCache!: EntityTable<CachedVote, 'id'>
+  exploreBlocked!: EntityTable<BlockedSong, 'songId'>
   settings!: EntityTable<SettingsEntry, 'key'>
 
   constructor() {
@@ -125,6 +132,17 @@ class MaimaiDB extends Dexie {
       statsCache: 'id',
       settings: '&key',
       voteCache: 'id',
+    })
+
+    // v7: add explore blocklist (探索页「不感兴趣」)
+    this.version(7).stores({
+      scores: '++id, songId, [songId+levelIndex], playDate',
+      songCache: 'id',
+      aliasCache: 'id',
+      statsCache: 'id',
+      settings: '&key',
+      voteCache: 'id',
+      exploreBlocked: 'songId',
     })
   }
 }
@@ -357,6 +375,36 @@ export async function setCachedVotes(data: CachedVoteEntry[]): Promise<void> {
     await db.voteCache.put({ id: VOTE_CACHE_KEY, data, updatedAt: Date.now() })
   } catch {
     // Silently fail — cache is optional
+  }
+}
+
+// ---- Explore blocklist helpers ----
+
+/** 读取探索页已屏蔽的歌曲 id 集合 */
+export async function getBlockedSongIds(): Promise<Set<number>> {
+  try {
+    const rows = await db.exploreBlocked.toArray()
+    return new Set(rows.map(r => r.songId))
+  } catch {
+    return new Set()
+  }
+}
+
+/** 把某首歌加入探索屏蔽列表 */
+export async function blockSong(songId: number): Promise<void> {
+  try {
+    await db.exploreBlocked.put({ songId, blockedAt: Date.now() })
+  } catch {
+    // Silently fail — 屏蔽失败不应阻塞浏览
+  }
+}
+
+/** 清空探索屏蔽列表 */
+export async function clearBlockedSongs(): Promise<void> {
+  try {
+    await db.exploreBlocked.clear()
+  } catch {
+    // ignore
   }
 }
 
