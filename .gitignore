@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 *.png
+Image_*.jpg
 public/data/kb.json
 public/changelog.json
 public/docs-index.json

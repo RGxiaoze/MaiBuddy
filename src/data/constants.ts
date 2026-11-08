@@ -46,7 +46,7 @@ export const FC_LABELS: Record<string, string> = {
 }
 
 export const FS_LABELS: Record<string, string> = {
-  fsdp: 'FDX+', fsd: 'FDX', fsp: 'FS+', fs: 'FS',
+  fsdp: 'FDX+', fsd: 'FDX', fsp: 'FS+', fs: 'FS', sync: 'SYNC',
 }
 
 // ---- Cover image URL ----
