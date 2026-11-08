@@ -19,13 +19,14 @@ function computeVersionFingerprint(songs: Song[]): number {
   }
   return max
 }
-export type SortBy = 'default' | 'bpm' | 'version' | 'levelValue'
+export type SortBy = 'default' | 'bpm' | 'version' | 'levelValue' | 'title'
 export type SortOrder = 'asc' | 'desc'
 
 export const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: 'default', label: '最高定数' },
   { value: 'bpm', label: 'BPM' },
   { value: 'version', label: '版本' },
+  { value: 'title', label: '曲名' },
 ]
 
 interface AdvancedFilters {
@@ -211,6 +212,9 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
           const vb = VERSION_ORDER.get(b.from) ?? 0
           return (va - vb) * mult
         }
+        case 'title':
+          // 曲名以日文假名 / 汉字 / 英文混合为主，按日文排序规则比较
+          return a.title.localeCompare(b.title, 'ja') * mult
         case 'default':
         case 'levelValue': {
           const maxA = Math.max(...[...a.difficulties.standard, ...a.difficulties.dx].map(d => d.levelValue), 0)
