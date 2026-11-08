@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeSssFitDiff, SSS_FIT_MIN_LEVEL, SSS_FIT_SLOPE } from '../statsService'
+import { computeSssFitDiff, computeRateRank, SSS_FIT_MIN_LEVEL, SSS_FIT_SLOPE } from '../statsService'
 import type { ChartStatSummary, FitDiffAvg } from '../statsService'
 
 function makeStat(overrides: Partial<ChartStatSummary> = {}): ChartStatSummary {
@@ -47,5 +47,32 @@ describe('computeSssFitDiff', () => {
   it('偏差幅度约为 SSS+ 口径的一半（同一套数据下不会剧烈跳变）', () => {
     const result = computeSssFitDiff(makeStat({ cumSssRate: 0.4 }), makeGroup({ cumSssRate: 0.3 }), 13)!
     expect(Math.abs(result - 13)).toBeLessThanOrEqual(0.2)
+  })
+})
+
+describe('computeRateRank', () => {
+  // 降序排列的率数组（越高越容易）
+  const rates = [0.9, 0.7, 0.5, 0.3, 0.1]
+
+  it('最高的率排第 1 易', () => {
+    expect(computeRateRank(rates, 0.9)).toEqual({ rank: 1, total: 5 })
+  })
+
+  it('最低的率排最后', () => {
+    expect(computeRateRank(rates, 0.1)).toEqual({ rank: 5, total: 5 })
+  })
+
+  it('介于之间时，按「比它高的数量 + 1」定位', () => {
+    expect(computeRateRank(rates, 0.5)).toEqual({ rank: 3, total: 5 })
+    expect(computeRateRank(rates, 0.6)).toEqual({ rank: 3, total: 5 })
+  })
+
+  it('并列时取最高位次', () => {
+    expect(computeRateRank([0.9, 0.9, 0.5], 0.9)).toEqual({ rank: 1, total: 3 })
+  })
+
+  it('样本不足 3 个时返回 null（避免「2 首中第 1」的误导）', () => {
+    expect(computeRateRank([0.9, 0.5], 0.9)).toBeNull()
+    expect(computeRateRank([], 0.9)).toBeNull()
   })
 })

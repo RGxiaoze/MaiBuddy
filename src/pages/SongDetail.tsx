@@ -18,7 +18,7 @@ import { formatDesignerName } from '@/data/designer-aliases'
 import { useBackgroundStore } from '@/store/backgroundStore'
 import { getVersionDisplay } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
-import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff } from '@/services/statsService'
+import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff, getRateRank } from '@/services/statsService'
 
 export default function SongDetail() {
   const { songId } = useParams<{ songId: string }>()
@@ -131,6 +131,14 @@ export default function SongDetail() {
     if (!statsLoaded || !currentDiff) return undefined
     return getOfficialLevelAvg(currentDiff.levelValue)
   }, [statsLoaded, currentDiff?.levelValue])
+
+  // SSS 口径拟合定数：提到谱面信息区展示，比全服三率更能代表「这首有多难」
+  const sssFit = useMemo(
+    () => (chartStats && currentDiff
+      ? computeSssFitDiff(chartStats, officialLevelAvg, currentDiff.levelValue)
+      : null),
+    [chartStats, officialLevelAvg, currentDiff?.levelValue],
+  )
 
   const stdDevLevel = chartStats
     ? STDEV_LEVELS.find(l => chartStats.stdDev < l.max) ?? STDEV_LEVELS[STDEV_LEVELS.length - 1]
@@ -296,6 +304,21 @@ export default function SongDetail() {
               <strong>{formatDesignerName(currentDiff.noteDesigner)}</strong>
             </div>
 
+            {chartStats?.fitDiff != null && (
+              <div className="sm:col-span-2 flex items-center gap-2 flex-wrap">
+                <span className="text-text-secondary">拟合定数：</span>
+                <strong className="text-base text-primary tabular-nums">{chartStats.fitDiff.toFixed(2)}</strong>
+                <span className="text-[11px] text-text-tertiary">SSS+ 口径</span>
+                {sssFit != null && (
+                  <>
+                    <span className="text-text-tertiary">/</span>
+                    <strong className="text-base text-primary tabular-nums">{sssFit.toFixed(2)}</strong>
+                    <span className="text-[11px] text-text-tertiary">SSS 口径</span>
+                  </>
+                )}
+              </div>
+            )}
+
             {currentDiff.notes && (
               <>
                 <div>总物量：<strong>{currentDiff.notes.total}</strong></div>
@@ -312,10 +335,17 @@ export default function SongDetail() {
         </div>
       )}
 
-      {/* 全服达成分布 */}
+      {/* 全服水平（原全服达成分布）*/}
       {chartStats ? (
         <div className="bg-surface border border-border rounded-lg p-4 sm:p-5 mb-4">
-          <h3 className="text-sm font-semibold text-text mb-3">全服达成分布</h3>
+          <h3 className="text-sm font-semibold text-text mb-3">
+            全服水平
+            {currentDiff && officialLevelAvg && (
+              <span className="ml-2 text-[11px] font-normal text-text-tertiary tabular-nums">
+                {currentDiff.levelValue.toFixed(1)} 档共 {officialLevelAvg.chartCount} 首
+              </span>
+            )}
+          </h3>
 
           {/* StdDev classification banner — always shown */}
           {stdDevLevel && (
@@ -344,6 +374,7 @@ export default function SongDetail() {
               fitDiffAvgRate={fitDiffAvg?.sssRate}
               fitDiffCount={fitDiffAvg?.chartCount}
               fitDiffValue={chartStats.fitDiff}
+              rank={currentDiff ? getRateRank(currentDiff.levelValue, 'sss', chartStats.sssRate) : null}
             />
 
             {/* SSS+ Rate */}
@@ -358,6 +389,7 @@ export default function SongDetail() {
               fitDiffAvgRate={fitDiffAvg?.sssPlusRate}
               fitDiffCount={fitDiffAvg?.chartCount}
               fitDiffValue={chartStats.fitDiff}
+              rank={currentDiff ? getRateRank(currentDiff.levelValue, 'sssPlus', chartStats.sssPlusRate) : null}
             />
 
             {/* AP Rate */}
@@ -372,42 +404,10 @@ export default function SongDetail() {
               fitDiffAvgRate={fitDiffAvg?.apRate}
               fitDiffCount={fitDiffAvg?.chartCount}
               fitDiffValue={chartStats.fitDiff}
+              rank={currentDiff ? getRateRank(currentDiff.levelValue, 'ap', chartStats.apRate) : null}
             />
           </div>
 
-          {/* 拟合定数行：SSS+ 口径（社区 fit_diff）+ SSS 口径（本地推算） */}
-          {currentDiff && chartStats.fitDiff != null && (() => {
-            const official = currentDiff.levelValue
-            const delta = chartStats.fitDiff - official
-            const sign = (d: number) => d >= 0 ? '+' : '-'
-            const color = (d: number) => Math.abs(d) <= FIT_DIFF_GRAY ? '#9CA3AF' : d > 0 ? '#ef4444' : '#22c55e'
-
-            const sssFit = computeSssFitDiff(chartStats, officialLevelAvg, official)
-            const sssDelta = sssFit == null ? null : sssFit - official
-
-            return (
-              <div className="mt-3 pt-3 border-t border-border/30 text-xs text-center space-y-1">
-                <div>
-                  <span className="text-text-secondary">拟合定数（SSS+） </span>
-                  <span className="font-semibold text-text">{chartStats.fitDiff.toFixed(2)}</span>
-                  <span className="text-text-tertiary"> — </span>
-                  <span style={{ color: color(delta) }}>{sign(delta)}{Math.abs(delta).toFixed(2)}</span>
-                  <span className="text-text-tertiary"> vs 官方 {official.toFixed(1)}</span>
-                </div>
-                {sssFit != null && sssDelta != null && (
-                  <div>
-                    <span className="text-text-secondary">拟合定数（SSS） </span>
-                    <span className="font-semibold text-text">{sssFit.toFixed(2)}</span>
-                    <span className="text-text-tertiary"> — </span>
-                    <span style={{ color: color(sssDelta) }}>
-                      {sign(sssDelta)}{Math.abs(sssDelta).toFixed(2)}
-                    </span>
-                    <span className="text-text-tertiary"> vs 官方 {official.toFixed(1)}</span>
-                  </div>
-                )}
-              </div>
-            )
-          })()}
         </div>
       ) : statsLoaded ? (
         <div className="bg-surface border border-border rounded-lg p-4 sm:p-5 mb-4">
@@ -626,9 +626,6 @@ const GRAY_ZONES: Record<string, number> = {
   'SSS+ 率': 2.0,
   'AP 率': 0.3,
 }
-/** 拟合定数差值灰化边界（fit_diff 精度 0.001） */
-const FIT_DIFF_GRAY = 0.05
-
 /** 标签着色（用户确认的配色体系） */
 const LABEL_STYLES: Record<string, React.CSSProperties> = {
   'SSS 率': {
@@ -677,7 +674,7 @@ function diffWord(d: number): string {
  * 其余参照收进「更多对比」折叠区，避免三行术语并列造成困惑。
  * 15 级谱面全服仅 3 首，同级 / 同官标对比无统计意义，直接隐藏。
  */
-function RateDiffCard({ label, rate, levelAvg, officialLevelAvgRate, officialLevelCount, levelValue, levelLabel, fitDiffAvgRate, fitDiffCount, fitDiffValue }: {
+function RateDiffCard({ label, rate, levelAvg, officialLevelAvgRate, officialLevelCount, levelValue, levelLabel, fitDiffAvgRate, fitDiffCount, fitDiffValue, rank }: {
   label: string
   rate: number
   levelAvg?: number
@@ -688,6 +685,8 @@ function RateDiffCard({ label, rate, levelAvg, officialLevelAvgRate, officialLev
   fitDiffAvgRate?: number
   fitDiffCount?: number
   fitDiffValue?: number
+  /** 同官方定数档内的位次（1 = 最容易） */
+  rank?: { rank: number; total: number } | null
 }) {
   const [expanded, setExpanded] = useState(false)
   const pct = (rate * 100).toFixed(1)
@@ -721,7 +720,11 @@ function RateDiffCard({ label, rate, levelAvg, officialLevelAvgRate, officialLev
       <div className="text-xs mb-1" style={LABEL_STYLES[label] || {}}>{label}</div>
       <div className="text-lg font-bold text-text tabular-nums">{pct}%</div>
 
-      {primary ? (
+      {rank ? (
+        <div className="text-xs font-semibold text-text-secondary tabular-nums mt-1">
+          同档第 {rank.rank} 易
+        </div>
+      ) : primary ? (
         <>
           <div className="text-[11px] mt-1 text-text-tertiary truncate">
             {primary.name} {primary.ref}

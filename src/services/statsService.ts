@@ -98,6 +98,57 @@ export function computeSssFitDiff(
   return officialLevelValue + SSS_FIT_SLOPE * deviation
 }
 
+// ---- 同定数档内排名 ----
+
+export type RateMetric = 'sss' | 'sssPlus' | 'ap'
+
+/** 该档所有谱面的三率（已按降序排序） */
+interface LevelRateBucket {
+  sss: number[]
+  sssPlus: number[]
+  ap: number[]
+}
+
+let _officialLevelRates: Map<number, LevelRateBucket> | null = null
+
+/** 少于该样本数不显示排名，避免「2 首中第 1」的误导 */
+const MIN_RANK_SAMPLES = 3
+
+/**
+ * 计算某个率在同档中的位次（1 = 最容易）。
+ *
+ * @param sortedDesc 该档所有谱面的率，**必须按降序排列**
+ * @param value      本谱面的率
+ * @returns 位次与样本数；样本不足时返回 null
+ */
+export function computeRateRank(
+  sortedDesc: number[],
+  value: number,
+): { rank: number; total: number } | null {
+  if (sortedDesc.length < MIN_RANK_SAMPLES) return null
+  // 并列取最高位次：只数「严格高于」自己的数量
+  let higher = 0
+  for (const rate of sortedDesc) {
+    if (rate > value) higher++
+    else break
+  }
+  return { rank: higher + 1, total: sortedDesc.length }
+}
+
+/**
+ * 该谱面在「同官方定数档」中的排名（1 = 最容易拿到该评级）。
+ */
+export function getRateRank(
+  officialLevelValue: number,
+  metric: RateMetric,
+  value: number,
+): { rank: number; total: number } | null {
+  if (!_officialLevelRates) return null
+  const bucket = _officialLevelRates.get(Math.round(officialLevelValue * 10) / 10)
+  if (!bucket) return null
+  return computeRateRank(bucket[metric], value)
+}
+
 // ---- Internal state ----
 
 let _chartStats: Map<string, ChartStatSummary> | null = null  // key: "songId-level"
@@ -311,6 +362,8 @@ function buildOfficialLevelAvgs(
   officialLevelMap: Map<string, number>,
 ): Map<number, FitDiffAvg> {
   const groups = new Map<number, { dist: number[]; fc_dist: number[]; count: number }>()
+  // 同时收集每个谱面的三率，供「同档排名」使用
+  const rateBuckets = new Map<number, LevelRateBucket>()
 
   for (const [songIdStr, entries] of Object.entries(data.charts)) {
     for (let levelIndex = 0; levelIndex < entries.length; levelIndex++) {
@@ -328,7 +381,32 @@ function buildOfficialLevelAvgs(
       for (let i = 0; i < 14; i++) group.dist[i] += (entry.dist[i] || 0)
       for (let i = 0; i < 5; i++) group.fc_dist[i] += (entry.fc_dist[i] || 0)
       group.count++
+
+      const chartTotal = (entry.dist || []).reduce((s, v) => s + v, 0)
+      if (chartTotal > 0) {
+        let bucket = rateBuckets.get(key)
+        if (!bucket) {
+          bucket = { sss: [], sssPlus: [], ap: [] }
+          rateBuckets.set(key, bucket)
+        }
+        bucket.sss.push((entry.dist[12] || 0) / chartTotal)
+        bucket.sssPlus.push((entry.dist[13] || 0) / chartTotal)
+        const fcTotal = (entry.fc_dist || []).reduce((s, v) => s + v, 0)
+        if (fcTotal > 0) {
+          bucket.ap.push(((entry.fc_dist[3] || 0) + (entry.fc_dist[4] || 0)) / fcTotal)
+        }
+      }
     }
+  }
+
+  // 存为降序数组，供 getRateRank 二分定位
+  _officialLevelRates = new Map()
+  for (const [key, bucket] of rateBuckets) {
+    _officialLevelRates.set(key, {
+      sss: [...bucket.sss].sort((a, b) => b - a),
+      sssPlus: [...bucket.sssPlus].sort((a, b) => b - a),
+      ap: [...bucket.ap].sort((a, b) => b - a),
+    })
   }
 
   const map = new Map<number, FitDiffAvg>()
