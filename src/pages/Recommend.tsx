@@ -218,12 +218,15 @@ function describePushReason(s: PushSuggestion, maxGain: number): string {
 
 // ---- 推分 ----
 
+/** 难度排序权重：容易的排前面 */
+const DIFFICULTY_RANK: Record<'easy' | 'medium' | 'hard', number> = {
+  easy: 0, medium: 1, hard: 2,
+}
+
 function PushTab({ items, newVersion }: {
   items: Array<{ s: PushSuggestion; maxGain: number }>
   newVersion: { version: string; count: number } | null
 }) {
-  const [showChallenging, setShowChallenging] = useState(false)
-
   if (items.length === 0) {
     return (
       <div className="bg-surface border border-border rounded-lg p-5">
@@ -232,13 +235,46 @@ function PushTab({ items, newVersion }: {
     )
   }
 
-  // 按「推分是否有挑战」拆分，而不是按池子隐藏
-  const approachable = items.filter(i => i.s.difficulty !== 'hard')
-  const challenging = items.filter(i => i.s.difficulty === 'hard')
-  // 全都「有挑战」时直接全部展示，避免主区域空着
+  const b15 = items.filter(i => i.s.pool !== 'b35')
+  const b35 = items.filter(i => i.s.pool === 'b35')
+
+  return (
+    <div className="space-y-5">
+      <p className="text-xs text-text-secondary">
+        同池内按难度从易到难排列，较难吃分的折叠在组内。
+        {newVersion && (
+          <span className="text-text-tertiary">
+            {' '}新曲池：{newVersion.version.replace('maimai でらっくす ', '')} · {newVersion.count} 首
+          </span>
+        )}
+      </p>
+
+      <PushGroup title="B15 池（新版本）" hint="池子小，每个版本理论上都能推" items={b15} tagColor="#B8A0E8" />
+      <PushGroup title="B35 池（旧版本）" hint="老玩家的可推空间往往已被历史成绩占满" items={b35} tagColor="#5BA4CF" />
+    </div>
+  )
+}
+
+function PushGroup({ title, hint, items, tagColor }: {
+  title: string
+  hint: string
+  items: Array<{ s: PushSuggestion; maxGain: number }>
+  tagColor: string
+}) {
+  const [showChallenging, setShowChallenging] = useState(false)
+
+  if (items.length === 0) return null
+
+  // 难度优先，其次按收益降序
+  const sorted = [...items].sort((a, b) => {
+    const byDiff = DIFFICULTY_RANK[a.s.difficulty] - DIFFICULTY_RANK[b.s.difficulty]
+    return byDiff !== 0 ? byDiff : b.maxGain - a.maxGain
+  })
+
+  const approachable = sorted.filter(i => i.s.difficulty !== 'hard')
+  const challenging = sorted.filter(i => i.s.difficulty === 'hard')
   const mainList = approachable.length > 0 ? approachable : challenging
   const foldedList = approachable.length > 0 ? challenging : []
-  const b15Count = items.filter(i => i.s.pool === 'b15').length
 
   const renderCard = ({ s, maxGain }: { s: PushSuggestion; maxGain: number }) => (
     <RecommendCard
@@ -249,24 +285,19 @@ function PushTab({ items, newVersion }: {
       levelValue={s.levelValue}
       reason={describePushReason(s, maxGain)}
       tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
-      tagColor={s.pool === 'b35' ? '#5BA4CF' : '#B8A0E8'}
+      tagColor={tagColor}
       difficulty={s.difficulty}
       gainText={maxGain > 0 ? `+${maxGain.toFixed(1)} 分` : undefined}
     />
   )
 
   return (
-    <div className="space-y-3">
-      <p className="text-xs text-text-secondary">
-        按推分收益排序
-        {foldedList.length > 0 && '，当前水平下较难吃分的已折叠在下方'}
-        。
-        {newVersion && (
-          <span className="text-text-tertiary">
-            {' '}新曲池：{newVersion.version.replace('maimai でらっくす ', '')} · {newVersion.count} 首
-          </span>
-        )}
-      </p>
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-sm font-semibold text-text">{title}</span>
+        <span className="text-[10px] text-text-tertiary tabular-nums">{items.length} 条</span>
+      </div>
+      <p className="text-[11px] text-text-tertiary mb-2">{hint}</p>
 
       <div className="space-y-2">
         {mainList.map(renderCard)}
@@ -276,27 +307,22 @@ function PushTab({ items, newVersion }: {
         <>
           <button
             onClick={() => setShowChallenging(v => !v)}
-            className="w-full flex items-center justify-center gap-1 py-2 rounded-md text-[11px] font-medium text-text-secondary bg-surface border border-border hover:border-primary hover:text-primary transition-colors cursor-pointer"
+            className="w-full mt-2 flex items-center justify-center gap-1 py-2 rounded-md text-[11px] font-medium text-text-secondary bg-surface border border-border hover:border-primary hover:text-primary transition-colors cursor-pointer"
           >
             {showChallenging ? '收起' : `展开 ${foldedList.length} 条更有挑战的推荐`}
             <span>{showChallenging ? '▾' : '▸'}</span>
           </button>
           {showChallenging && (
-            <div className="space-y-2">
+            <div className="space-y-2 mt-2">
               {foldedList.map(renderCard)}
             </div>
           )}
         </>
       )}
-
-      {b15Count < 3 && (
-        <p className="text-[11px] text-text-tertiary leading-snug">
-          B15 池只产出 {b15Count} 条建议——新曲地板已接近你的实力上限，可推空间本就有限，属正常现象。
-        </p>
-      )}
     </div>
   )
 }
+
 
 // ---- 探索 ----
 
