@@ -203,7 +203,12 @@ export function computePushSuggestions(
     ? computeLevelMode(b35Levels)
     : (b35Levels.length > 0 ? b35Levels.reduce((s, l) => s + l, 0) / b35Levels.length : B35_FALLBACK_LEVEL)
   // Upper bound: narrower for high-level players (14+ → mode+0.3, otherwise mode+0.5)
-  const STRETCH_UPPER = mode > 14 ? mode + 0.3 : (mode > 0 ? mode + 0.5 : B35_FALLBACK_LEVEL)
+  // 定数上限：两池诉求不同，必须分开。
+  // B35 保守——打不动的谱推了也没用；
+  // B15 放宽——新曲池子小、地板高，高定数往往是进榜的唯一途径，
+  // 若沿用 B35 的 mode+0.3，会把 14.9 / 15.0 这类真正能加分的曲子全部挡掉。
+  const STRETCH_UPPER_B35 = mode > 14 ? mode + 0.3 : (mode > 0 ? mode + 0.5 : B35_FALLBACK_LEVEL)
+  const STRETCH_UPPER_B15 = mode > 0 ? mode + 1.0 : B35_FALLBACK_LEVEL
   // Unified lower bound: mode - 1.0 (covers both B35 optimization and B15 floor replacement)
   const STRETCH_LOWER = mode > 0 ? Math.max(0, mode - 1.0) : 0
   // Progressive widening: when a pool has few entries, widen its lower bound to capture more candidates.
@@ -248,7 +253,8 @@ export function computePushSuggestions(
       if (inB50.has(key)) {
       } else {
         const minZ = isNew ? B15_STRETCH_LOWER : B35_STRETCH_LOWER
-        if (lv < minZ || lv > STRETCH_UPPER) continue
+        const maxZ = isNew ? STRETCH_UPPER_B15 : STRETCH_UPPER_B35
+        if (lv < minZ || lv > maxZ) continue
       }
 
       // Determine precision + current achievements

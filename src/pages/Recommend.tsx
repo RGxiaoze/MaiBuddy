@@ -48,6 +48,13 @@ export default function Recommend() {
     return best
   }, [effectiveB50])
 
+  // 当前数据源认定的「新曲」版本 —— 版本一旦滞后，玩家能一眼看出
+  const newVersionInfo = useMemo(() => {
+    const newSongs = songs.filter(s => s.isNew)
+    if (newSongs.length === 0) return null
+    return { version: newSongs[0].from, count: newSongs.length }
+  }, [songs])
+
   // ---- 探索：社区偏好（投票箱）+ 未游玩 + 难度适配 ----
   const [voteState, setVoteState] = useState<'idle' | 'ready' | 'failed'>('idle')
   useEffect(() => {
@@ -157,7 +164,7 @@ export default function Recommend() {
           </p>
         </div>
       ) : tab === 'push' ? (
-        <PushTab items={pushList} />
+        <PushTab items={pushList} newVersion={newVersionInfo} />
       ) : (
         <ExploreTab
           items={exploreList}
@@ -195,7 +202,10 @@ function TabButton({ active, onClick, icon, label }: {
 
 // ---- 推分 ----
 
-function PushTab({ items }: { items: Array<{ s: PushSuggestion; maxGain: number }> }) {
+function PushTab({ items, newVersion }: {
+  items: Array<{ s: PushSuggestion; maxGain: number }>
+  newVersion: { version: string; count: number } | null
+}) {
   const [showChallenging, setShowChallenging] = useState(false)
 
   if (items.length === 0) {
@@ -236,6 +246,11 @@ function PushTab({ items }: { items: Array<{ s: PushSuggestion; maxGain: number 
         按推分收益排序
         {foldedList.length > 0 && '，当前水平下较难吃分的已折叠在下方'}
         。
+        {newVersion && (
+          <span className="text-text-tertiary">
+            {' '}新曲池：{newVersion.version.replace('maimai でらっくす ', '')} · {newVersion.count} 首
+          </span>
+        )}
       </p>
 
       <div className="space-y-2">
