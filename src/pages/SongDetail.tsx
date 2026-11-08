@@ -15,6 +15,7 @@ import { computeRating } from '@/utils/rating'
 import { computeDxStar, renderStars } from '@/utils/dxStar'
 import { getAliasesForSong, loadAliasData } from '@/data/aliases'
 import { formatDesignerName } from '@/data/designer-aliases'
+import { useBackgroundStore } from '@/store/backgroundStore'
 import { getVersionDisplay } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
 import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff } from '@/services/statsService'
@@ -38,6 +39,13 @@ export default function SongDetail() {
   }, [songs.length, loading, error, scoresLoaded, fetchSongs, fetchAllScores])
 
   const song = songs.find((s) => s.id === Number(songId))
+
+  // 注册本页背景：本曲曲绘
+  const setBgCover = useBackgroundStore((s) => s.setCover)
+  const songBgId = song?.id
+  useEffect(() => {
+    if (songBgId != null) setBgCover(getCoverUrl(songBgId))
+  }, [songBgId, setBgCover])
 
   // Aliases (loaded asynchronously, non-blocking)
   const [aliases, setAliases] = useState<string[]>([])
@@ -185,19 +193,6 @@ export default function SongDetail() {
   // ---- Render ----
   return (
     <div className="max-w-3xl">
-      {/* 环境底图：本曲曲绘模糊，纯装饰，不参与交互 */}
-      {song && (
-        <div
-          aria-hidden
-          className="fixed inset-0 pointer-events-none bg-center bg-cover"
-          style={{
-            backgroundImage: `url(${getCoverUrl(song.id)})`,
-            filter: 'blur(50px) saturate(1.3)',
-            opacity: 0.16,
-            transform: 'scale(1.15)',
-          }}
-        />
-      )}
       {/* Back link */}
       <button
         onClick={() => navigate('/songs')}

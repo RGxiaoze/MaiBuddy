@@ -13,6 +13,7 @@ import ErrorBoundary from '@/components/shared/ErrorBoundary'
 import { useSongStore } from '@/store/songStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { usePlayerStore } from '@/store/playerStore'
+import { useBackgroundStore } from '@/store/backgroundStore'
 
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false)
@@ -29,6 +30,7 @@ export default function MainLayout() {
   const fetchAllScores = useScoreStore((s) => s.fetchAllScores)
   const localB50 = usePlayerStore((s) => s.localB50)
   const computeLocalB50 = usePlayerStore((s) => s.computeLocalB50)
+  const bgCover = useBackgroundStore((s) => s.coverUrl)
 
   useEffect(() => {
     if (songs.length === 0 && !songsLoading) fetchSongs()
@@ -45,7 +47,20 @@ export default function MainLayout() {
   const closeMobile = useCallback(() => setMobileOpen(false), [])
 
   return (
-    <div className="flex min-h-dvh">
+    <div className="flex min-h-dvh relative">
+      {/* 全局背景：由各页面注册「本页第一个封面」，无封面的页面继承上一页 */}
+      {bgCover && (
+        <div
+          aria-hidden
+          className="fixed inset-0 pointer-events-none bg-center bg-cover"
+          style={{
+            backgroundImage: `url(${bgCover})`,
+            filter: 'blur(50px) saturate(1.3)',
+            opacity: 0.16,
+            transform: 'scale(1.15)',
+          }}
+        />
+      )}
       {/* Sidebar: desktop visible / mobile overlay */}
       <Sidebar
         collapsed={collapsed}

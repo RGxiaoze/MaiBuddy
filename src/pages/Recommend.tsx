@@ -13,6 +13,8 @@ import { usePushSuggestions } from '@/hooks/usePushSuggestions'
 import { loadVoteStats, getAllVoteStats, isVoteStatsLoaded, isVoteStatsFailed } from '@/services/voteService'
 import { buildExplorePool, buildPreferenceProfile, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
 import { getBlockedSongIds, blockSong, clearBlockedSongs } from '@/db/database'
+import { getCoverUrl } from '@/data/constants'
+import { useBackgroundStore } from '@/store/backgroundStore'
 import RecommendCard from '@/components/shared/RecommendCard'
 import { truncatePercent } from '@/utils/format'
 import type { PushSuggestion } from '@/utils/pushSuggestions'
@@ -136,6 +138,13 @@ export default function Recommend() {
       return next
     })
   }
+
+  // 注册本页背景：当前 Tab 第一张卡片的曲绘
+  const setBgCover = useBackgroundStore((s) => s.setCover)
+  const firstCoverSongId = tab === 'push' ? pushList[0]?.s.songId : exploreList[0]?.songId
+  useEffect(() => {
+    if (firstCoverSongId != null) setBgCover(getCoverUrl(firstCoverSongId))
+  }, [firstCoverSongId, setBgCover])
 
   const hasB50 = !!effectiveB50
 

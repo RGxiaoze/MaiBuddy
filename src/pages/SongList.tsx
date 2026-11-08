@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useState, useDeferredValue, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { useSongStore, SORT_OPTIONS } from '@/store/songStore'
+import { useBackgroundStore } from '@/store/backgroundStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import SearchBar from '@/components/shared/SearchBar'
@@ -142,14 +143,6 @@ export default function SongList() {
   const [playedFilter, setPlayedFilter] = useState<string | null>(null)
   const scores = useScoreStore((s) => s.scores)
 
-  // 页面环境底图：进入时随机取一张曲绘，模糊后作为背景（纯装饰，加载失败即无背景）
-  const [bgCover, setBgCover] = useState<string | null>(null)
-  useEffect(() => {
-    if (songs.length === 0 || bgCover) return
-    const pick = songs[Math.floor(Math.random() * songs.length)]
-    if (pick?.id != null) setBgCover(getCoverUrl(pick.id))
-  }, [songs, bgCover])
-
   // ---- Import modal state ----
   const [searchParams, setSearchParams] = useSearchParams()
   const [showImport, setShowImport] = useState(false)
@@ -272,6 +265,13 @@ export default function SongList() {
     },
     [songs, deferredSearchQuery, advancedFilters, sortBy, sortOrder, getFilteredSongs, playedFilter, scores]
   )
+
+  // 注册本页背景：列表第一首的封面
+  const setBgCover = useBackgroundStore((s) => s.setCover)
+  const firstSongId = filteredSongs[0]?.id
+  useEffect(() => {
+    if (firstSongId != null) setBgCover(getCoverUrl(firstSongId))
+  }, [firstSongId, setBgCover])
 
   // Reset page when any filter or sort changes
   useEffect(() => {
@@ -423,19 +423,6 @@ export default function SongList() {
   // ---- Render: Content ----
   return (
     <div className="max-w-5xl">
-      {/* 环境底图：随机曲绘放大模糊，纯装饰，不参与交互 */}
-      {bgCover && (
-        <div
-          aria-hidden
-          className="fixed inset-0 pointer-events-none bg-center bg-cover"
-          style={{
-            backgroundImage: `url(${bgCover})`,
-            filter: 'blur(50px) saturate(1.3)',
-            opacity: 0.16,
-            transform: 'scale(1.15)',
-          }}
-        />
-      )}
 
       {/* Header + search */}
       <div className="mb-6">
