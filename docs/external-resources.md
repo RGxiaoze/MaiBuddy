@@ -161,3 +161,35 @@ curl -O https://raw.githubusercontent.com/Neskol/Maichart-Converts/master/maimai
 | Salt | Discord 机器人 | 支持生成成绩图 |
 | Reisasol | QQ 机器人 | 通用 Best 50 查分器 |
 | Sakiko | QQ 机器人 | 国服中二节奏查分 |
+
+## 六、谱师（note designer）数据是否有人整理？
+
+**结论：不需要外部数据库，现有 API 已足够。**
+
+实测（2026-11-09，对 Diving-Fish `music_data` 全量 1405 首 / 5582 个谱面统计）：
+
+| 难度 | 有谱师 | 覆盖率 |
+|------|--------|--------|
+| BASIC | 0 / 1405 | 0% |
+| ADVANCED | 0 / 1357 | 0% |
+| EXPERT | 1343 / 1343 | **100%** |
+| MASTER | 1343 / 1343 | **100%** |
+| Re:MASTER | 134 / 134 | **100%** |
+
+- BASIC / ADVANCED 的 0% 不是数据缺失，而是**游戏本身不标注**这两个难度的谱师。
+- 因此整体 50.5% 的"缺失率"是把 BASIC/ADVANCED 计入分母造成的误判。
+- 落雪（LXNS）与 Diving-Fish 的谱师字段同源，逐条一致，没有互补空间。
+- 本地 `参考谱面/` 的 simai 文件头 `&des_4=`（EXPERT）/ `&des_5=`（MASTER）与 API 一致，
+  可作为交叉校验，但不提供额外覆盖（simai 没有 Re:MASTER 的 des_6）。
+
+### 若要补全 BASIC / ADVANCED
+
+只能依靠社区人工整理（部分谱师会发布在自己的 X 账号），无结构化开放数据源，
+维护成本高且准确性无法保证 —— 不建议接入。
+
+### 当前实现的两个待修点
+
+1. `songStore.ts` 的搜索用 `d.noteDesigner !== '未知'` 过滤，但 API 里的空值是 `"-"`，
+   搜 `-` 会误匹配 2762 个谱面。
+2. 若做「谱师筛选」，需把 `-` 视为无数据并排除。
+
