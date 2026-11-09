@@ -780,18 +780,33 @@ export default function SongList() {
               导入 Diving-Fish 的<strong>全部曲目×全部难度</strong>成绩到本地浏览器存储
             </p>
 
-            {/* Auto-login — preferred method */}
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 sm:p-4 mb-3">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary text-white">推荐</span>
-                <p className="text-xs text-text font-medium">Diving-Fish 账号登录，一步导入</p>
+            {/* 账号密码登录：仅在开发环境可用。
+                它依赖 Vite 代理把 JWT cookie 重写到 localhost；
+                生产环境直连 diving-fish.com 时，跨域 cookie 会被浏览器拦截。 */}
+            {import.meta.env.DEV ? (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 sm:p-4 mb-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary text-white">推荐</span>
+                  <p className="text-xs text-text font-medium">Diving-Fish 账号登录，一步导入</p>
+                </div>
+                <LoginToGetToken onToken={saveImportToken} onLoginAndImport={handleLoginAndImport} />
               </div>
-              <LoginToGetToken onToken={saveImportToken} onLoginAndImport={handleLoginAndImport} />
-            </div>
+            ) : (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 sm:p-4 mb-3">
+                <p className="text-xs text-text font-medium mb-1">在线版无法直接登录查分器</p>
+                <p className="text-[11px] text-text-secondary leading-relaxed">
+                  浏览器会拦截第三方站点的登录 Cookie，因此这里不提供账号密码登录。
+                  请使用下方的 <strong className="text-text">Import-Token</strong> 导入，
+                  它通过请求头传递，不受跨域限制。
+                </p>
+              </div>
+            )}
 
-            {/* Manual Token input — fallback, collapsible */}
-            <details className="text-xs text-text-secondary cursor-pointer group mt-3">
-              <summary className="hover:text-primary transition-colors select-none py-1">备用手动导入 — 已有 Import-Token 时使用</summary>
+            {/* Manual Token input — 生产环境为唯一可用方式，默认展开 */}
+            <details open={!import.meta.env.DEV} className="text-xs text-text-secondary cursor-pointer group mt-3">
+              <summary className="hover:text-primary transition-colors select-none py-1">
+                {import.meta.env.DEV ? '备用手动导入 — 已有 Import-Token 时使用' : 'Import-Token 导入'}
+              </summary>
               <div className="mt-3 pt-3 border-t border-border/50 space-y-3">
                 <p className="text-text-tertiary leading-relaxed">在 Diving-Fish 网站「编辑个人资料」中生成 Token 后粘贴到下方</p>
                 <div>
