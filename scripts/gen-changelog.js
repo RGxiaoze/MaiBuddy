@@ -1,6 +1,9 @@
 /**
  * Build script: Git log → changelog JSON
- * Generates public/changelog.json from feat:/fix:/docs: commits
+ * Generates public/changelog.json from feat:/fix: commits
+ *
+ * 只收录 feat / fix：docs 是开发日志类的内部提交，对用户没有信息量，
+ * 收进来只会让更新记录变成提交流水账。
  *
  * Usage: node scripts/gen-changelog.js
  */
@@ -26,7 +29,6 @@ const raw = execSync(
 const typeLabels = {
   feat: { label: '新功能', color: 'green' },
   fix:  { label: '修复',   color: 'amber' },
-  docs: { label: '文档',   color: 'blue' },
 }
 
 const entries = []
@@ -37,8 +39,8 @@ for (const line of raw.trim().split('\n')) {
   const [hash, date, ...subjectParts] = line.split('\x00')
   const subject = subjectParts.join('\x00')
 
-  // Only include feat:/fix:/docs: commits
-  const match = subject.match(/^(feat|fix|docs):\s*(.+)/)
+  // Only include feat:/fix: commits
+  const match = subject.match(/^(feat|fix):\s*(.+)/)
   if (!match) continue
 
   const [, type, message] = match
