@@ -1,5 +1,11 @@
 // ============================================================
-// RecommendCard — 推荐卡片（左曲绘 + 右信息，移动端优先）
+// RecommendCard — 推分/推荐卡片（左曲绘 + 右信息，移动端优先）
+//
+// 统一四行结构：
+//   1. 标题行：曲名 + 难度徽章 +（配置标签位）
+//   2. 主指标：+13 分
+//   3. 依据行：当前 99.9% → 100.5%
+//   4. 操作行：B 站手元 / 不感兴趣
 // ============================================================
 
 import { useState } from 'react'
@@ -7,39 +13,48 @@ import { Link } from 'react-router'
 import { ExternalLink, X } from 'lucide-react'
 import { bilibiliSearchUrl } from '@/utils/bilibiliSearch'
 import { LEVEL_LABELS, LEVEL_INDEX_MAP, getCoverUrl } from '@/data/constants'
+import { getConfigTag, type ConfigType } from '@/data/chartConfig'
+import { formatGain, truncatePercent } from '@/utils/format'
 import type { LevelIndex } from '@/types'
 
 /** 推分难度评估的展示文案 */
 const DIFFICULTY_META: Record<'easy' | 'medium' | 'hard', { label: string; color: string }> = {
-  easy: { label: '容易', color: '#22C55E' },
+  easy: { label: '轻松', color: '#22C55E' },
   medium: { label: '适中', color: '#D97706' },
   hard: { label: '挑战', color: '#DC2626' },
 }
 
-export interface RecommendCardProps {  songId: number
+export interface RecommendCardProps {
+  songId: number
   title: string
   levelIndex: number
   levelValue: number
-  /** 推荐理由（社区语） */
-  reason: string
-  /** 副标签（如「B15 池」「探索」） */
+  /** 收益（Rating 增量），渲染为「+13 分」 */
+  gain?: number
+  /** 依据行：当前达成率 → 目标达成率 */
+  progress?: { current: number; target: number }
+  /** 补充说明（可选，探索等场景使用） */
+  reason?: string
+  /** 副标签（如「B15 池」） */
   tag?: string
   tagColor?: string
-  /** 主数值（如 +7.0 分） */
-  gainText?: string
-  /** 是否显示 B 站搜索外链（探索卡片不需要） */
+  /** 谱面配置分类；未接入数据源时不传，标签位不渲染 */
+  configType?: ConfigType
+  /** 是否显示 B 站搜索外链 */
   showExternalLink?: boolean
   /** 加入「不感兴趣」，不传则不显示该按钮 */
   onBlock?: () => void
-  /** 推分难度评估（仅推分场景） */
+  /** 推分难度评估 */
   difficulty?: 'easy' | 'medium' | 'hard'
 }
 
 export default function RecommendCard({
-  songId, title, levelIndex, levelValue, reason, tag, tagColor = '#5BA4CF', gainText, showExternalLink = true, onBlock, difficulty,
+  songId, title, levelIndex, levelValue, gain, progress, reason, tag, tagColor = '#5BA4CF',
+  configType, showExternalLink = true, onBlock, difficulty,
 }: RecommendCardProps) {
   const [imgError, setImgError] = useState(false)
   const levelMeta = LEVEL_INDEX_MAP[levelIndex as LevelIndex]
+  const configTag = getConfigTag(configType)
 
   return (
     <div className="rounded-lg p-3 border border-border bg-bg-surface hover:bg-surface-light transition-colors">
@@ -65,8 +80,8 @@ export default function RecommendCard({
           </div>
         </Link>
 
-        {/* 信息区 */}
         <div className="flex-1 min-w-0">
+          {/* 1. 标题行 */}
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
               <Link to={`/songs/${songId}`} className="font-medium text-sm truncate hover:text-primary hover:underline min-w-0">
@@ -75,6 +90,15 @@ export default function RecommendCard({
               {levelMeta && (
                 <span className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0" style={{ backgroundColor: levelMeta.badgeBg, color: levelMeta.badgeFg }}>
                   {LEVEL_LABELS[levelIndex as LevelIndex]}
+                </span>
+              )}
+              {configTag && (
+                <span
+                  className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
+                  style={{ backgroundColor: configTag.color + '20', color: configTag.color }}
+                  title={configTag.desc}
+                >
+                  {configTag.label}
                 </span>
               )}
               {showExternalLink && (
@@ -105,7 +129,11 @@ export default function RecommendCard({
             </div>
           </div>
 
+          {/* 2. 主指标 + 标签 */}
           <div className="mt-1 flex items-center gap-2 text-xs min-w-0">
+            {gain != null && gain > 0 && (
+              <span className="text-base font-semibold text-success tabular-nums shrink-0">+{formatGain(gain)} 分</span>
+            )}
             {tag && (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0" style={{ backgroundColor: tagColor + '20', color: tagColor }}>
                 {tag}
@@ -122,10 +150,17 @@ export default function RecommendCard({
                 {DIFFICULTY_META[difficulty].label}
               </span>
             )}
-            {gainText && <span className="text-sm font-semibold text-success tabular-nums truncate">{gainText}</span>}
           </div>
 
-          <p className="mt-1 text-xs text-text-secondary leading-snug line-clamp-2">{reason}</p>
+          {/* 3. 依据行：当前 → 目标（不写「推到 SSS」这类档位名） */}
+          {progress && (
+            <p className="mt-1 text-xs text-text-secondary tabular-nums leading-snug">
+              {truncatePercent(progress.current, 1)}% <span className="text-text-tertiary">→</span> {truncatePercent(progress.target, 1)}%
+            </p>
+          )}
+
+          {/* 4. 补充说明（可选） */}
+          {reason && <p className="mt-1 text-xs text-text-secondary leading-snug line-clamp-2">{reason}</p>}
         </div>
       </div>
     </div>

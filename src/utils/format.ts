@@ -29,3 +29,18 @@ export function truncatePercent(value: number, digits = 2): string {
 
   return `${sign}${intPart}.${padded}`
 }
+
+/**
+ * 收益数值取整显示（如 Rating 增益）。
+ *
+ * 收益是"多拿几分"的量级，小数位没有决策价值，反而让卡片显得杂乱，
+ * 因此统一四舍五入到整数，并去掉可能残留的 `.0`。
+ *
+ * @param value 原始增益，如 13.4
+ * @returns 整数或整数小数字符串，如 '13'、'0'
+ */
+export function formatGain(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  const rounded = Math.round(value)
+  return String(rounded)
+}

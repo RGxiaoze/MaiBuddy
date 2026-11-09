@@ -20,7 +20,6 @@ import { getCoverUrl } from '@/data/constants'
 import { useBackgroundStore } from '@/store/backgroundStore'
 import RecommendCard from '@/components/shared/RecommendCard'
 import ExploreCard from '@/components/shared/ExploreCard'
-import { truncatePercent } from '@/utils/format'
 import type { PushSuggestion } from '@/utils/pushSuggestions'
 
 type TabKey = 'push' | 'explore'
@@ -219,19 +218,18 @@ function TabButton({ active, onClick, icon, label }: {
 }
 
 /**
- * 根据「实际收益最大的目标档」生成推荐理由。
+/**
+ * 取「实际收益最大那一档」的当前值与目标达成率。
  * 目标可能被「现实目标」截断（如 14.9 定数只能期望 100.0%），
- * 写死 SSS+ 会出现「文案说推 SSS+、但 +9 分其实是推 SSS 得来的」。
+ * 因此不能用写死的 SSS+，必须按收益最大的那档取。
  */
-function describePushReason(s: PushSuggestion, maxGain: number): string {
-  const cur = truncatePercent(s.currentAchievements)
-  if (s.apGain && s.apGain.ratingGain >= maxGain) {
-    return `当前 ${cur}%，打到 AP 可额外 +1 Rating`
+function bestTargetProgress(s: PushSuggestion): { current: number; target: number } {
+  const apGain = s.apGain?.ratingGain ?? -Infinity
+  const bestGain = s.gains.reduce((a, b) => (b.ratingGain > a.ratingGain ? b : a))
+  if (s.apGain && apGain >= bestGain.ratingGain) {
+    return { current: s.currentAchievements, target: s.apGain.targetAch }
   }
-  const best = s.gains.reduce((a, b) => (b.ratingGain > a.ratingGain ? b : a))
-  const label = best.targetAch >= 100.5 ? 'SSS+' : best.targetAch >= 100 ? 'SSS' : 'SS+'
-  const prefix = s.precision === 'estimated' ? '当前达成率约' : '当前'
-  return `${prefix} ${cur}%，推到 ${label} 可吃分`
+  return { current: s.currentAchievements, target: bestGain.targetAch }
 }
 
 // ---- 推分 ----
@@ -304,11 +302,11 @@ function PushGroup({ title, hint, items, tagColor, defaultVisible }: {
       title={s.songTitle}
       levelIndex={s.levelIndex}
       levelValue={s.levelValue}
-      reason={describePushReason(s, maxGain)}
+      gain={maxGain}
+      progress={bestTargetProgress(s)}
       tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
       tagColor={tagColor}
       difficulty={s.difficulty}
-      gainText={maxGain > 0 ? `+${maxGain.toFixed(1)} 分` : undefined}
     />
   )
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { truncatePercent } from '../format'
+import { truncatePercent, formatGain } from '../format'
 
 describe('truncatePercent', () => {
   it('保留两位小数，多余位直接截断', () => {
@@ -31,5 +31,23 @@ describe('truncatePercent', () => {
   it('支持自定义小数位数', () => {
     expect(truncatePercent(100.4967, 1)).toBe('100.4')
     expect(truncatePercent(100.4967, 4)).toBe('100.4967')
+  })
+})
+
+describe('formatGain', () => {
+  it('四舍五入到整数且不带小数位', () => {
+    expect(formatGain(13.4)).toBe('13')
+    expect(formatGain(13.5)).toBe('14')
+    expect(formatGain(7)).toBe('7')
+  })
+
+  it('不会输出 .0', () => {
+    expect(formatGain(13)).not.toContain('.')
+    expect(formatGain(13.0)).not.toContain('.')
+  })
+
+  it('非法值按 0 处理', () => {
+    expect(formatGain(Number.NaN)).toBe('0')
+    expect(formatGain(Number.POSITIVE_INFINITY)).toBe('0')
   })
 })
