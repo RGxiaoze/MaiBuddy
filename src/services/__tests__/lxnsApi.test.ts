@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { toDfScores } from '../lxnsApi'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { toDfScores, fetchMyScores, fetchMyPlayer } from '../lxnsApi'
 import type { LxnsScore, Song } from '@/types'
 
 function diff(levelIndex: number, level: string, levelValue: number) {
@@ -79,5 +79,88 @@ describe('toDfScores', () => {
   it('level 字段优先用落雪返回值', () => {
     const out = toDfScores([raw({ level: '13' })], map)
     expect(out[0].level).toBe('13')
+  })
+
+  // 官方文档的 Score 结构体把曲目 ID 命名为 id；早期版本是 song_id。
+  it('曲目 ID 用 id 字段时同样能转换', () => {
+    const out = toDfScores([{ id: 1, level_index: 3, achievements: 100.5 } as LxnsScore], map)
+    expect(out).toHaveLength(1)
+    expect(out[0].songId).toBe(1)
+  })
+
+  it('id 与 song_id 同时存在时以 song_id 为准', () => {
+    const out = toDfScores([{ id: 2, song_id: 1, level_index: 3, achievements: 100.5 } as LxnsScore], map)
+    expect(out[0].songId).toBe(1)
+    expect(out[0].levelValue).toBe(13.7)
+  })
+
+  // 本项目曲库来自水鱼：DX 谱面是独立条目，ID = 标准 ID + 10000。
+  // 落雪用同一个 ID + type 区分，转换时必须换算回曲库的键，否则 DX 谱面全部丢失。
+  it('type=dx 时换算到曲库的 +10000 条目', () => {
+    const dxOnly = new Map<number, Song>([[10001, song(10001, [], [diff(3, '14', 14.0)])]])
+    const out = toDfScores([{ id: 1, type: 'dx', level_index: 3, achievements: 100.5 } as LxnsScore], dxOnly)
+    expect(out).toHaveLength(1)
+    expect(out[0].songId).toBe(10001)
+    expect(out[0].songType).toBe('dx')
+    expect(out[0].levelValue).toBe(14.0)
+  })
+
+  it('type=standard 时仍用基础 ID', () => {
+    const sdOnly = new Map<number, Song>([[1, song(1, [diff(3, '13+', 13.7)])]])
+    const out = toDfScores([{ id: 1, type: 'standard', level_index: 3, achievements: 100.5 } as LxnsScore], sdOnly)
+    expect(out[0].songId).toBe(1)
+    expect(out[0].songType).toBe('standard')
+  })
+})
+
+describe('落雪凭据与响应解析', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  function mockJson(body: unknown, status = 200) {
+    const spy = vi.fn(async () => new Response(JSON.stringify(body), { status }))
+    vi.stubGlobal('fetch', spy)
+    return spy
+  }
+
+  function sentHeaders(spy: ReturnType<typeof vi.fn>) {
+    return (spy.mock.calls[0] as unknown as [string, RequestInit])[1].headers as Record<string, string>
+  }
+
+  it('个人 API 密钥使用 X-User-Token 头', async () => {
+    const spy = mockJson({ success: true, code: 200, data: [] })
+    await fetchMyScores('KEY', 'user')
+    const headers = sentHeaders(spy)
+    expect(headers['X-User-Token']).toBe('KEY')
+    expect(headers.Authorization).toBeUndefined()
+  })
+
+  it('OAuth 令牌默认使用 Authorization: Bearer', async () => {
+    const spy = mockJson({ success: true, code: 200, data: [] })
+    await fetchMyScores('TOKEN')
+    const headers = sentHeaders(spy)
+    expect(headers.Authorization).toBe('Bearer TOKEN')
+    expect(headers['X-User-Token']).toBeUndefined()
+  })
+
+  it('解开外层信封取出 data 数组', async () => {
+    mockJson({ success: true, code: 200, data: [{ song_id: 1, level_index: 3, achievements: 100 }] })
+    const out = await fetchMyScores('KEY', 'user')
+    expect(out).toHaveLength(1)
+  })
+
+  it('直接返回裸数组时也能处理', async () => {
+    mockJson([{ song_id: 1, level_index: 3, achievements: 100 }])
+    const out = await fetchMyScores('KEY', 'user')
+    expect(out).toHaveLength(1)
+  })
+
+  it('401 时抛出凭据失效提示', async () => {
+    mockJson({ success: false, code: 401, message: 'unauthorized' }, 401)
+    await expect(fetchMyScores('BAD', 'user')).rejects.toThrow(/凭据无效/)
+  })
+
+  it('fetchMyPlayer 同样解开信封', async () => {
+    mockJson({ success: true, code: 200, data: { name: '小泽', rating: 16230 } })
+    await expect(fetchMyPlayer('KEY', 'user')).resolves.toMatchObject({ name: '小泽', rating: 16230 })
   })
 })

@@ -4,7 +4,7 @@
 // 与 DF 的关键差异：落雪的 token 端点**完整支持 CORS**，
 // 纯前端可直接调用，不需要代理。
 //
-// 待办：clientId 需在落雪开发者面板创建应用后填入。
+// 端点形状也不同于水鱼：token / revoke 都在 /api/v0 下（见下方 tokenPath）。
 // 文档：https://maimai.lxns.net/docs/oauth-guide
 // ============================================================
 
@@ -15,10 +15,12 @@ export const LXNS_PROVIDER: OAuthProvider = {
   id: 'lxns',
   name: '落雪',
   authBase: 'https://maimai.lxns.net',
-  /** TODO: 在落雪开发者面板创建应用后填入 */
-  clientId: '',
+  clientId: 'EwdXSkBPEE52rsP4R5TXvUqBnM1GTVP45IlQVEEgi0g=',
   /** read_player 覆盖玩家信息、谱面成绩与历史成绩 */
   scope: 'read_player',
+  /** 落雪的授权端点不在根路径；token / revoke 都在 /api/v0 下 */
+  tokenPath: '/api/v0/oauth/token',
+  revokePath: '/api/v0/oauth/revoke',
   redirectUri: import.meta.env.DEV
     ? 'http://127.0.0.1:5173/'
     : 'https://rgxiaoze.github.io/MaiBuddy/',

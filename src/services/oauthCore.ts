@@ -22,6 +22,8 @@ export interface OAuthProvider {
   redirectUri: string
   /** token 端点路径，默认 /oauth/token（水鱼需换成代理地址时在此覆盖） */
   tokenPath?: string
+  /** 撤销端点路径，默认 /oauth/revoke（落雪为 /api/v0/oauth/revoke） */
+  revokePath?: string
 }
 
 export interface TokenSet {
@@ -37,6 +39,7 @@ const verifierKey = (id: string) => `oauth_verifier_${id}`
 const stateKey = (id: string) => `oauth_state_${id}`
 
 const tokenEndpoint = (p: OAuthProvider) => `${p.authBase}${p.tokenPath ?? '/oauth/token'}`
+const revokeEndpoint = (p: OAuthProvider) => `${p.authBase}${p.revokePath ?? '/oauth/revoke'}`
 
 // ---- 授权跳转 ----
 
@@ -216,7 +219,7 @@ export async function revokeToken(p: OAuthProvider): Promise<void> {
   if (!token) return
   const target = token.refreshToken ?? token.accessToken
   try {
-    await fetch(`${p.authBase}/oauth/revoke`, {
+    await fetch(revokeEndpoint(p), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ token: target, client_id: p.clientId }).toString(),

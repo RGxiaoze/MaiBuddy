@@ -208,8 +208,10 @@ export interface LxnsNotes {
 
 /** 落雪 LXNS 成绩条目（B50 / 全部成绩 / Recent 共用） */
 export interface LxnsScore {
+  /** 曲目 ID（官方 Score 结构体字段名） */
   id?: number
-  song_id: number
+  /** 曲目 ID（早期字段名，两者取其一，同时存在时以本字段为准） */
+  song_id?: number
   song_name?: string
   /** 难度索引 0-4（部分接口会给出，缺失时以 level_index 为准） */
   level_index: number
