@@ -64,9 +64,10 @@ export const FS_LABELS: Record<string, string> = {
 
 export function getCoverUrl(songId: number | string): string {
   const id = typeof songId === 'string' ? parseInt(songId, 10) : songId
-  // Special range: 10001–11000 subtract 10000
-  const rawId = id >= 10001 && id <= 11000 ? id - 10000 : id
-  return `https://www.diving-fish.com/covers/${String(rawId).padStart(5, '0')}.png`
+  // 落雪按「基础 ID」存曲绘。本项目曲库来自水鱼，DX 谱面是独立条目
+  // （ID = 基础 + 10000），需取余回基础 ID；100000 以上是宴会场，不参与换算。
+  const baseId = id >= 10000 && id < 100000 ? id % 10000 : id
+  return `https://assets2.lxns.net/maimai/jacket/${baseId}.png`
 }
 
 // ---- Coefficient table for Rating calculation (24 thresholds) ----
