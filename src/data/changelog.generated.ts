@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-10",
     "commits": [
       {
+        "hash": "4f78fa7",
+        "type": "feat",
+        "message": "更新记录按天折叠，细节修正合并为一行",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "6583c42",
         "type": "fix",
         "message": "更新记录改为静态内联，修复线上 404",
