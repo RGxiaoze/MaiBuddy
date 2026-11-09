@@ -425,7 +425,9 @@ export default function SongList() {
     setFileImporting(true)
     setFileImportResult(null)
     try {
-      const result = await importScoresFromFile(file)
+      // 落雪 CSV 不含定数，需用本地曲库补齐（与在线导入同一套换算）
+      const songMap = new Map(useSongStore.getState().songs.map((s) => [s.id, s]))
+      const result = await importScoresFromFile(file, songMap)
       if (result.errors && result.errors.length > 0) {
         setFileImportResult(result.errors.map((e) => e.message).join('\n'))
       } else {
@@ -1020,12 +1022,12 @@ export default function SongList() {
             {/* File import section */}
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-xs text-text-secondary mb-2">
-                或从之前导出的 JSON 文件恢复成绩（保留最高达成率）：
+                或从文件恢复成绩（保留最高达成率）：本站导出的 JSON 备份，或落雪导出的成绩 CSV
               </p>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".json"
+                accept=".json,.csv"
                 onChange={handleFileImport}
                 className="hidden"
               />
@@ -1036,7 +1038,7 @@ export default function SongList() {
                            hover:border-primary hover:text-primary transition-colors cursor-pointer
                            disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {fileImporting ? '导入中...' : <><FolderOpen size={14} className="mr-1 inline" />选择备份文件</>}
+                {fileImporting ? '导入中...' : <><FolderOpen size={14} className="mr-1 inline" />选择文件</>}
               </button>
 
               {fileImportResult && (

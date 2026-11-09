@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
-import { exportScoresToFile } from '@/utils/exportScores'
+import { exportScoresToFile, exportScoresAsLxnsCsv } from '@/utils/exportScores'
 import { User, Download, Upload, Trash2, BarChart3, ChevronDown, LogOut } from 'lucide-react'
 import { hasOAuthToken, revokeOAuth } from '@/services/dfOAuth'
 import { hasOAuthToken as hasLxnsToken, revokeOAuth as revokeLxnsOAuth } from '@/services/lxnsOAuth'
@@ -52,6 +52,15 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
     await exportScoresToFile(scores)
   }
 
+  const handleExportCsv = () => {
+    setMenuOpen(false)
+    if (scores.length === 0) {
+      alert('暂无本地成绩可导出')
+      return
+    }
+    exportScoresAsLxnsCsv(scores)
+  }
+
   const handleClear = async () => {
     setMenuOpen(false)
     if (!window.confirm(`确定清除全部 ${scores.length} 条本地成绩？此操作不可撤销。`)) return
@@ -87,6 +96,7 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
   const menuItems = [
     { label: '导入成绩', desc: '水鱼 / 落雪账号 / Token / 备份文件', Icon: Download, onClick: () => { setMenuOpen(false); navigate('/songs?import=1') } },
     { label: '导出成绩', desc: '导出为 JSON 备份文件', Icon: Upload, onClick: handleExport },
+    { label: '导出落雪 CSV', desc: '列与落雪导出一致，可回流到落雪', Icon: Upload, onClick: handleExportCsv },
     { label: '查看 B50', desc: '本地成绩与在线查分', Icon: BarChart3, onClick: () => { setMenuOpen(false); navigate('/player') } },
     ...(oauthLinked
       ? [{ label: '退出水鱼授权', desc: '撤销授权并清除本地令牌', Icon: LogOut, onClick: handleRevokeOAuth }]

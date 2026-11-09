@@ -1,8 +1,11 @@
 // ============================================================
-// Score import — validate JSON file and merge into IndexedDB
+// Score import — validate file (JSON backup / LXNS CSV) and merge into IndexedDB
 // ============================================================
 
 import { bulkUpsertScores, type ScoreRecord } from '@/db/database'
+import { toDfScores } from '@/services/lxnsApi'
+import { parseLxnsScores } from '@/utils/lxnsCsv'
+import type { Song } from '@/types'
 
 /** Single line-level validation error */
 export interface ImportLineError {
@@ -89,14 +92,16 @@ function validateStructure(data: unknown):
 }
 
 /**
- * Import scores from a JSON file.
- * - Reads file as text
- * - Parses and validates JSON structure
- * - Merges with existing scores (keeps higher achievements)
- * - Returns import statistics
+ * Import scores from a file.
+ * - `.json`：本应用导出的备份文件
+ * - `.csv` ：落雪（LXNS）导出的成绩，需曲库补齐定数
+ * - 以第一个非空白字符区分（`{` 为 JSON，其余按 CSV 处理）
+ * - 与本地成绩合并，保留更高达成率
  */
-export async function importScoresFromFile(file: File): Promise<ImportResult> {
-  // Read file
+export async function importScoresFromFile(
+  file: File,
+  songMap?: Map<number, Song>
+): Promise<ImportResult> {
   const text = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
@@ -104,7 +109,9 @@ export async function importScoresFromFile(file: File): Promise<ImportResult> {
     reader.readAsText(file)
   })
 
-  // Parse JSON
+  const head = text.replace(/^\uFEFF/, '').trimStart()[0]
+  if (head !== '{') return importLxnsCsv(text, songMap)
+
   let data: unknown
   try {
     data = JSON.parse(text)
@@ -112,13 +119,65 @@ export async function importScoresFromFile(file: File): Promise<ImportResult> {
     return { total: 0, imported: 0, updated: 0, skipped: 0, errors: [{ index: -1, message: 'JSON 格式无效，文件可能已损坏' }] }
   }
 
-  // Validate structure
   const validated = validateStructure(data)
   if (!validated.valid) {
     return { total: 0, imported: 0, updated: 0, skipped: 0, errors: [{ index: -1, message: validated.error }] }
   }
 
-  // Merge into IndexedDB (bulkUpsertScores already keeps max achievements)
   const result = await bulkUpsertScores(validated.scores)
   return result
+}
+
+/** 落雪 CSV 的行键：与曲库的 ID 方案对齐，用于回填 play_time */
+function chartKey(baseId: number, isDx: boolean, levelIndex: number): string {
+  return `${isDx ? baseId + 10000 : baseId}-${levelIndex}`
+}
+
+/**
+ * Import scores from a LXNS-exported CSV.
+ * 落雪 CSV 不含定数，需用本地曲库补齐；补不上的条目丢弃（与在线导入口径一致）。
+ */
+async function importLxnsCsv(text: string, songMap?: Map<number, Song>): Promise<ImportResult> {
+  if (!songMap) {
+    return { total: 0, imported: 0, updated: 0, skipped: 0, errors: [{ index: -1, message: 'CSV 导入需要曲库支持，请刷新页面后重试' }] }
+  }
+
+  const rows = parseLxnsScores(text)
+  if (rows.length === 0) {
+    return { total: 0, imported: 0, updated: 0, skipped: 0, errors: [{ index: -1, message: '未识别到落雪成绩 CSV，请确认表头与导出格式' }] }
+  }
+
+  // 落雪 ID → 曲库 ID 的换算复用在线导入同一套逻辑
+  const dfScores = toDfScores(rows, songMap)
+
+  const playTimeByChart = new Map<string, string | null>()
+  for (const row of rows) {
+    if (typeof row.id !== 'number') continue
+    const isDx = row.type === 'dx'
+    playTimeByChart.set(chartKey(row.id, isDx, row.level_index), row.play_time ?? null)
+  }
+
+  const records: Omit<ScoreRecord, 'id' | 'createdAt'>[] = dfScores.map((d) => {
+    const playTime = playTimeByChart.get(`${d.songId}-${d.levelIndex}`)
+    return {
+      songId: d.songId,
+      songTitle: d.title,
+      levelIndex: d.levelIndex,
+      level: d.level,
+      levelValue: d.levelValue,
+      songType: d.songType,
+      achievements: d.achievements,
+      rate: d.rate,
+      fcType: d.fcType,
+      fsType: d.fsType,
+      dxScore: d.dxScore,
+      // 落雪给的是 8 位小数浮点，本地按整数评分口径存储
+      dxRating: Math.floor(d.dxRating),
+      dxScoreDetail: null,
+      playDate: playTime ? playTime.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    }
+  })
+
+  const result = await bulkUpsertScores(records)
+  return { ...result, skipped: result.skipped + (rows.length - records.length) }
 }
