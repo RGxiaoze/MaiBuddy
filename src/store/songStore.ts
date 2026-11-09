@@ -11,6 +11,22 @@ import { VERSION_ORDER } from '@/data/versions'
 import { forceRefreshStats } from '@/services/statsService'
 import { UTAGE_ID_THRESHOLD } from '@/config/algorithms'
 import { sortSongs, type SongScoreStat } from '@/utils/songSort'
+import { fetchLxnsReleaseDates, withLxnsReleaseDates } from '@/services/lxnsSongs'
+
+/**
+ * 用落雪公共曲库补齐实装日期。
+ * 水鱼 music_data 的 release_date 全库为空，只能从落雪取。
+ * 拉取失败时返回原数组 —— 排序仍可用，缺日期的条目排最后。
+ */
+async function enrichReleaseDates(songs: Song[]): Promise<Song[]> {
+  if (songs.length === 0 || songs.every((s) => s.releaseDate)) return songs
+  try {
+    const dates = await fetchLxnsReleaseDates()
+    return withLxnsReleaseDates(songs, dates)
+  } catch {
+    return songs
+  }
+}
 
 /** Extract max version sorting value from song list as cache fingerprint */
 function computeVersionFingerprint(songs: Song[]): number {
@@ -89,13 +105,24 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
       const cached = await getCachedSongs()
       if (cached && cached.length > 0) {
         set({ songs: cached, loading: false })
+        // 旧缓存没有实装日期，后台补齐一次（失败就保持原样，排序仍可用）
+        if (cached.some((s) => !s.releaseDate)) {
+          enrichReleaseDates(cached)
+            .then(async (filled) => {
+              if (filled === cached) return
+              set({ songs: filled })
+              await setCachedSongs(filled)
+            })
+            .catch(() => { /* 保持原样 */ })
+        }
         // Background refresh with version fingerprint check
         fetchMusicData()
           .then(async (fresh) => {
             const oldVersion = await getSetting<number>('cache_version', 0)
             const newVersion = computeVersionFingerprint(fresh)
-            set({ songs: fresh })
-            setCachedSongs(fresh)
+            const filled = await enrichReleaseDates(fresh)
+            set({ songs: filled })
+            setCachedSongs(filled)
             if (newVersion > oldVersion) {
               await setSetting('cache_version', newVersion)
               // New songs detected → refresh stats as well
@@ -106,7 +133,8 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
         return
       }
       // No fresh cache — fetch from API
-      const songs = await fetchMusicData()
+      const fresh = await fetchMusicData()
+      const songs = await enrichReleaseDates(fresh)
       set({ songs, loading: false })
       setCachedSongs(songs)
       setSetting('cache_version', computeVersionFingerprint(songs))
