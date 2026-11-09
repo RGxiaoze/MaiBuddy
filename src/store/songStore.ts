@@ -3,7 +3,7 @@
 // ============================================================
 
 import { create } from 'zustand'
-import type { Song } from '@/types'
+import type { Song, ChartDifficulty } from '@/types'
 import { fetchMusicData } from '@/services/divingFishApi'
 import { getCachedSongs, setCachedSongs, db, getSetting, setSetting, SONG_CACHE_TTL_MS } from '@/db/database'
 import { searchAliases, getAliasIndex } from '@/data/aliases'
@@ -175,28 +175,31 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
       // Version 精确匹配
       if (advancedFilters.version && song.from !== advancedFilters.version) return false
 
-      // DifficultyLevel 筛选
+      // DifficultyLevel / LevelValue / Level 三个条件都是「谱面级」的，
+      // 必须由**同一个谱面**同时满足：
+      // 「BASIC 且 13.0」= 存在一个 BASIC 谱面且它的定数就是 13.0，
+      // 而不是「有 BASIC 谱面」+「有某个 13.0 谱面」（那可能是两首不同的谱）。
+      const chartPredicates: Array<(d: ChartDifficulty) => boolean> = []
       if (advancedFilters.difficultyLevel != null) {
-        const hasLevel = !!song.difficulties.standard[advancedFilters.difficultyLevel] ||
-                         !!song.difficulties.dx[advancedFilters.difficultyLevel]
-        if (!hasLevel) return false
+        const want = advancedFilters.difficultyLevel
+        chartPredicates.push(d => d.levelIndex === want)
       }
-
-      // LevelValue 范围筛选
-      if (advancedFilters.levelValueMin != null || advancedFilters.levelValueMax != null) {
-        const allDiffs = [...song.difficulties.standard, ...song.difficulties.dx]
-        const inRange = allDiffs.some((d) => {
-          if (advancedFilters.levelValueMin != null && d.levelValue < advancedFilters.levelValueMin) return false
-          if (advancedFilters.levelValueMax != null && d.levelValue > advancedFilters.levelValueMax) return false
-          return true
-        })
-        if (!inRange) return false
+      if (advancedFilters.levelValueMin != null) {
+        const min = advancedFilters.levelValueMin
+        chartPredicates.push(d => d.levelValue >= min)
       }
-
-      // 歌曲等级标签筛选（谱面级精确匹配，如 "14+"）
+      if (advancedFilters.levelValueMax != null) {
+        const max = advancedFilters.levelValueMax
+        chartPredicates.push(d => d.levelValue <= max)
+      }
       if (advancedFilters.level) {
-        const hasLevel = [...song.difficulties.standard, ...song.difficulties.dx].some(d => d.level === advancedFilters.level)
-        if (!hasLevel) return false
+        const lv = advancedFilters.level
+        chartPredicates.push(d => d.level === lv)
+      }
+
+      if (chartPredicates.length > 0) {
+        const allDiffs = [...song.difficulties.standard, ...song.difficulties.dx]
+        if (!allDiffs.some(d => chartPredicates.every(fn => fn(d)))) return false
       }
 
       return true

@@ -29,6 +29,21 @@ const LEVEL_PRESETS = [
   { label: '15',  min: 15.0, max: 15.0 },
 ]
 
+/** 定数下拉选项：1.0 ~ 15.0，按整数分组 */
+const LEVEL_VALUE_GROUPS: { label: string; values: number[] }[] = (() => {
+  const groups: { label: string; values: number[] }[] = []
+  for (let int = 1; int <= 15; int++) {
+    const values: number[] = []
+    for (let d = 0; d <= 9; d++) {
+      const v = Math.round((int + d * 0.1) * 10) / 10
+      if (v > 15) break
+      values.push(v)
+    }
+    groups.push({ label: `${int}`, values })
+  }
+  return groups
+})()
+
 // ---- Inline: login-to-token form ----
 
 function LoginToGetToken({ onToken, onLoginAndImport }: { onToken: (token: string) => void; onLoginAndImport: (token: string) => Promise<void> }) {
@@ -375,19 +390,11 @@ export default function SongList() {
     }
   }
 
-  // ---- Handle level preset click ----
-  const handlePresetClick = (preset: { min: number; max: number }) => {
-    const current = { ...advancedFilters }
-    // Toggle off if already selected
-    if (current.levelValueMin === preset.min && current.levelValueMax === preset.max) {
-      setAdvancedFilters({ levelValueMin: undefined, levelValueMax: undefined })
-    } else {
-      setAdvancedFilters({ levelValueMin: preset.min, levelValueMax: preset.max })
-    }
-  }
-
   const isPresetActive = (preset: { min: number; max: number }) =>
     advancedFilters.levelValueMin === preset.min && advancedFilters.levelValueMax === preset.max
+
+  // 当前生效的等级预设下标（-1 = 未选中）
+  const activePresetIdx = LEVEL_PRESETS.findIndex((p) => isPresetActive(p))
 
   // ---- Render: Loading (or initial state before fetch) ----
   if (loading || (songs.length === 0 && !error)) {
@@ -508,47 +515,65 @@ export default function SongList() {
       {/* Advanced filters */}
       {showAdvanced && (
         <div className="bg-bg-gray border border-border rounded-lg p-4 mb-6 space-y-3">
-          {/* Level presets */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-text-secondary mr-1">定数预设:</span>
-            {LEVEL_PRESETS.map((preset) => (
-              <button
-                key={preset.label}
-                onClick={() => handlePresetClick(preset)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer border-none
-                  ${isPresetActive(preset)
-                    ? 'bg-primary text-white'
-                    : 'bg-surface text-text-secondary hover:bg-surface-light'
-                  }`}
+          {/* 等级（定数预设）下拉 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <label className="flex flex-col gap-1 text-xs text-text-secondary">
+              等级
+              <select
+                value={activePresetIdx >= 0 ? String(activePresetIdx) : ''}
+                onChange={(e) => {
+                  if (e.target.value === '') {
+                    setAdvancedFilters({ levelValueMin: undefined, levelValueMax: undefined })
+                  } else {
+                    const preset = LEVEL_PRESETS[Number(e.target.value)]
+                    setAdvancedFilters({ levelValueMin: preset.min, levelValueMax: preset.max })
+                  }
+                }}
+                className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
               >
-                {preset.label}
-              </button>
-            ))}
+                <option value="">全部等级</option>
+                {LEVEL_PRESETS.map((preset, i) => (
+                  <option key={preset.label} value={i}>{preset.label}</option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {/* Level range inputs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <label className="flex flex-col gap-1 text-xs text-text-secondary">
               最低定数
-              <input
-                type="number"
-                min={1} max={15} step={0.1}
+              <select
                 value={advancedFilters.levelValueMin ?? ''}
                 onChange={(e) => setAdvancedFilters({ levelValueMin: e.target.value ? parseFloat(e.target.value) : undefined })}
-                className="px-2 py-1.5 rounded border border-border text-sm focus:outline-none focus:border-primary bg-surface"
-                placeholder="1.0"
-              />
+                className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
+              >
+                <option value="">不限</option>
+                {LEVEL_VALUE_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.values.map((v) => (
+                      <option key={v} value={v}>{v.toFixed(1)}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </label>
             <label className="flex flex-col gap-1 text-xs text-text-secondary">
               最高定数
-              <input
-                type="number"
-                min={1} max={15} step={0.1}
+              <select
                 value={advancedFilters.levelValueMax ?? ''}
                 onChange={(e) => setAdvancedFilters({ levelValueMax: e.target.value ? parseFloat(e.target.value) : undefined })}
-                className="px-2 py-1.5 rounded border border-border text-sm focus:outline-none focus:border-primary bg-surface"
-                placeholder="15.0"
-              />
+                className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
+              >
+                <option value="">不限</option>
+                {LEVEL_VALUE_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.values.map((v) => (
+                      <option key={v} value={v}>{v.toFixed(1)}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </label>
 
             {/* Version filter */}
