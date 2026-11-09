@@ -55,7 +55,11 @@ describe('buildScoreStats', () => {
 })
 
 describe('sortSongs', () => {
-  const songs = [song(1, [diff(3, 13.0)]), song(2, [diff(3, 14.5)]), song(3, [diff(3, 12.0)])]
+  const songs = [
+    song(1, [diff(3, 13.0)], { releaseDate: '2024-01-01' }),
+    song(2, [diff(3, 14.5)], { releaseDate: '2025-01-01' }),
+    song(3, [diff(3, 12.0)], { releaseDate: '2023-01-01' }),
+  ]
   const stats = new Map([
     [1, { achievements: 99.0, dxScoreRate: 0.8, addedAt: 1000 }],
     [2, { achievements: 97.5, dxScoreRate: 0.95, addedAt: 3000 }],
@@ -96,9 +100,23 @@ describe('sortSongs', () => {
       .toEqual([1, 2, 3])
   })
 
-  it('都没成绩时按最高定数降序兜底，列表不会看起来乱序', () => {
+  it('都没成绩时按实装日期兜底（批量导入时间相同时不会看起来乱序）', () => {
     const empty = new Map<number, { achievements: number; dxScoreRate: number; addedAt: number }>()
     expect(sortSongs(songs, { sortBy: 'addedAt', sortOrder: 'desc', scoreStats: empty }).map(s => s.id))
+      .toEqual([2, 1, 3])
+  })
+
+  it('按实装日期排序', () => {
+    expect(sortSongs(songs, { sortBy: 'releaseDate', sortOrder: 'desc' }).map(s => s.id)).toEqual([2, 1, 3])
+    expect(sortSongs(songs, { sortBy: 'releaseDate', sortOrder: 'asc' }).map(s => s.id)).toEqual([3, 1, 2])
+  })
+
+  it('添加日期相同时退化为实装日期排序', () => {
+    const sameAddedAt = new Map([
+      [1, { achievements: 99, dxScoreRate: 0.8, addedAt: 5000 }],
+      [2, { achievements: 98, dxScoreRate: 0.7, addedAt: 5000 }],
+    ])
+    expect(sortSongs(songs, { sortBy: 'addedAt', sortOrder: 'desc', scoreStats: sameAddedAt }).map(s => s.id))
       .toEqual([2, 1, 3])
   })
 

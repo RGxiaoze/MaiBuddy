@@ -59,6 +59,8 @@ export interface Song {
   version: number         // version ID e.g. 25000
   from: string            // version name e.g. "舞萌2025"
   isNew: boolean          // is current-version song
+  /** 实装日期（YYYY-MM-DD），来自水鱼 basic_info.release_date；缺失时为空串 */
+  releaseDate?: string
   imageUrl: string        // computed cover URL
   difficulties: {
     standard: ChartDifficulty[]

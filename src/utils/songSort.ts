@@ -20,6 +20,8 @@ export type SortBy =
   | 'dxScoreRate'
   /** 最近一次添加成绩的时间（数据库 createdAt） */
   | 'addedAt'
+  /** 曲目实装日期（水鱼 basic_info.release_date） */
+  | 'releaseDate'
 
 export type SortOrder = 'asc' | 'desc'
 
@@ -45,6 +47,19 @@ function maxLevelValue(song: Song): number {
     if (d.levelValue > max) max = d.levelValue
   }
   return max
+}
+
+/**
+ * 比较实装日期（YYYY-MM-DD 字符串可直接比较）。
+ * 缺日期的排在后面。
+ */
+function compareReleaseDate(a: Song, b: Song): number {
+  const ra = a.releaseDate ?? ''
+  const rb = b.releaseDate ?? ''
+  if (ra === rb) return 0
+  if (!ra) return 1
+  if (!rb) return -1
+  return ra.localeCompare(rb)
 }
 
 /**
@@ -121,12 +136,16 @@ export function sortSongs(songs: Song[], { sortBy, sortOrder, scoreStats }: Sort
       case 'addedAt': {
         const sa = statOf(a)
         const sb = statOf(b)
-        // 都没成绩时按最高定数兜底，避免默认排序下列表看起来乱序
-        if (!sa && !sb) return maxLevelValue(b) - maxLevelValue(a)
+        // 都没成绩时按实装日期兜底（批量导入后所有成绩时间相同，按添加日期排不出差异）
+        if (!sa && !sb) return compareReleaseDate(b, a)
         if (!sa) return 1
         if (!sb) return -1
+        // 添加日期相同时（如一次性批量导入），退化为按实装日期排，避免顺序看起来随机
+        if (sortBy === 'addedAt' && sa.addedAt === sb.addedAt) return compareReleaseDate(b, a)
         return (sa[sortBy] - sb[sortBy]) * mult
       }
+      case 'releaseDate':
+        return compareReleaseDate(a, b) * mult
       case 'default':
       case 'levelValue':
         return (maxLevelValue(a) - maxLevelValue(b)) * mult

@@ -74,6 +74,7 @@ export function toInternalSong(m: DfMusic, imageUrl: string): Song {
     version: VERSION_ORDER.get(m.basic_info.from) ?? 0,
     from: m.basic_info.from,
     isNew: m.basic_info.is_new,
+    releaseDate: m.basic_info.release_date ?? '',
     imageUrl,
     difficulties: {
       standard: songType === 'standard' ? difficulties : [],
