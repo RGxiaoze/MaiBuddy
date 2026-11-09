@@ -9,6 +9,20 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" /></noscript>
     <title>舞萌DX 伴侣</title>
+    <script>
+      // 还原 404.html 编码的原始路径（GitHub Pages SPA 回退）。
+      // 只在 query 以 "/" 开头时生效，OAuth 回调的 ?code=... 不受影响。
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search.slice(1).split('&').map(function (s) {
+            return s.replace(/~and~/g, '&');
+          }).join('&');
+          window.history.replaceState(null, null,
+            l.pathname.slice(0, -1) + decoded + l.hash
+          );
+        }
+      })(window.location);
+    </script>
   </head>
   <body>
     <div id="root"></div>

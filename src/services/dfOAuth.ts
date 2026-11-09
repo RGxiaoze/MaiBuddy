@@ -176,3 +176,29 @@ export async function getValidAccessToken(): Promise<string | null> {
     return null
   }
 }
+
+/** 是否持有水鱼账号授权 */
+export function hasOAuthToken(): boolean {
+  return loadToken() != null
+}
+
+/**
+ * 退出授权：通知服务端撤销，并清空本地令牌。
+ * 撤销失败也照样清本地——不能因为网络问题把用户卡在登录态里。
+ */
+export async function revokeOAuth(): Promise<void> {
+  const token = loadToken()
+  if (!token) return
+  const target = token.refreshToken ?? token.accessToken
+  try {
+    await fetch(`${AUTH_BASE}/oauth/revoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token: target, client_id: DF_CLIENT_ID }).toString(),
+    })
+  } catch {
+    // 忽略：本地令牌仍会被清除
+  } finally {
+    saveToken(null)
+  }
+}

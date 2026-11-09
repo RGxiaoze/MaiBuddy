@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>舞萌DX 伴侣</title>
+  <script>
+    // GitHub Pages SPA 回退：静态托管没有服务端路由，
+    // 访问 /MaiBuddy/songs 会 404。这里把路径编码进 query 重定向回根路径，
+    // 再由 index.html 中的脚本还原为原始路径。
+    (function () {
+      var pathSegmentsToKeep = 1; // 部署在 /MaiBuddy/ 这一层
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') +
+        '/?/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    })();
+  </script>
+</head>
+<body></body>
+</html>
