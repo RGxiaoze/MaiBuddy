@@ -483,8 +483,49 @@ export default function SongList() {
               </button>
               <p className="text-[11px] text-text-tertiary mt-2 leading-relaxed">
                 在你自己的水鱼账号页面完成登录与授权，本站接触不到你的密码。
-                若授权不可用，可用下方的 Import-Token 导入。
               </p>
+
+              {/* 同一张卡内提供备用方式：授权不可用时直接用 Import-Token */}
+              <details open={!import.meta.env.DEV} className="mt-3 pt-3 border-t border-primary/15 text-xs text-text-secondary">
+                <summary className="hover:text-primary transition-colors select-none cursor-pointer">
+                  {import.meta.env.DEV ? '备用：使用 Import-Token 导入' : '无法授权？使用 Import-Token 导入'}
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <p className="text-text-tertiary leading-relaxed">
+                    在 Diving-Fish 网站「编辑个人资料」中生成 Token 后粘贴到下方
+                  </p>
+                  <input
+                    type="password"
+                    value={importToken}
+                    onChange={(e) => saveImportToken(e.target.value)}
+                    placeholder="粘贴 Import-Token"
+                    className="w-full px-3 py-2 rounded-md border border-border text-sm font-mono
+                               focus:outline-none focus:border-primary bg-surface transition-colors"
+                  />
+                  <button
+                    onClick={() => handleLoginAndImport(importToken.trim())}
+                    disabled={importing || !importToken.trim()}
+                    className="w-full px-4 py-2.5 rounded-md bg-surface border border-border text-text-secondary text-sm font-medium
+                               hover:border-primary hover:text-primary transition-all cursor-pointer
+                               disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {importing ? '导入中...' : '用 Token 导入'}
+                  </button>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-text-secondary select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberToken}
+                      onChange={(e) => {
+                        setRememberToken(e.target.checked)
+                        if (!e.target.checked) { try { localStorage.removeItem('maimai-df-import-token') } catch {} }
+                        else if (importToken.trim()) { try { localStorage.setItem('maimai-df-import-token', importToken.trim()) } catch {} }
+                      }}
+                      className="w-3.5 h-3.5 rounded border-border cursor-pointer accent-primary"
+                    />
+                    记住 Token
+                  </label>
+                </div>
+              </details>
             </div>
 
             {/* 落雪：朋友的主力数据源，与水鱼并列 */}
@@ -557,49 +598,6 @@ export default function SongList() {
                 <LoginToGetToken onToken={saveImportToken} onLoginAndImport={handleLoginAndImport} />
               </div>
             )}
-
-            {/* Manual Token input — 生产环境为唯一可用方式，默认展开 */}
-            <details open={!import.meta.env.DEV} className="text-xs text-text-secondary cursor-pointer group mt-3">
-              <summary className="hover:text-primary transition-colors select-none py-1">
-                {import.meta.env.DEV ? '备用手动导入 — 已有 Import-Token 时使用' : 'Import-Token 导入'}
-              </summary>
-              <div className="mt-3 pt-3 border-t border-border/50 space-y-3">
-                <p className="text-text-tertiary leading-relaxed">在 Diving-Fish 网站「编辑个人资料」中生成 Token 后粘贴到下方</p>
-                <div>
-                  <label className="block text-xs text-text-secondary mb-1 font-medium">Import-Token</label>
-                  <input
-                    type="password"
-                    value={importToken}
-                    onChange={(e) => saveImportToken(e.target.value)}
-                    placeholder="粘贴 Import-Token"
-                    className="w-full px-3 py-2 rounded-md border border-border text-sm font-mono
-                               focus:outline-none focus:border-primary bg-surface transition-colors"
-                  />
-                </div>
-                <button
-                  onClick={() => handleLoginAndImport(importToken.trim())}
-                  disabled={importing || !importToken.trim()}
-                  className="w-full px-4 py-2.5 rounded-md bg-surface border border-border text-text-secondary text-sm font-medium
-                             hover:border-primary hover:text-primary transition-all cursor-pointer
-                             disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {importing ? '导入中...' : '导入'}
-                </button>
-              </div>
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-text-secondary select-none">
-                <input
-                  type="checkbox"
-                  checked={rememberToken}
-                  onChange={(e) => {
-                    setRememberToken(e.target.checked)
-                    if (!e.target.checked) { try { localStorage.removeItem('maimai-df-import-token') } catch {} }
-                    else if (importToken.trim()) { try { localStorage.setItem('maimai-df-import-token', importToken.trim()) } catch {} }
-                  }}
-                  className="w-3.5 h-3.5 rounded border-border cursor-pointer accent-primary"
-                />
-                记住 Token
-              </label>
-            </details>
 
             {/* Import progress */}
             {importing && (
