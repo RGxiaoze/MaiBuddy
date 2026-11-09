@@ -10,6 +10,7 @@ import { searchAliases, getAliasIndex } from '@/data/aliases'
 import { VERSION_ORDER } from '@/data/versions'
 import { forceRefreshStats } from '@/services/statsService'
 import { UTAGE_ID_THRESHOLD } from '@/config/algorithms'
+import { sortSongs, type SongScoreStat } from '@/utils/songSort'
 
 /** Extract max version sorting value from song list as cache fingerprint */
 function computeVersionFingerprint(songs: Song[]): number {
@@ -20,7 +21,7 @@ function computeVersionFingerprint(songs: Song[]): number {
   }
   return max
 }
-export type SortBy = 'default' | 'bpm' | 'version' | 'levelValue' | 'title'
+export type SortBy = 'default' | 'bpm' | 'version' | 'levelValue' | 'title' | 'achievements' | 'dxScoreRate'
 export type SortOrder = 'asc' | 'desc'
 
 export const SORT_OPTIONS: { value: SortBy; label: string }[] = [
@@ -28,6 +29,8 @@ export const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: 'bpm', label: 'BPM' },
   { value: 'version', label: '版本' },
   { value: 'title', label: '曲名' },
+  { value: 'achievements', label: '成绩' },
+  { value: 'dxScoreRate', label: 'DX 分数' },
 ]
 
 interface AdvancedFilters {
@@ -59,7 +62,7 @@ interface SongActions {
   setSortBy: (sortBy: SortBy) => void
   toggleSortOrder: () => void
   /** Returns filtered songs. Pass `searchOverride` to defer search (e.g. from useDeferredValue). */
-  getFilteredSongs: (searchOverride?: string) => Song[]
+  getFilteredSongs: (searchOverride?: string, scoreStats?: Map<number, SongScoreStat>) => Song[]
 }
 
 const defaultFilters: AdvancedFilters = {}
@@ -133,7 +136,7 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
   toggleSortOrder: () => set((state) => ({ sortOrder: state.sortOrder === 'asc' ? 'desc' : 'asc' })),
 
   // Derived: filter songs client-side (multi-keyword AND search)
-  getFilteredSongs: (searchOverride) => {
+  getFilteredSongs: (searchOverride, scoreStats) => {
     const { songs, searchQuery, advancedFilters, sortBy, sortOrder } = get()
     const rawQuery = (searchOverride ?? searchQuery).trim()
     const aliasIndex = getAliasIndex()
@@ -212,30 +215,7 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
       return true
     })
 
-    // 3. 排序
-    const mult = sortOrder === 'desc' ? -1 : 1
-    result.sort((a, b) => {
-      switch (sortBy) {
-        case 'bpm':
-          return (a.bpm - b.bpm) * mult
-        case 'version': {
-          const va = VERSION_ORDER.get(a.from) ?? 0
-          const vb = VERSION_ORDER.get(b.from) ?? 0
-          return (va - vb) * mult
-        }
-        case 'title':
-          // 曲名以日文假名 / 汉字 / 英文混合为主，按日文排序规则比较
-          return a.title.localeCompare(b.title, 'ja') * mult
-        case 'default':
-        case 'levelValue': {
-          const maxA = Math.max(...[...a.difficulties.standard, ...a.difficulties.dx].map(d => d.levelValue), 0)
-          const maxB = Math.max(...[...b.difficulties.standard, ...b.difficulties.dx].map(d => d.levelValue), 0)
-          return (maxA - maxB) * mult
-        }
-        default:
-          return 0
-      }
-    })
-    return result
+    // 3. 排序（成绩维度需要外部传入 scoreStats）
+    return sortSongs(result, { sortBy, sortOrder, scoreStats })
   },
 }))

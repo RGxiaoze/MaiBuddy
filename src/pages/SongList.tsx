@@ -3,15 +3,16 @@
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useState, useDeferredValue, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
-import { useSongStore, SORT_OPTIONS } from '@/store/songStore'
+import { useSearchParams } from 'react-router'
+import { useSongStore } from '@/store/songStore'
 import { useBackgroundStore } from '@/store/backgroundStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import SearchBar from '@/components/shared/SearchBar'
-import Pagination from '@/components/shared/Pagination'
-import { LEVEL_INDEX_MAP, getCoverUrl } from '@/data/constants'
-import { VERSION_ORDER, getVersionDisplay } from '@/data/versions'
+import SongFilterPanel from '@/components/shared/SongFilterPanel'
+import SongSortBar from '@/components/shared/SongSortBar'
+import SongResultList from '@/components/shared/SongResultList'
+import { getCoverUrl } from '@/data/constants'
 import { loginToProber, generateImportToken } from '@/services/divingFishApi'
 import { buildAuthorizeUrl } from '@/services/dfOAuth'
 import {
@@ -20,30 +21,9 @@ import {
   hasOAuthToken as hasLxnsToken,
   revokeOAuth as revokeLxnsOAuth,
 } from '@/services/lxnsOAuth'
-import { Settings, Music, FolderOpen, X } from 'lucide-react'
+import { Settings, FolderOpen, X } from 'lucide-react'
 import { importScoresFromFile } from '@/utils/importScores'
 import { matchRateValue } from '@/utils/stats'
-import type { LevelIndex, Song } from '@/types'
-
-const PAGE_SIZE = 50
-
-/** 等级标签排序权重："13" → 13，"13+" → 13.5 */
-const levelWeight = (level: string) => parseFloat(level) + (level.endsWith('+') ? 0.5 : 0)
-
-/** 定数下拉选项：1.0 ~ 15.0，按整数分组 */
-const LEVEL_VALUE_GROUPS: { label: string; values: number[] }[] = (() => {
-  const groups: { label: string; values: number[] }[] = []
-  for (let int = 1; int <= 15; int++) {
-    const values: number[] = []
-    for (let d = 0; d <= 9; d++) {
-      const v = Math.round((int + d * 0.1) * 10) / 10
-      if (v > 15) break
-      values.push(v)
-    }
-    groups.push({ label: `${int}`, values })
-  }
-  return groups
-})()
 
 // ---- Inline: login-to-token form ----
 
@@ -144,12 +124,11 @@ function LoginToGetToken({ onToken, onLoginAndImport }: { onToken: (token: strin
 // ---- Main page component ----
 
 export default function SongList() {
-  const navigate = useNavigate()
   const {
     songs, loading, error,
     searchQuery, advancedFilters,
-    fetchSongs, setSearchQuery, setAdvancedFilters, resetFilters, getFilteredSongs,
-    sortBy, sortOrder, setSortBy, toggleSortOrder,
+    fetchSongs, setSearchQuery, setAdvancedFilters, getFilteredSongs,
+    sortBy, sortOrder,
   } = useSongStore()
   const importDivingFishScores = usePlayerStore((s) => s.importDivingFishScores)
   const importScoresViaLxns = usePlayerStore((s) => s.importScoresViaLxns)
@@ -232,9 +211,6 @@ export default function SongList() {
   const [fileImportResult, setFileImportResult] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ---- Pagination state ----
-  const [page, setPage] = useState(0)
-
   // Auto-close import modal after successful import (2.5s delay)
   useEffect(() => {
     if (importResult && !importing) {
@@ -250,30 +226,6 @@ export default function SongList() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Deduplicate versions & genres for filter dropdowns
-  const versions = useMemo(() => {
-    const set = new Set(songs.map((s) => s.from).filter(Boolean))
-    return [...set].sort((a, b) => (VERSION_ORDER.get(a) ?? 0) - (VERSION_ORDER.get(b) ?? 0))
-  }, [songs])
-
-  const genres = useMemo(() => {
-    const set = new Set(songs.map((s) => s.genre).filter(Boolean))
-    return [...set].sort()
-  }, [songs])
-
-  // 官标等级档位（1…15+），从曲库动态生成。
-  // 排除「?」（宴会场占位）与「12+?」这类定数未确认的标签 —— 它们不是一个可用档位，
-  // 需要精确查找时用「最低/最高定数」或搜索。
-  const levels = useMemo(() => {
-    const set = new Set<string>()
-    for (const s of songs) {
-      for (const d of [...s.difficulties.standard, ...s.difficulties.dx]) {
-        if (d.level && !d.level.includes('?')) set.add(d.level)
-      }
-    }
-    return [...set].sort((a, b) => levelWeight(a) - levelWeight(b))
-  }, [songs])
 
   // Defer search to avoid blocking keystrokes
   const deferredSearchQuery = useDeferredValue(searchQuery)
@@ -302,58 +254,6 @@ export default function SongList() {
   useEffect(() => {
     if (firstSongId != null) setBgCover(getCoverUrl(firstSongId))
   }, [firstSongId, setBgCover])
-
-  // Reset page when any filter or sort changes
-  useEffect(() => {
-    setPage(0)
-  }, [deferredSearchQuery, advancedFilters, sortBy, sortOrder])
-
-  // Paginate
-  const totalPages = Math.max(1, Math.ceil(filteredSongs.length / PAGE_SIZE))
-  const pagedSongs = useMemo(
-    () => filteredSongs.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
-    [filteredSongs, page]
-  )
-
-  const handlePageChange = (p: number) => {
-    setPage(p)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  // Precompute pair map once per full song list (stable across pagination)
-  const pairMap = useMemo(() => {
-    const map = new Map<string, { standard?: Song; dx?: Song }>()
-    for (const s of songs) {
-      const key = `${s.title}|${s.artist}|${s.bpm}`
-      const entry = map.get(key) || {}
-      if (s.difficulties.standard.length > 0) entry.standard = s
-      if (s.difficulties.dx.length > 0) entry.dx = s
-      map.set(key, entry)
-    }
-    return map
-  }, [songs])
-
-  // Precompute display data for current page, including paired song info
-  const songDisplayData = useMemo(() => {
-    return pagedSongs.map((song) => {
-      const key = `${song.title}|${song.artist}|${song.bpm}`
-      const pair = pairMap.get(key)
-      const hasPair = pair && pair.standard && pair.dx
-
-      // Level labels from this song only (not merged)
-      const levelLabels: { idx: LevelIndex; label: string; badgeBg: string; badgeFg: string }[] = []
-      const diffs = [...song.difficulties.standard, ...song.difficulties.dx]
-      for (const d of diffs) {
-        if (d.level && d.level !== '0') {
-          const colors = LEVEL_INDEX_MAP[d.levelIndex]
-          if (colors) levelLabels.push({ idx: d.levelIndex, label: d.level, badgeBg: colors.badgeBg, badgeFg: colors.badgeFg })
-        }
-      }
-      levelLabels.sort((a, b) => a.idx - b.idx)
-
-      return { song, levelLabels, hasPair: !!hasPair, pair }
-    })
-  }, [pagedSongs, pairMap])
 
   // ---- Import handler ----
   /** 跳转到水鱼授权页；授权完成后由 App 顶层的 OAuthCallbackHandler 接手 */
@@ -503,25 +403,7 @@ export default function SongList() {
             />
           </div>
           {/* Sort controls */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className="px-2 py-2 rounded-md border border-border bg-surface text-sm text-text-secondary
-                       focus:outline-none focus:border-primary cursor-pointer"
-            title="排序方式"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <button
-            onClick={toggleSortOrder}
-            className="px-2 py-2 rounded-md border border-border bg-surface text-sm text-text-secondary
-                       hover:border-primary transition-colors cursor-pointer"
-            title={sortOrder === 'desc' ? '降序 ↓' : '升序 ↑'}
-          >
-            {sortOrder === 'desc' ? '↓' : '↑'}
-          </button>
+          <SongSortBar />
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm border transition-colors cursor-pointer
@@ -539,25 +421,7 @@ export default function SongList() {
             placeholder="搜索曲名、作者、谱师、别名..."
           />
           <div className="flex gap-1.5 flex-wrap">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="px-2 py-1.5 rounded-md border border-border bg-surface text-xs text-text-secondary
-                         focus:outline-none focus:border-primary cursor-pointer"
-              title="排序方式"
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-            <button
-              onClick={toggleSortOrder}
-              className="px-2 py-1.5 rounded-md border border-border bg-surface text-xs text-text-secondary
-                         hover:border-primary transition-colors cursor-pointer"
-              title={sortOrder === 'desc' ? '降序 ↓' : '升序 ↑'}
-            >
-              {sortOrder === 'desc' ? '↓' : '↑'}
-            </button>
+            <SongSortBar compact />
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
               className={`px-2 py-1.5 rounded-md text-xs border transition-colors cursor-pointer
@@ -571,250 +435,10 @@ export default function SongList() {
       </div>
 
       {/* Advanced filters */}
-      {showAdvanced && (
-        <div className="bg-bg-gray border border-border rounded-lg p-4 mb-6 space-y-3">
-          {/* 等级（官标档位，从曲库动态生成）下拉 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <label className="flex flex-col gap-1 text-xs text-text-secondary">
-              等级
-              <select
-                value={advancedFilters.level ?? ''}
-                onChange={(e) => setAdvancedFilters({ level: e.target.value || undefined })}
-                className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
-              >
-                <option value="">全部等级</option>
-                {levels.map((lv) => (
-                  <option key={lv} value={lv}>{lv}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {/* Level range inputs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <label className="flex flex-col gap-1 text-xs text-text-secondary">
-              最低定数
-              <select
-                value={advancedFilters.levelValueMin ?? ''}
-                onChange={(e) => setAdvancedFilters({ levelValueMin: e.target.value ? parseFloat(e.target.value) : undefined })}
-                className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
-              >
-                <option value="">不限</option>
-                {LEVEL_VALUE_GROUPS.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.values.map((v) => (
-                      <option key={v} value={v}>{v.toFixed(1)}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-text-secondary">
-              最高定数
-              <select
-                value={advancedFilters.levelValueMax ?? ''}
-                onChange={(e) => setAdvancedFilters({ levelValueMax: e.target.value ? parseFloat(e.target.value) : undefined })}
-                className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
-              >
-                <option value="">不限</option>
-                {LEVEL_VALUE_GROUPS.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.values.map((v) => (
-                      <option key={v} value={v}>{v.toFixed(1)}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
-
-            {/* Version filter */}
-            <label className="flex flex-col gap-1 text-xs text-text-secondary">
-              版本
-              <select
-                value={advancedFilters.version ?? ''}
-                onChange={(e) => setAdvancedFilters({ version: e.target.value || undefined })}
-                className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
-              >
-                <option value="">全部版本</option>
-                {versions.map((v) => (
-                  <option key={v} value={v}>{getVersionDisplay(v)}</option>
-                ))}
-              </select>
-            </label>
-
-            {/* Genre filter */}
-            <label className="flex flex-col gap-1 text-xs text-text-secondary">
-              分类
-              <select
-                value={advancedFilters.genre ?? ''}
-                onChange={(e) => setAdvancedFilters({ genre: e.target.value || undefined })}
-                className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
-              >
-                <option value="">全部分类</option>
-                {genres.map((g) => (
-                  <option key={g} value={g}>{g}</option>
-                ))}
-              </select>
-            </label>
-
-            {/* Difficulty filter */}
-            <label className="flex flex-col gap-1 text-xs text-text-secondary">
-              难度
-              <select
-                value={advancedFilters.difficultyLevel != null ? advancedFilters.difficultyLevel : ''}
-                onChange={(e) => setAdvancedFilters({ difficultyLevel: e.target.value ? parseInt(e.target.value) : undefined })}
-                className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
-              >
-                <option value="">全部难度</option>
-                {Object.entries(LEVEL_INDEX_MAP).map(([idx, { label }]) => (
-                  <option key={idx} value={idx}>{label}</option>
-                ))}
-              </select>
-            </label>
-
-            {/* 宴会场：没有定数与难度数据，默认不混入列表 */}
-            <label className="flex items-center gap-2 text-xs text-text-secondary self-end pb-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={!!advancedFilters.includeUtage}
-                onChange={(e) => setAdvancedFilters({ includeUtage: e.target.checked || undefined })}
-                className="w-3.5 h-3.5 rounded border-border cursor-pointer accent-primary"
-              />
-              显示宴会场
-            </label>
-          </div>
-
-          {/* Reset button */}
-          <div className="flex justify-end">
-            <button
-              onClick={resetFilters}
-              className="px-3 py-1.5 rounded-md border border-border text-sm text-text-secondary
-                         hover:bg-primary/10 transition-colors cursor-pointer"
-            >
-              重置筛选条件
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Results count */}
-      <p className="text-xs text-text-secondary mb-3">
-        共 {filteredSongs.length} 首曲目
-        {filteredSongs.length > PAGE_SIZE && ` · 第 ${page + 1}/${totalPages} 页`}
-      </p>
+      {showAdvanced && <SongFilterPanel />}
 
       {/* Song list */}
-      {filteredSongs.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-text-secondary">
-          <Music size={28} className="text-text-tertiary" />
-          <p className="text-sm">未找到匹配曲目</p>
-        </div>
-      ) : (
-        <>
-          <div className="flex flex-col gap-1.5">
-            {songDisplayData.map(({ song, levelLabels, hasPair, pair }) => (
-              <button
-                key={song.id}
-                onClick={() => navigate(`/songs/${song.id}`)}
-                className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 rounded-lg bg-surface border border-border/50
-                           shadow-sm hover:border-primary hover:shadow-md transition-all text-left cursor-pointer w-full"
-              >
-                {/* Mobile: cover + title row, desktop: cover thumbnail inline */}
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <img
-                    src={song.imageUrl}
-                    alt={song.title}
-                    className="w-12 h-12 rounded object-cover shrink-0 bg-bg-gray"
-                    loading="lazy"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect fill="%23EBEEF3" width="48" height="48"/><text x="24" y="28" text-anchor="middle" fill="%23999" font-size="14">♪</text></svg>'
-                    }}
-                  />
-                  <div className="sm:hidden flex-1 min-w-0">
-                    <div className="font-medium text-sm text-text truncate">{song.title}</div>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {levelLabels.map(({ idx, label, badgeBg, badgeFg }) => (
-                        <span
-                          key={idx}
-                          className="px-1.5 py-0.5 rounded text-[10px] font-medium leading-tight"
-                          style={{ backgroundColor: badgeBg, color: badgeFg }}
-                        >
-                          {label}
-                        </span>
-                      ))}
-                      {song.difficulties.standard.length > 0 && (
-                        <span
-                          className={`px-1 py-0.5 rounded text-[9px] leading-tight border border-border/50 shrink-0
-                            ${hasPair ? 'cursor-pointer hover:border-primary' : 'text-text-tertiary bg-surface-light'}`}
-                          onClick={(e) => { if (hasPair && pair?.standard) { e.stopPropagation(); navigate('/songs/' + pair.standard.id) } }}
-                        >标</span>
-                      )}
-                      {song.difficulties.dx.length > 0 && (
-                        <span
-                          className={`px-1 py-0.5 rounded text-[9px] leading-tight shrink-0
-                            ${hasPair ? 'cursor-pointer hover:bg-primary/20' : 'text-primary bg-primary/10'}`}
-                          onClick={(e) => { if (hasPair && pair?.dx) { e.stopPropagation(); navigate('/songs/' + pair.dx.id) } }}
-                        >DX</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Desktop song info (hidden on mobile) */}
-                <div className="hidden sm:block flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-sm text-text truncate">{song.title}</span>
-                    {song.difficulties.standard.length > 0 && (
-                      <span
-                        className={`px-1 py-0.5 rounded text-[9px] leading-tight border border-border/50 shrink-0
-                          ${hasPair ? 'cursor-pointer hover:border-primary' : 'text-text-tertiary bg-surface-light'}`}
-                        onClick={(e) => { if (hasPair && pair?.standard) { e.stopPropagation(); navigate('/songs/' + pair.standard.id) } }}
-                      >标</span>
-                    )}
-                    {song.difficulties.dx.length > 0 && (
-                      <span
-                        className={`px-1 py-0.5 rounded text-[9px] leading-tight shrink-0
-                          ${hasPair ? 'cursor-pointer hover:bg-primary/20' : 'text-primary bg-primary/10'}`}
-                        onClick={(e) => { if (hasPair && pair?.dx) { e.stopPropagation(); navigate('/songs/' + pair.dx.id) } }}
-                      >DX</span>
-                    )}
-                  </div>
-                  <div className="text-xs text-text-secondary truncate">{song.artist}</div>
-                </div>
-
-                {/* Mobile: artist + metadata row */}
-                <div className="sm:hidden flex items-center gap-2 text-xs text-text-secondary pt-0.5">
-                  <span className="truncate">{song.artist}</span>
-                  <span className="text-text-tertiary">|</span>
-                  <span className="tabular-nums shrink-0">BPM {song.bpm}</span>
-                  <span className="text-text-tertiary">|</span>
-                  <span className="truncate shrink-0">{getVersionDisplay(song.from)}</span>
-                </div>
-
-                {/* Desktop: Difficulty badges + BPM + version */}
-                <div className="hidden sm:flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                  <div className="flex gap-1">
-                    {levelLabels.map(({ idx, label, badgeBg, badgeFg }) => (
-                      <span
-                        key={idx}
-                        className="px-1.5 py-0.5 rounded text-[11px] font-medium leading-tight"
-                        style={{ backgroundColor: badgeBg, color: badgeFg }}
-                      >
-                        {label}
-                      </span>
-                    ))}
-                  </div>
-                  <span className="text-xs text-text-secondary tabular-nums w-14 text-right">{song.bpm}</span>
-                  <span className="text-[10px] text-text-tertiary w-16 text-right">{song.from}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Pagination */}
-          <Pagination currentPage={page} totalPages={totalPages} onPageChange={handlePageChange} />
-        </>
-      )}
+      <SongResultList songs={filteredSongs} />
 
       {/* ============================================================
           Import modal (inline — migrated from PlayerInfo)
