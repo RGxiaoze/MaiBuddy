@@ -80,6 +80,22 @@ describe('computeB50', () => {
     const result = computeB50(scores, songMap)
     expect(result.totalRating).toBeGreaterThan(0)
   })
+
+  // 落雪 API 的 dx_rating 是浮点（如 310.86037512），舞萌评分口径是整数相加。
+  // 历史数据可能已存成浮点，读取时必须取整，否则总分会带小数。
+  it('存储的 dxRating 带小数时按整数计入总分', () => {
+    const song = makeSong({ difficulties: { standard: [makeDiff({ levelValue: 14.9 })], dx: [] } })
+    const result = computeB50(
+      [
+        makeScore({ songId: 1, dxRating: 310.86037512 }),
+        makeScore({ songId: 2, dxRating: 305.4999 }),
+      ],
+      new Map([[1, song], [2, makeSong({ id: 2 })]])
+    )
+    expect(result.best35.map((e) => e.dxRating)).toEqual([310, 305])
+    expect(Number.isInteger(result.totalRating)).toBe(true)
+    expect(result.totalRating).toBe(615)
+  })
 })
 
 describe('computeTheoreticalMaxRating', () => {

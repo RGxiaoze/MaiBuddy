@@ -172,8 +172,9 @@ export function computeB50(scores: ScoreRecord[], songMap: Map<number, Song>): B
 
     // For scores that already have a pre-computed dxRating, use it
     // Otherwise compute from levelValue + achievements
+    // 取整是必须的：落雪等来源给的是浮点评分，而舞萌总 Rating 是整数相加
     const levelValue = s.levelValue
-    const dxRating = s.dxRating > 0 ? s.dxRating : computeRating(levelValue, s.achievements, s.fcType)
+    const dxRating = s.dxRating > 0 ? Math.floor(s.dxRating) : computeRating(levelValue, s.achievements, s.fcType)
 
     if (dxRating <= 0) continue
 

@@ -171,8 +171,7 @@ async function importLxnsCsv(text: string, songMap?: Map<number, Song>): Promise
       fcType: d.fcType,
       fsType: d.fsType,
       dxScore: d.dxScore,
-      // 落雪给的是 8 位小数浮点，本地按整数评分口径存储
-      dxRating: Math.floor(d.dxRating),
+      dxRating: d.dxRating,
       dxScoreDetail: null,
       playDate: playTime ? playTime.slice(0, 10) : new Date().toISOString().slice(0, 10),
     }

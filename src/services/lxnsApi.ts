@@ -127,7 +127,8 @@ export function toDfScores(rawScores: LxnsScore[], songMap: Map<number, Song>): 
       levelValue: match.diff.levelValue,
       songType: match.type,
       achievements: raw.achievements,
-      dxRating: raw.dx_rating ?? 0,
+      // 落雪给的是 8 位小数浮点（如 310.86037512），舞萌口径是整数
+      dxRating: Math.floor(raw.dx_rating ?? 0),
       dxScore: raw.dx_score ?? 0,
       rate: raw.rate ?? '',
       fcType: raw.fc ?? null,

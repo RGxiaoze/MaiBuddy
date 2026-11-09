@@ -81,6 +81,12 @@ describe('toDfScores', () => {
     expect(out[0].level).toBe('13')
   })
 
+  // 落雪的 dx_rating 是 8 位小数浮点，舞萌口径是整数
+  it('dx_rating 浮点按整数存储', () => {
+    const out = toDfScores([raw({ dx_rating: 310.86037512 })], map)
+    expect(out[0].dxRating).toBe(310)
+  })
+
   // 官方文档的 Score 结构体把曲目 ID 命名为 id；早期版本是 song_id。
   it('曲目 ID 用 id 字段时同样能转换', () => {
     const out = toDfScores([{ id: 1, level_index: 3, achievements: 100.5 } as LxnsScore], map)
