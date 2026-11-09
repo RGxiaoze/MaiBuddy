@@ -205,3 +205,32 @@ export interface LxnsNotes {
   touch: number
   break: number
 }
+
+/** 落雪 LXNS 成绩条目（B50 / 全部成绩 / Recent 共用） */
+export interface LxnsScore {
+  id?: number
+  song_id: number
+  song_name?: string
+  /** 难度索引 0-4（部分接口会给出，缺失时以 level_index 为准） */
+  level_index: number
+  /** 谱面类型 */
+  type?: 'standard' | 'dx'
+  /** 官标等级字符串，如 "14+" */
+  level?: string
+  achievements: number
+  dx_score?: number
+  dx_rating?: number
+  fc?: string | null
+  fs?: string | null
+  rate?: string
+  play_time?: string | null
+  upload_time?: string | null
+}
+
+/** 落雪 B50 响应（未指定曲目时） */
+export interface LxnsBests {
+  standard_total: number
+  dx_total: number
+  standard: LxnsScore[]
+  dx: LxnsScore[]
+}
