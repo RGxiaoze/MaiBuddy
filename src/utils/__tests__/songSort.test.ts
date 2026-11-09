@@ -44,14 +44,6 @@ describe('buildScoreStats', () => {
     const stats = buildScoreStats(songs, [])
     expect(stats.size).toBe(0)
   })
-
-  it('添加日期取该曲最近一次的成绩添加时间', () => {
-    const stats = buildScoreStats(songs, [
-      { songId: 1, levelIndex: 3, achievements: 99, dxScore: 1000, createdAt: new Date('2026-01-01T00:00:00Z') },
-      { songId: 1, levelIndex: 3, achievements: 98, dxScore: 900, createdAt: new Date('2026-05-01T00:00:00Z') },
-    ])
-    expect(stats.get(1)?.addedAt).toBe(new Date('2026-05-01T00:00:00Z').getTime())
-  })
 })
 
 describe('sortSongs', () => {
@@ -61,8 +53,8 @@ describe('sortSongs', () => {
     song(3, [diff(3, 12.0)], { releaseDate: '2023-01-01' }),
   ]
   const stats = new Map([
-    [1, { achievements: 99.0, dxScoreRate: 0.8, addedAt: 1000 }],
-    [2, { achievements: 97.5, dxScoreRate: 0.95, addedAt: 3000 }],
+    [1, { achievements: 99.0, dxScoreRate: 0.8 }],
+    [2, { achievements: 97.5, dxScoreRate: 0.95 }],
   ])
 
   it('按定数降序（默认）', () => {
@@ -89,34 +81,23 @@ describe('sortSongs', () => {
     expect(out).toHaveLength(3)
   })
 
-  // 添加日期：数据库 createdAt，更新更好成绩时刷新
-  it('按添加日期降序：最近添加的在前，未游玩排最后', () => {
-    expect(sortSongs(songs, { sortBy: 'addedAt', sortOrder: 'desc', scoreStats: stats }).map(s => s.id))
-      .toEqual([2, 1, 3])
-  })
-
-  it('按添加日期升序：最早添加的在前，未游玩仍在最后', () => {
-    expect(sortSongs(songs, { sortBy: 'addedAt', sortOrder: 'asc', scoreStats: stats }).map(s => s.id))
-      .toEqual([1, 2, 3])
-  })
-
-  it('都没成绩时按实装日期兜底（批量导入时间相同时不会看起来乱序）', () => {
-    const empty = new Map<number, { achievements: number; dxScoreRate: number; addedAt: number }>()
-    expect(sortSongs(songs, { sortBy: 'addedAt', sortOrder: 'desc', scoreStats: empty }).map(s => s.id))
-      .toEqual([2, 1, 3])
-  })
-
-  it('按实装日期排序', () => {
+  // 界面上「添加日期」= 曲目实装日期（水鱼无数据，来自落雪 release_date）
+  it('按添加日期（实装日期）降序：新曲在前', () => {
     expect(sortSongs(songs, { sortBy: 'releaseDate', sortOrder: 'desc' }).map(s => s.id)).toEqual([2, 1, 3])
+  })
+
+  it('按添加日期（实装日期）升序：老曲在前', () => {
     expect(sortSongs(songs, { sortBy: 'releaseDate', sortOrder: 'asc' }).map(s => s.id)).toEqual([3, 1, 2])
   })
 
-  it('添加日期相同时退化为实装日期排序', () => {
-    const sameAddedAt = new Map([
-      [1, { achievements: 99, dxScoreRate: 0.8, addedAt: 5000 }],
-      [2, { achievements: 98, dxScoreRate: 0.7, addedAt: 5000 }],
-    ])
-    expect(sortSongs(songs, { sortBy: 'addedAt', sortOrder: 'desc', scoreStats: sameAddedAt }).map(s => s.id))
+  it('缺日期的曲目排在最后', () => {
+    const withMissing = [...songs, song(4, [diff(3, 13.0)])]
+    expect(sortSongs(withMissing, { sortBy: 'releaseDate', sortOrder: 'desc' }).map(s => s.id).at(-1)).toBe(4)
+  })
+
+  it('都没成绩时按实装日期兜底', () => {
+    const empty = new Map<number, { achievements: number; dxScoreRate: number }>()
+    expect(sortSongs(songs, { sortBy: 'achievements', sortOrder: 'desc', scoreStats: empty }).map(s => s.id))
       .toEqual([2, 1, 3])
   })
 

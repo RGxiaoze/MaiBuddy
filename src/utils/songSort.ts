@@ -18,9 +18,10 @@ export type SortBy =
   | 'achievements'
   /** 最高 DX 分数率 = dxScore ÷ (总物量 × 3) */
   | 'dxScoreRate'
-  /** 最近一次添加成绩的时间（数据库 createdAt） */
-  | 'addedAt'
-  /** 曲目实装日期（水鱼 basic_info.release_date） */
+  /**
+   * 曲目实装日期（水鱼该字段全为空，实际数据来自落雪 `release_date`）。
+   * 界面上显示为「添加日期」—— 对玩家来说这就是「这首歌什么时候进游戏的」。
+   */
   | 'releaseDate'
 
 export type SortOrder = 'asc' | 'desc'
@@ -29,8 +30,6 @@ export type SortOrder = 'asc' | 'desc'
 export interface SongScoreStat {
   achievements: number
   dxScoreRate: number
-  /** 最近一次添加这条成绩的时间（ms） */
-  addedAt: number
 }
 
 export interface SortOptions {
@@ -68,7 +67,7 @@ function compareReleaseDate(a: Song, b: Song): number {
  */
 export function buildScoreStats(
   songs: Song[],
-  scores: Array<{ songId: number; levelIndex: number; achievements: number; dxScore: number; createdAt?: Date | string | number }>,
+  scores: Array<{ songId: number; levelIndex: number; achievements: number; dxScore: number }>,
 ): Map<number, SongScoreStat> {
   const notesByChart = new Map<string, number>()
   for (const s of songs) {
@@ -82,29 +81,18 @@ export function buildScoreStats(
   for (const sc of scores) {
     const total = notesByChart.get(`${sc.songId}-${sc.levelIndex}`)
     const rate = total && total > 0 ? sc.dxScore / (total * 3) : 0
-    const addedAt = toTimestamp(sc.createdAt)
 
     const prev = stats.get(sc.songId)
     if (!prev) {
-      stats.set(sc.songId, { achievements: sc.achievements, dxScoreRate: rate, addedAt })
+      stats.set(sc.songId, { achievements: sc.achievements, dxScoreRate: rate })
     } else {
       stats.set(sc.songId, {
         achievements: Math.max(prev.achievements, sc.achievements),
         dxScoreRate: Math.max(prev.dxScoreRate, rate),
-        addedAt: Math.max(prev.addedAt, addedAt),
       })
     }
   }
   return stats
-}
-
-/** createdAt 可能是 Date / ISO 字符串 / 毫秒数；无法解析时按 0 处理 */
-function toTimestamp(value?: Date | string | number): number {
-  if (value == null) return 0
-  if (value instanceof Date) return value.getTime()
-  if (typeof value === 'number') return value
-  const parsed = Date.parse(value)
-  return Number.isFinite(parsed) ? parsed : 0
 }
 
 /**
@@ -132,20 +120,24 @@ export function sortSongs(songs: Song[], { sortBy, sortOrder, scoreStats }: Sort
         // 曲名以日文假名 / 汉字 / 英文混合为主，按日文排序规则比较
         return a.title.localeCompare(b.title, 'ja') * mult
       case 'achievements':
-      case 'dxScoreRate':
-      case 'addedAt': {
+      case 'dxScoreRate': {
         const sa = statOf(a)
         const sb = statOf(b)
-        // 都没成绩时按实装日期兜底（批量导入后所有成绩时间相同，按添加日期排不出差异）
+        // 都没成绩时按实装日期兜底，避免列表看起来乱序
         if (!sa && !sb) return compareReleaseDate(b, a)
         if (!sa) return 1
         if (!sb) return -1
-        // 添加日期相同时（如一次性批量导入），退化为按实装日期排，避免顺序看起来随机
-        if (sortBy === 'addedAt' && sa.addedAt === sb.addedAt) return compareReleaseDate(b, a)
         return (sa[sortBy] - sb[sortBy]) * mult
       }
-      case 'releaseDate':
-        return compareReleaseDate(a, b) * mult
+      case 'releaseDate': {
+        // 缺日期的始终排最后，不受升降序影响
+        const ra = a.releaseDate ?? ''
+        const rb = b.releaseDate ?? ''
+        if (!ra && !rb) return 0
+        if (!ra) return 1
+        if (!rb) return -1
+        return ra.localeCompare(rb) * mult
+      }
       case 'default':
       case 'levelValue':
         return (maxLevelValue(a) - maxLevelValue(b)) * mult

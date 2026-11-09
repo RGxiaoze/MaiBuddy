@@ -37,12 +37,12 @@ function computeVersionFingerprint(songs: Song[]): number {
   }
   return max
 }
-export type SortBy = 'default' | 'bpm' | 'version' | 'levelValue' | 'title' | 'achievements' | 'dxScoreRate' | 'addedAt' | 'releaseDate'
+export type SortBy = 'default' | 'bpm' | 'version' | 'levelValue' | 'title' | 'achievements' | 'dxScoreRate' | 'releaseDate'
 export type SortOrder = 'asc' | 'desc'
 
 export const SORT_OPTIONS: { value: SortBy; label: string }[] = [
-  { value: 'addedAt', label: '添加日期' },
-  { value: 'releaseDate', label: '实装日期' },
+  // 标签写「添加日期」：玩家视角就是「这首歌什么时候进游戏的」，数据源自实装日期
+  { value: 'releaseDate', label: '添加日期' },
   { value: 'default', label: '最高定数' },
   { value: 'bpm', label: 'BPM' },
   { value: 'version', label: '版本' },
@@ -94,7 +94,7 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
   error: null,
   searchQuery: '',
   advancedFilters: { ...defaultFilters },
-  sortBy: 'addedAt' as SortBy,
+  sortBy: 'releaseDate' as SortBy,
   sortOrder: 'desc' as SortOrder,
 
   // Actions
