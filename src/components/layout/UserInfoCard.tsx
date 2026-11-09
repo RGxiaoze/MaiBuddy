@@ -10,6 +10,7 @@ import { useScoreStore } from '@/store/scoreStore'
 import { exportScoresToFile } from '@/utils/exportScores'
 import { User, Download, Upload, Trash2, BarChart3, ChevronDown, LogOut } from 'lucide-react'
 import { hasOAuthToken, revokeOAuth } from '@/services/dfOAuth'
+import { hasOAuthToken as hasLxnsToken, revokeOAuth as revokeLxnsOAuth } from '@/services/lxnsOAuth'
 
 interface UserInfoCardProps {
   collapsed: boolean
@@ -59,10 +60,14 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
   }
 
   const [oauthLinked, setOauthLinked] = useState(() => hasOAuthToken())
+  const [lxnsLinked, setLxnsLinked] = useState(() => hasLxnsToken())
 
   // 授权回调发生在别处，打开菜单时重新确认一次授权状态
   useEffect(() => {
-    if (menuOpen) setOauthLinked(hasOAuthToken())
+    if (menuOpen) {
+      setOauthLinked(hasOAuthToken())
+      setLxnsLinked(hasLxnsToken())
+    }
   }, [menuOpen])
 
   const handleRevokeOAuth = async () => {
@@ -72,12 +77,22 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
     setMenuOpen(false)
   }
 
+  const handleRevokeLxns = async () => {
+    if (!window.confirm('退出落雪账号授权？\n\n只会撤销授权并清除本地令牌，已导入的成绩不受影响。')) return
+    await revokeLxnsOAuth()
+    setLxnsLinked(false)
+    setMenuOpen(false)
+  }
+
   const menuItems = [
-    { label: '导入成绩', desc: 'Diving-Fish 账号 / Token / 备份文件', Icon: Download, onClick: () => { setMenuOpen(false); navigate('/songs?import=1') } },
+    { label: '导入成绩', desc: '水鱼 / 落雪账号 / Token / 备份文件', Icon: Download, onClick: () => { setMenuOpen(false); navigate('/songs?import=1') } },
     { label: '导出成绩', desc: '导出为 JSON 备份文件', Icon: Upload, onClick: handleExport },
     { label: '查看 B50', desc: '本地成绩与在线查分', Icon: BarChart3, onClick: () => { setMenuOpen(false); navigate('/player') } },
     ...(oauthLinked
       ? [{ label: '退出水鱼授权', desc: '撤销授权并清除本地令牌', Icon: LogOut, onClick: handleRevokeOAuth }]
+      : []),
+    ...(lxnsLinked
+      ? [{ label: '退出落雪授权', desc: '撤销授权并清除本地令牌', Icon: LogOut, onClick: handleRevokeLxns }]
       : []),
     { label: '清除本地成绩', desc: `共 ${scores.length} 条，不可撤销`, Icon: Trash2, danger: true, onClick: handleClear },
   ]

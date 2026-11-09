@@ -1,17 +1,47 @@
 // ============================================================
 // OAuthCallbackHandler
 //
-// 挂在应用顶层，负责接收水鱼账号授权后的回调：
-// ?code=...&state=... → 换票 → 拉取完整成绩 → 写入本地
+// 挂在应用顶层，负责接收账号授权后的回调：
+// ?code=...&state=... → 按来源换票 → 拉取完整成绩 → 写入本地
+//
+// 支持水鱼（df）与落雪（lxns）两家，来源由发起授权时写入的 provider id 决定。
 // ============================================================
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
-import { readCallbackParams, consumeVerifier, exchangeCode, saveToken } from '@/services/dfOAuth'
+import { readCallbackParams, readPendingProviderId } from '@/services/oauthCore'
+import type { TokenSet } from '@/services/oauthCore'
+import * as dfOAuth from '@/services/dfOAuth'
+import * as lxnsOAuth from '@/services/lxnsOAuth'
 import { usePlayerStore } from '@/store/playerStore'
 
 type Status = 'idle' | 'working' | 'done' | 'error'
+
+interface CallbackProvider {
+  name: string
+  consumeVerifier: (state: string) => string
+  exchangeCode: (code: string, verifier: string) => Promise<TokenSet>
+  saveToken: (token: TokenSet) => void
+  importScores: (accessToken: string) => Promise<{ imported: number; updated: number }>
+}
+
+const PROVIDERS: Record<string, CallbackProvider> = {
+  df: {
+    name: '水鱼',
+    consumeVerifier: dfOAuth.consumeVerifier,
+    exchangeCode: dfOAuth.exchangeCode,
+    saveToken: dfOAuth.saveToken,
+    importScores: (accessToken) => usePlayerStore.getState().importScoresViaOAuth(accessToken),
+  },
+  lxns: {
+    name: '落雪',
+    consumeVerifier: lxnsOAuth.consumeVerifier,
+    exchangeCode: lxnsOAuth.exchangeCode,
+    saveToken: lxnsOAuth.saveToken,
+    importScores: (accessToken) => usePlayerStore.getState().importScoresViaLxns(accessToken),
+  },
+}
 
 export default function OAuthCallbackHandler() {
   const [status, setStatus] = useState<Status>('idle')
@@ -28,12 +58,15 @@ export default function OAuthCallbackHandler() {
     setStatus('working')
     ;(async () => {
       try {
-        const verifier = consumeVerifier(cb.state)
-        const token = await exchangeCode(cb.code, verifier)
-        saveToken(token)
+        const provider = PROVIDERS[readPendingProviderId() ?? '']
+        if (!provider) throw new Error('找不到本次授权的来源，请重新发起登录')
 
-        const result = await usePlayerStore.getState().importScoresViaOAuth(token.accessToken)
-        setMessage(`已授权并导入 ${result.imported + result.updated} 条成绩`)
+        const verifier = provider.consumeVerifier(cb.state)
+        const token = await provider.exchangeCode(cb.code, verifier)
+        provider.saveToken(token)
+
+        const result = await provider.importScores(token.accessToken)
+        setMessage(`${provider.name}授权成功，已导入 ${result.imported + result.updated} 条成绩`)
         setStatus('done')
         setTimeout(() => { navigate('/player') }, 1500)
       } catch (err) {

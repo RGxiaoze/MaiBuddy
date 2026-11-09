@@ -14,6 +14,12 @@ import { LEVEL_INDEX_MAP, getCoverUrl } from '@/data/constants'
 import { VERSION_ORDER, getVersionDisplay } from '@/data/versions'
 import { loginToProber, generateImportToken } from '@/services/divingFishApi'
 import { buildAuthorizeUrl } from '@/services/dfOAuth'
+import {
+  buildAuthorizeUrl as buildLxnsAuthorizeUrl,
+  isLxnsConfigured,
+  hasOAuthToken as hasLxnsToken,
+  revokeOAuth as revokeLxnsOAuth,
+} from '@/services/lxnsOAuth'
 import { Settings, Music, FolderOpen, X } from 'lucide-react'
 import { importScoresFromFile } from '@/utils/importScores'
 import { matchRateValue } from '@/utils/stats'
@@ -152,6 +158,7 @@ export default function SongList() {
     sortBy, sortOrder, setSortBy, toggleSortOrder,
   } = useSongStore()
   const importDivingFishScores = usePlayerStore((s) => s.importDivingFishScores)
+  const importScoresViaLxns = usePlayerStore((s) => s.importScoresViaLxns)
 
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -370,6 +377,43 @@ export default function SongList() {
       setImporting(false)
     }
   }, [importDivingFishScores, saveImportToken])
+
+  // ---- 落雪 LXNS ----
+  const [lxnsKey, setLxnsKey] = useState('')
+
+  /** 跳转到落雪授权页；授权完成后由 App 顶层的 OAuthCallbackHandler 接手 */
+  const handleLxnsOAuthLogin = useCallback(async () => {
+    try {
+      window.location.href = await buildLxnsAuthorizeUrl()
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : '无法发起落雪授权')
+    }
+  }, [])
+
+  /** 落雪个人 API 密钥导入：密钥只用于本次请求，不写入本地存储 */
+  const handleLxnsKeyImport = useCallback(async (token: string) => {
+    setImporting(true)
+    setImportError(null)
+    setImportResult(null)
+    setImportProgress(null)
+    try {
+      const stats = await importScoresViaLxns(token, 'user', (current, total) => {
+        setImportProgress({ current, total })
+      })
+      setImportResult(stats)
+      setLxnsKey('')
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : '导入失败')
+    } finally {
+      setImporting(false)
+    }
+  }, [importScoresViaLxns])
+
+  const handleLxnsRevoke = useCallback(async () => {
+    if (!window.confirm('退出落雪授权？\n\n只会撤销授权并清除本地令牌，已导入的成绩不受影响。')) return
+    await revokeLxnsOAuth()
+    closeImport()
+  }, [])
 
   // ---- (Export moved to B50 page toolbar & sidebar user menu) ----
 
@@ -788,13 +832,13 @@ export default function SongList() {
             </div>
 
             <p className="text-xs text-text-secondary mb-4">
-              导入 Diving-Fish 的<strong>全部曲目×全部难度</strong>成绩到本地浏览器存储
+              从水鱼或落雪导入<strong>全部曲目×全部难度</strong>成绩到本地浏览器存储
             </p>
 
             {/* OAuth 授权：两种环境都可用，是生产环境的主推方式 */}
             <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 sm:p-4 mb-3">
               <div className="flex items-center gap-2 mb-2">
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary text-white">推荐</span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary text-white">水鱼</span>
                 <p className="text-xs text-text font-medium">通过水鱼账号授权，一步导入</p>
               </div>
               <button
@@ -807,6 +851,65 @@ export default function SongList() {
                 在你自己的水鱼账号页面完成登录与授权，本站接触不到你的密码。
                 若授权不可用，可用下方的 Import-Token 导入。
               </p>
+            </div>
+
+            {/* 落雪：朋友的主力数据源，与水鱼并列 */}
+            <div className="bg-accent/5 border border-accent/20 rounded-lg p-3 sm:p-4 mb-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-white">落雪</span>
+                <p className="text-xs text-text font-medium">通过落雪咖啡屋账号导入</p>
+              </div>
+
+              {isLxnsConfigured() ? (
+                <button
+                  onClick={handleLxnsOAuthLogin}
+                  className="w-full py-2 rounded-md text-sm font-semibold bg-accent text-white border-none cursor-pointer hover:opacity-90 transition-opacity"
+                >
+                  授权落雪并导入
+                </button>
+              ) : (
+                <p className="text-[11px] text-text-tertiary leading-relaxed">
+                  落雪授权尚未配置应用 ID，请使用下方的个人 API 密钥导入。
+                </p>
+              )}
+
+              <details className="mt-2">
+                <summary className="text-[11px] text-text-tertiary cursor-pointer select-none hover:text-primary transition-colors">
+                  使用个人 API 密钥导入
+                </summary>
+                <div className="mt-2 space-y-2">
+                  <input
+                    type="password"
+                    value={lxnsKey}
+                    onChange={(e) => setLxnsKey(e.target.value)}
+                    placeholder="粘贴落雪个人 API 密钥"
+                    className="w-full px-3 py-2 rounded-md border border-border text-sm font-mono
+                               focus:outline-none focus:border-primary bg-surface transition-colors"
+                  />
+                  <button
+                    onClick={() => handleLxnsKeyImport(lxnsKey.trim())}
+                    disabled={importing || !lxnsKey.trim()}
+                    className="w-full px-4 py-2.5 rounded-md bg-surface border border-border text-text-secondary text-sm font-medium
+                               hover:border-primary hover:text-primary transition-all cursor-pointer
+                               disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {importing ? '导入中...' : '导入'}
+                  </button>
+                  <p className="text-[10px] text-text-tertiary">密钥只用于本次请求，不会保存在本地。</p>
+                </div>
+              </details>
+
+              {hasLxnsToken() && (
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+                  <span className="text-[11px] text-text-tertiary">已授权落雪账号</span>
+                  <button
+                    onClick={handleLxnsRevoke}
+                    className="text-[11px] text-error hover:underline cursor-pointer border-none bg-transparent p-0"
+                  >
+                    退出授权
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* 账号密码登录：仅在开发环境可用。

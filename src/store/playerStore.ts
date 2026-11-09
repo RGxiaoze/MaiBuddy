@@ -6,6 +6,7 @@ import { create } from 'zustand'
 import type { DfScore } from '@/services/adapter'
 import { toInternalScore } from '@/services/adapter'
 import { fetchPlayerScores, fetchPlayerRecords, fetchPlayerRecordsOAuth } from '@/services/divingFishApi'
+import { fetchMyScores, fetchMyPlayer, toDfScores, type LxnsAuth } from '@/services/lxnsApi'
 import { computeB50, type B50Result } from '@/utils/b50'
 
 import { useScoreStore } from './scoreStore'
@@ -39,6 +40,10 @@ interface PlayerActions {
   }>
   /** 通过 OAuth access token 导入（查询对象由令牌决定，不再传 username/token） */
   importScoresViaOAuth: (accessToken: string, onProgress?: (current: number, total: number) => void) => Promise<{
+    total: number; imported: number; updated: number; skipped: number; nickname: string
+  }>
+  /** 通过落雪凭据导入：OAuth 令牌或账号详情里生成的个人 API 密钥 */
+  importScoresViaLxns: (token: string, auth?: LxnsAuth, onProgress?: (current: number, total: number) => void) => Promise<{
     total: number; imported: number; updated: number; skipped: number; nickname: string
   }>
   /** Force B50 recompute (call after updateScore which doesn't change length) */
@@ -135,5 +140,35 @@ export const usePlayerStore = create<PlayerState & PlayerActions>((set, get) => 
     })
 
     return { ...stats, nickname: result.nickname || result.username }
+  },
+
+  importScoresViaLxns: async (token: string, auth: LxnsAuth = 'oauth', onProgress?: (current: number, total: number) => void) => {
+    const rawScores = await fetchMyScores(token, auth)
+    if (rawScores.length === 0) throw new Error('该账号没有成绩数据')
+
+    // 落雪的成绩不含定数，依赖本地曲库补齐；补不上的条目在 toDfScores 内被丢弃
+    const { songs } = useSongStore.getState()
+    const songMap = new Map(songs.map((s) => [s.id, s]))
+    const scores = toDfScores(rawScores, songMap).map(toInternalScore)
+    if (scores.length === 0) {
+      throw new Error('落雪返回的成绩无法匹配本地曲库，请先刷新曲库后重试')
+    }
+
+    const stats = await useScoreStore.getState().bulkImportScores(scores, onProgress)
+
+    const player = await fetchMyPlayer(token, auth)
+    const nickname = typeof player?.name === 'string' && player.name ? player.name : '落雪玩家'
+    const rating = typeof player?.rating === 'number' ? player.rating : 0
+
+    set({
+      dfPlayerName: nickname,
+      dfRating: rating,
+      dfBest35: [],
+      dfBest15: [],
+      dfError: null,
+      recomputeFlag: get().recomputeFlag + 1,
+    })
+
+    return { ...stats, nickname }
   },
 }))
