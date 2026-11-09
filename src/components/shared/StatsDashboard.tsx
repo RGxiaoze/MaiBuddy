@@ -9,7 +9,7 @@
 //      + 匹配曲目列表（筛选 + 排序与检索页共用）
 // ============================================================
 
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
@@ -17,6 +17,7 @@ import { useSongStore } from '@/store/songStore'
 import SongFilterPanel from './SongFilterPanel'
 import SongSortBar from './SongSortBar'
 import SongResultList from './SongResultList'
+import SelectMenu, { type SelectOption } from './SelectMenu'
 import { buildScoreStats } from '@/utils/songSort'
 import { matchRateValue } from '@/utils/stats'
 import { computeTheoreticalMaxBoth } from '@/utils/b50'
@@ -58,25 +59,6 @@ interface DrillState {
   genre?: string
   /** 成绩维度条件（rate/fc/fs 的取值） */
   played?: string
-}
-
-interface TabButtonProps {
-  label: string
-  active: boolean
-  onClick: () => void
-}
-
-function TabButton({ label, active, onClick }: TabButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer border-none whitespace-nowrap transition-colors shrink-0 ${
-        active ? 'bg-primary text-white' : 'bg-bg-gray text-text-secondary hover:bg-primary/10'
-      }`}
-    >
-      {label}
-    </button>
-  )
 }
 
 export default function StatsDashboard() {
@@ -122,15 +104,27 @@ export default function StatsDashboard() {
     }
   }, [dimension, songs])
 
+  // 下拉选项：达成等级维度带分组标题（评级 / FC / FS）
+  const valueOptions: SelectOption[] = useMemo(() => {
+    if (dimension === 'rate') {
+      return (valueTabs as typeof RATE_GROUPS).flatMap((g) =>
+        g.tabs.map((t) => ({ value: t.value, label: t.label, group: g.title })),
+      )
+    }
+    return (valueTabs as { value: string; label: string }[]).map((t) => ({ value: t.value, label: t.label }))
+  }, [dimension, valueTabs])
+
+  const difficultyOptions: SelectOption[] = useMemo(
+    () => DIFFICULTY_TABS.map((t) => ({ value: t.value, label: t.label })),
+    [],
+  )
+
   const stats: GroupedStats | null = useMemo(
     () => songs.length > 0 ? computeStats(scores, songs, { dimension, value, difficulty }) : null,
     [scores, songs, dimension, value, difficulty],
   )
 
   const showDifficultyRow = dimension === 'rate' || dimension === 'genre'
-  const difficultyActive = (t: { value: string }) => t.value === 'all'
-    ? difficulty === 'all'
-    : String(difficulty) === t.value
 
   // ---- 钻取：本页内筛选，不再跳转到检索页 ----
   const [drill, setDrill] = useState<DrillState>({})
@@ -208,36 +202,23 @@ export default function StatsDashboard() {
         ))}
       </div>
 
-      {/* 值标签行（横向滚动） */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1">
-        {dimension === 'rate'
-          ? (valueTabs as typeof RATE_GROUPS).map((group, gi) => (
-              <Fragment key={group.title}>
-                {gi > 0 && <span className="w-px h-5 bg-border shrink-0 mx-1" />}
-                {group.tabs.map(t => (
-                  <TabButton key={t.value} label={t.label} active={value === t.value} onClick={() => setValue(t.value)} />
-                ))}
-              </Fragment>
-            ))
-          : (valueTabs as { value: string; label: string }[]).map(t => (
-              <TabButton key={t.value} label={t.label} active={value === t.value} onClick={() => setValue(t.value)} />
-            ))}
+      {/* 维度取值：下拉选择（原先是横向滚动标签，手机上要左右拖才能看全） */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <SelectMenu
+          options={valueOptions}
+          value={value}
+          onChange={setValue}
+          placeholder="全部"
+        />
+        {showDifficultyRow && (
+          <SelectMenu
+            label="难度"
+            options={difficultyOptions}
+            value={String(difficulty)}
+            onChange={(v) => setDifficulty(v === 'all' ? 'all' : Number(v) as LevelIndex)}
+          />
+        )}
       </div>
-
-      {/* 难度二级筛选行（仅达成等级/曲包维度） */}
-      {showDifficultyRow && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1">
-          <span className="text-xs text-text-tertiary shrink-0 mr-0.5">难度</span>
-          {DIFFICULTY_TABS.map(t => (
-            <TabButton
-              key={t.value}
-              label={t.label}
-              active={difficultyActive(t)}
-              onClick={() => setDifficulty(t.value === 'all' ? 'all' : Number(t.value) as LevelIndex)}
-            />
-          ))}
-        </div>
-      )}
 
       {/* 统计卡（点击钻取曲目列表） */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
