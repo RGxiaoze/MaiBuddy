@@ -8,10 +8,9 @@ import { Target, Download, Upload, Trash2, Plus } from 'lucide-react'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
-import PushSuggestions from '@/components/shared/PushSuggestions'
+import NextTargetPanel from '@/components/shared/NextTargetPanel'
 import QuickScoreEntry from '@/components/shared/QuickScoreEntry'
 import { exportScoresToFile } from '@/utils/exportScores'
-import NextTargetPanel from '@/components/shared/NextTargetPanel'
 import B50TileCard from '@/components/shared/B50TileCard'
 import StatsDashboard from '@/components/shared/StatsDashboard'
 import { generateStrategy } from '@/utils/strategy'
@@ -36,7 +35,7 @@ function StrategyPanel({ b50, scores, songs, theoreticalMax }: {
 }
 
 export default function PlayerInfo() {
-  const [activeTab, setActiveTab] = useState<'online' | 'local'>('local')
+  const [activeTab, setActiveTab] = useState<'overview' | 'b50' | 'online'>('overview')
   const [b15Collapsed, setB15Collapsed] = useState(true)
   const [b35Collapsed, setB35Collapsed] = useState(true)
   const [dfB15Collapsed, setDfB15Collapsed] = useState(true)
@@ -89,17 +88,31 @@ export default function PlayerInfo() {
     <div className="max-w-4xl">
       <h2 className="text-lg font-semibold text-text mb-4">成绩统计</h2>
 
-      {/* 成绩统计面板（筛选联动 + 钻取） */}
-      <StatsDashboard />
+      {/* 三个 Tab：总览 / B50 / 在线查分。每屏只承载一类内容，避免长页堆叠 */}
+      <div className="flex gap-1 mb-4">
+        {([
+          { key: 'overview', label: '总览' },
+          { key: 'b50', label: 'B50' },
+          { key: 'online', label: '在线查分' },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors border-none
+              ${activeTab === t.key ? 'bg-primary text-white' : 'bg-bg-gray text-text-secondary hover:bg-primary/10'}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div className="flex gap-1">
-          <button onClick={() => setActiveTab('local')} className={`px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors border-none ${activeTab === 'local' ? 'bg-primary text-white' : 'bg-bg-gray text-text-secondary hover:bg-primary/10'}`}>本地成绩</button>
-          <button onClick={() => setActiveTab('online')} className={`px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors border-none ${activeTab === 'online' ? 'bg-primary text-white' : 'bg-bg-gray text-text-secondary hover:bg-primary/10'}`}><span className="sm:hidden">在线查分</span><span className="hidden sm:inline">Diving-Fish 查分</span></button>
-        </div>
+      {/* 总览：统计面板（筛选联动 + 钻取） */}
+      {activeTab === 'overview' && <StatsDashboard />}
 
-        {/* 成绩管理工具栏 */}
-        <div className="flex items-center gap-1.5">
+      {/* 成绩管理工具栏：只在看成绩的 Tab 出现 */}
+      {(activeTab === 'b50' || activeTab === 'online') && (
+        <div className="flex items-center justify-end mb-4">
+          <div className="flex items-center gap-1.5">
           <button onClick={() => setShowQuickEntry(true)} className="px-2.5 py-1.5 rounded-md bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors cursor-pointer border-none" title="快捷录入成绩">
             <Plus size={13} className="inline mr-0.5" /><span className="hidden sm:inline">录入</span>
           </button>
@@ -112,8 +125,9 @@ export default function PlayerInfo() {
           <button onClick={handleClearScoresWithConfirm} className="px-2.5 py-1.5 rounded-md border border-error/40 text-error/80 text-xs hover:bg-error/10 transition-colors cursor-pointer" title="清除本地成绩">
             <Trash2 size={13} className="inline mr-0.5" /><span className="hidden sm:inline">清除</span>
           </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {activeTab === 'online' && (<>
         <div className="bg-surface border border-border rounded-lg p-4 mb-4">
@@ -172,7 +186,7 @@ export default function PlayerInfo() {
         {!dfLoading && !dfError && !dfPlayerName && <div className="bg-surface border border-border rounded-lg px-4 py-3 text-center text-sm text-text-secondary">输入玩家名称查询 B50 — 或 <Link to="/songs?import=1" className="text-primary hover:underline font-medium">请登录导入完整成绩</Link></div>}
       </>)}
 
-      {activeTab === 'local' && (<>
+      {activeTab === 'b50' && (<>
         {!localB50 || (localB50.best35.length === 0 && localB50.best15.length === 0) ? (
           <div className="bg-surface border border-border rounded-lg px-4 py-3 text-center"><span className="text-sm text-text-secondary">暂无本地成绩 — </span><Link to="/songs?import=1" className="text-sm text-primary hover:underline font-medium">请登录导入</Link></div>
         ) : (<>
@@ -219,11 +233,11 @@ export default function PlayerInfo() {
             </div>}
           </div>
           {localB50 && localB50.best35.length + localB50.best15.length > 0 && <StrategyPanel b50={localB50} scores={scores} songs={songs} theoreticalMax={theoreticalMax} />}
+
+          {/* 推分建议统一在推荐页，这里只保留 Top 3 速览 */}
+          <NextTargetPanel />
         </>)}
       </>)}
-
-      <NextTargetPanel />
-      <PushSuggestions theoreticalMax={theoreticalMax} />
 
       {/* 快捷录入弹窗 */}
       {showQuickEntry && <QuickScoreEntry onClose={() => setShowQuickEntry(false)} />}
