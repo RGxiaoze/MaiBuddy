@@ -27,14 +27,8 @@ import type { LevelIndex, Song } from '@/types'
 
 const PAGE_SIZE = 50
 
-/** Level preset buttons: .0-.5 for plain number, .6-.9 for + suffix */
-const LEVEL_PRESETS = [
-  { label: '13',  min: 13.0, max: 13.5 },
-  { label: '13+', min: 13.6, max: 13.9 },
-  { label: '14',  min: 14.0, max: 14.5 },
-  { label: '14+', min: 14.6, max: 14.9 },
-  { label: '15',  min: 15.0, max: 15.0 },
-]
+/** 等级标签排序权重："13" → 13，"13+" → 13.5 */
+const levelWeight = (level: string) => parseFloat(level) + (level.endsWith('+') ? 0.5 : 0)
 
 /** 定数下拉选项：1.0 ~ 15.0，按整数分组 */
 const LEVEL_VALUE_GROUPS: { label: string; values: number[] }[] = (() => {
@@ -268,6 +262,19 @@ export default function SongList() {
     return [...set].sort()
   }, [songs])
 
+  // 官标等级档位（1…15+），从曲库动态生成。
+  // 排除「?」（宴会场占位）与「12+?」这类定数未确认的标签 —— 它们不是一个可用档位，
+  // 需要精确查找时用「最低/最高定数」或搜索。
+  const levels = useMemo(() => {
+    const set = new Set<string>()
+    for (const s of songs) {
+      for (const d of [...s.difficulties.standard, ...s.difficulties.dx]) {
+        if (d.level && !d.level.includes('?')) set.add(d.level)
+      }
+    }
+    return [...set].sort((a, b) => levelWeight(a) - levelWeight(b))
+  }, [songs])
+
   // Defer search to avoid blocking keystrokes
   const deferredSearchQuery = useDeferredValue(searchQuery)
 
@@ -447,12 +454,6 @@ export default function SongList() {
     }
   }
 
-  const isPresetActive = (preset: { min: number; max: number }) =>
-    advancedFilters.levelValueMin === preset.min && advancedFilters.levelValueMax === preset.max
-
-  // 当前生效的等级预设下标（-1 = 未选中）
-  const activePresetIdx = LEVEL_PRESETS.findIndex((p) => isPresetActive(p))
-
   // ---- Render: Loading (or initial state before fetch) ----
   if (loading || (songs.length === 0 && !error)) {
     return (
@@ -572,25 +573,18 @@ export default function SongList() {
       {/* Advanced filters */}
       {showAdvanced && (
         <div className="bg-bg-gray border border-border rounded-lg p-4 mb-6 space-y-3">
-          {/* 等级（定数预设）下拉 */}
+          {/* 等级（官标档位，从曲库动态生成）下拉 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <label className="flex flex-col gap-1 text-xs text-text-secondary">
               等级
               <select
-                value={activePresetIdx >= 0 ? String(activePresetIdx) : ''}
-                onChange={(e) => {
-                  if (e.target.value === '') {
-                    setAdvancedFilters({ levelValueMin: undefined, levelValueMax: undefined })
-                  } else {
-                    const preset = LEVEL_PRESETS[Number(e.target.value)]
-                    setAdvancedFilters({ levelValueMin: preset.min, levelValueMax: preset.max })
-                  }
-                }}
+                value={advancedFilters.level ?? ''}
+                onChange={(e) => setAdvancedFilters({ level: e.target.value || undefined })}
                 className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
               >
                 <option value="">全部等级</option>
-                {LEVEL_PRESETS.map((preset, i) => (
-                  <option key={preset.label} value={i}>{preset.label}</option>
+                {levels.map((lv) => (
+                  <option key={lv} value={lv}>{lv}</option>
                 ))}
               </select>
             </label>
@@ -676,6 +670,17 @@ export default function SongList() {
                   <option key={idx} value={idx}>{label}</option>
                 ))}
               </select>
+            </label>
+
+            {/* 宴会场：没有定数与难度数据，默认不混入列表 */}
+            <label className="flex items-center gap-2 text-xs text-text-secondary self-end pb-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!!advancedFilters.includeUtage}
+                onChange={(e) => setAdvancedFilters({ includeUtage: e.target.checked || undefined })}
+                className="w-3.5 h-3.5 rounded border-border cursor-pointer accent-primary"
+              />
+              显示宴会场
             </label>
           </div>
 

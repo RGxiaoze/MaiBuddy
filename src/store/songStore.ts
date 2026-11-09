@@ -9,6 +9,7 @@ import { getCachedSongs, setCachedSongs, db, getSetting, setSetting, SONG_CACHE_
 import { searchAliases, getAliasIndex } from '@/data/aliases'
 import { VERSION_ORDER } from '@/data/versions'
 import { forceRefreshStats } from '@/services/statsService'
+import { UTAGE_ID_THRESHOLD } from '@/config/algorithms'
 
 /** Extract max version sorting value from song list as cache fingerprint */
 function computeVersionFingerprint(songs: Song[]): number {
@@ -36,6 +37,8 @@ interface AdvancedFilters {
   version?: string           // from (e.g. "FESTiVAL")
   difficultyLevel?: number   // LevelIndex (0-4)
   level?: string             // 歌曲等级标签（如 "14+"），谱面级精确匹配
+  /** 是否把宴会场曲目（ID ≥ 100000）纳入列表，默认 false */
+  includeUtage?: boolean
 }
 
 interface SongState {
@@ -169,6 +172,10 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
       }
 
       // ===== 高级筛选（AND 叠加） =====
+      // 宴会场（ID ≥ 100000）没有定数与难度数据，等级显示为「?」，
+      // 混在主列表里会污染排序与筛选，默认隐藏。
+      if (!advancedFilters.includeUtage && song.id >= UTAGE_ID_THRESHOLD) return false
+
       // Genre 精确匹配
       if (advancedFilters.genre && song.genre !== advancedFilters.genre) return false
 

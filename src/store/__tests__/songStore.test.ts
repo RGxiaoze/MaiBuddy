@@ -61,3 +61,22 @@ describe('getFilteredSongs — 谱面级条件必须同一谱面满足', () => {
     expect(result.map(s => s.id)).toEqual([2])
   })
 })
+
+describe('宴会场收纳', () => {
+  beforeEach(() => {
+    useSongStore.setState({ searchQuery: '', sortBy: 'default', sortOrder: 'desc' } as never)
+    useSongStore.setState({
+      songs: [song(1, [diff(3, 13.0)]), song(100001, [diff(3, 0, '?')])],
+    } as never)
+  })
+
+  it('默认隐藏宴会场曲目（ID ≥ 100000）', () => {
+    const result = filterWith({})
+    expect(result.map(s => s.id)).toEqual([1])
+  })
+
+  it('开启 includeUtage 后宴会场参与列表', () => {
+    const result = filterWith({ includeUtage: true })
+    expect(result.map(s => s.id).sort()).toEqual([1, 100001])
+  })
+})
