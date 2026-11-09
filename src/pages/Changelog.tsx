@@ -1,26 +1,12 @@
 // ============================================================
-// Changelog page — rendered from public/changelog.json
+// Changelog page — 数据在编译期内联（src/data/changelog.generated.ts）
+//
+// 早先是从 public/changelog.json 运行时 fetch，但 CI 用 `npx vite build`
+// 不触发 prebuild，产物里没有该文件 → 线上 404。改为静态导入后无任何运行时请求。
 // ============================================================
 
-import { useEffect, useState } from 'react'
 import { History } from 'lucide-react'
-
-interface ChangelogCommit {
-  hash: string
-  type: string
-  message: string
-  label: string
-  color: string
-}
-
-interface ChangelogEntry {
-  date: string
-  commits: ChangelogCommit[]
-}
-
-interface ChangelogData {
-  entries: ChangelogEntry[]
-}
+import { CHANGELOG } from '@/data/changelog.generated'
 
 const colorMap: Record<string, string> = {
   green: 'bg-green-100 text-green-700',
@@ -35,36 +21,9 @@ function formatDate(dateStr: string): string {
 }
 
 export default function Changelog() {
-  const [data, setData] = useState<ChangelogData | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const entries = CHANGELOG
 
-  useEffect(() => {
-    fetch(import.meta.env.BASE_URL + 'changelog.json')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then(setData)
-      .catch((e) => setError(`更新记录加载失败：${e.message}`))
-  }, [])
-
-  if (error) {
-    return (
-      <div className="max-w-2xl mx-auto py-12 text-center">
-        <p className="text-error">{error}</p>
-      </div>
-    )
-  }
-
-  if (!data) {
-    return (
-      <div className="max-w-2xl mx-auto py-12 flex justify-center">
-        <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
-  if (data.entries.length === 0) {
+  if (entries.length === 0) {
     return (
       <div className="max-w-2xl mx-auto py-12 text-center text-text-tertiary">
         暂无更新记录
@@ -86,7 +45,7 @@ export default function Changelog() {
         <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-border" />
 
         <div className="space-y-6">
-          {data.entries.map((entry) => (
+          {entries.map((entry) => (
             <div key={entry.date} className="relative pl-10">
               {/* Circle dot */}
               <div className="absolute left-2.5 top-1.5 w-3 h-3 rounded-full bg-primary border-2 border-white shadow-sm" />

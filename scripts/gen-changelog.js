@@ -1,9 +1,12 @@
 /**
- * Build script: Git log → changelog JSON
- * Generates public/changelog.json from feat:/fix: commits
+ * Build script: Git log → 静态 TS 模块
+ * 生成 src/data/changelog.generated.ts
  *
- * 只收录 feat / fix：docs 是开发日志类的内部提交，对用户没有信息量，
- * 收进来只会让更新记录变成提交流水账。
+ * 早先是写 public/changelog.json 再由前端 fetch，但 CI 走的是
+ * `npx vite build`（不触发 prebuild），产物里根本没有这个文件 → 线上 404。
+ * 现在改为编译期静态导入：数据直接打进 bundle，不依赖任何运行时请求。
+ *
+ * 只收录 feat / fix：docs 是开发日志类的内部提交，对用户没有信息量。
  *
  * Usage: node scripts/gen-changelog.js
  */
@@ -15,7 +18,7 @@ import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
-const OUTPUT = resolve(ROOT, 'public/changelog.json')
+const OUTPUT = resolve(ROOT, 'src/data/changelog.generated.ts')
 
 // ---- Run git log ----
 
@@ -63,10 +66,28 @@ const sortedEntries = [...dateMap.values()]
 
 // ---- Output ----
 
+const banner = `// 自动生成，请勿手改。
+// 重新生成：npm run gen:changelog
+
+export interface ChangelogCommit {
+  hash: string
+  type: string
+  message: string
+  label: string
+  color: string
+}
+
+export interface ChangelogEntry {
+  date: string
+  commits: ChangelogCommit[]
+}
+
+`
+
 mkdirSync(dirname(OUTPUT), { recursive: true })
 writeFileSync(
   OUTPUT,
-  JSON.stringify({ entries: sortedEntries }, null, 2),
+  `${banner}export const CHANGELOG: ChangelogEntry[] = ${JSON.stringify(sortedEntries, null, 2)}\n`,
   'utf-8'
 )
 
