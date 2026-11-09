@@ -5,6 +5,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import MainLayout from '@/components/layout/MainLayout'
+import OAuthCallbackHandler from '@/components/shared/OAuthCallbackHandler'
 import ErrorBoundary from '@/components/shared/ErrorBoundary'
 import { loadAliasData } from '@/data/aliases'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -43,6 +44,7 @@ export default function App() {
 
   return (
     <BrowserRouter basename="/MaiBuddy">
+      <OAuthCallbackHandler />
       <Routes>
         <Route element={<MainLayout />}>
           <Route index element={<Navigate to="/songs" replace />} />

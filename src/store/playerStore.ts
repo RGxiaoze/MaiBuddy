@@ -5,7 +5,7 @@
 import { create } from 'zustand'
 import type { DfScore } from '@/services/adapter'
 import { toInternalScore } from '@/services/adapter'
-import { fetchPlayerScores, fetchPlayerRecords } from '@/services/divingFishApi'
+import { fetchPlayerScores, fetchPlayerRecords, fetchPlayerRecordsOAuth } from '@/services/divingFishApi'
 import { computeB50, type B50Result } from '@/utils/b50'
 
 import { useScoreStore } from './scoreStore'
@@ -35,6 +35,10 @@ interface PlayerActions {
   computeLocalB50: () => void
   /** Import ALL scores from Diving-Fish into IndexedDB using Import-Token, then refresh B50 */
   importDivingFishScores: (importToken: string, onProgress?: (current: number, total: number) => void) => Promise<{
+    total: number; imported: number; updated: number; skipped: number; nickname: string
+  }>
+  /** 通过 OAuth access token 导入（查询对象由令牌决定，不再传 username/token） */
+  importScoresViaOAuth: (accessToken: string, onProgress?: (current: number, total: number) => void) => Promise<{
     total: number; imported: number; updated: number; skipped: number; nickname: string
   }>
   /** Force B50 recompute (call after updateScore which doesn't change length) */
@@ -113,4 +117,23 @@ export const usePlayerStore = create<PlayerState & PlayerActions>((set, get) => 
   },
 
   incrementRecomputeFlag: () => set((s) => ({ recomputeFlag: s.recomputeFlag + 1 })),
+
+  importScoresViaOAuth: async (accessToken: string, onProgress?: (current: number, total: number) => void) => {
+    const result = await fetchPlayerRecordsOAuth(accessToken)
+    if (result.records.length === 0) throw new Error('该账号没有成绩数据')
+
+    const scores = result.records.map(toInternalScore)
+    const stats = await useScoreStore.getState().bulkImportScores(scores, onProgress)
+
+    set({
+      dfPlayerName: result.nickname || result.username,
+      dfRating: result.rating,
+      dfBest35: [],
+      dfBest15: [],
+      dfError: null,
+      recomputeFlag: get().recomputeFlag + 1,
+    })
+
+    return { ...stats, nickname: result.nickname || result.username }
+  },
 }))

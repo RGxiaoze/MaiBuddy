@@ -13,6 +13,7 @@ import Pagination from '@/components/shared/Pagination'
 import { LEVEL_INDEX_MAP, getCoverUrl } from '@/data/constants'
 import { VERSION_ORDER, getVersionDisplay } from '@/data/versions'
 import { loginToProber, generateImportToken } from '@/services/divingFishApi'
+import { buildAuthorizeUrl } from '@/services/dfOAuth'
 import { Settings, Music, FolderOpen, X } from 'lucide-react'
 import { importScoresFromFile } from '@/utils/importScores'
 import { matchRateValue } from '@/utils/stats'
@@ -341,6 +342,16 @@ export default function SongList() {
   }, [pagedSongs, pairMap])
 
   // ---- Import handler ----
+  /** 跳转到水鱼授权页；授权完成后由 App 顶层的 OAuthCallbackHandler 接手 */
+  const handleOAuthLogin = useCallback(async () => {
+    try {
+      const url = await buildAuthorizeUrl()
+      window.location.href = url
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : '无法发起授权')
+    }
+  }, [])
+
   // Login + direct import (one-click flow)
   const handleLoginAndImport = useCallback(async (token: string) => {
     saveImportToken(token)
@@ -780,25 +791,33 @@ export default function SongList() {
               导入 Diving-Fish 的<strong>全部曲目×全部难度</strong>成绩到本地浏览器存储
             </p>
 
+            {/* OAuth 授权：两种环境都可用，是生产环境的主推方式 */}
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 sm:p-4 mb-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary text-white">推荐</span>
+                <p className="text-xs text-text font-medium">通过水鱼账号授权，一步导入</p>
+              </div>
+              <button
+                onClick={handleOAuthLogin}
+                className="w-full py-2 rounded-md text-sm font-semibold bg-primary text-white border-none cursor-pointer hover:bg-primary-dark transition-colors"
+              >
+                授权并导入
+              </button>
+              <p className="text-[11px] text-text-tertiary mt-2 leading-relaxed">
+                在你自己的水鱼账号页面完成登录与授权，本站接触不到你的密码。
+                若授权不可用，可用下方的 Import-Token 导入。
+              </p>
+            </div>
+
             {/* 账号密码登录：仅在开发环境可用。
                 它依赖 Vite 代理把 JWT cookie 重写到 localhost；
                 生产环境直连 diving-fish.com 时，跨域 cookie 会被浏览器拦截。 */}
-            {import.meta.env.DEV ? (
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 sm:p-4 mb-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary text-white">推荐</span>
-                  <p className="text-xs text-text font-medium">Diving-Fish 账号登录，一步导入</p>
-                </div>
-                <LoginToGetToken onToken={saveImportToken} onLoginAndImport={handleLoginAndImport} />
-              </div>
-            ) : (
+            {import.meta.env.DEV && (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 sm:p-4 mb-3">
-                <p className="text-xs text-text font-medium mb-1">在线版无法直接登录查分器</p>
-                <p className="text-[11px] text-text-secondary leading-relaxed">
-                  浏览器会拦截第三方站点的登录 Cookie，因此这里不提供账号密码登录。
-                  请使用下方的 <strong className="text-text">Import-Token</strong> 导入，
-                  它通过请求头传递，不受跨域限制。
+                <p className="text-[11px] text-text-secondary mb-2">
+                  以下方式依赖 Vite 代理，仅本机开发时可用
                 </p>
+                <LoginToGetToken onToken={saveImportToken} onLoginAndImport={handleLoginAndImport} />
               </div>
             )}
 

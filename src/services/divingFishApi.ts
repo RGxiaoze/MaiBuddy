@@ -140,6 +140,42 @@ export async function fetchPlayerRecords(importToken: string): Promise<{
   }
 }
 
+/**
+ * 读取当前授权用户的完整成绩（OAuth 版）。
+ *
+ * 与 Import-Token 版打同一个端点，区别只在凭据：
+ * OAuth 用 `Authorization: Bearer`，查询对象由令牌本身决定，不再传 username。
+ */
+export async function fetchPlayerRecordsOAuth(accessToken: string): Promise<{
+  records: DfScore[]
+  rating: number
+  additionalRating: number
+  nickname: string
+  username: string
+}> {
+  const res = await fetchWithTimeout(`${API_BASE}/player/records`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+
+  if (res.status === 401 || res.status === 403) {
+    throw new Error('授权已失效或未获得成绩读取权限，请重新授权')
+  }
+
+  const data = await res.json()
+  if (!data.records || !Array.isArray(data.records)) {
+    throw new Error(data.message || '读取成绩失败')
+  }
+
+  return {
+    records: (data.records as DfChartInfo[]).map(toInternalDfScore),
+    rating: data.rating ?? 0,
+    additionalRating: data.additional_rating ?? 0,
+    nickname: data.nickname || data.username || '',
+    username: data.username || '',
+  }
+}
+
 // ---- Chart stats types ----
 
 export interface ChartStatEntry {
