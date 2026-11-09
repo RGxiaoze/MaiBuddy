@@ -92,6 +92,7 @@ React + TypeScript + Vite + TailwindCSS v4 + Zustand + Dexie(IndexedDB) + EChart
 - **阶段三** (已完成): 推分建议 — 推分算法、chart_stats 集成、知识库、策略分段、五维雷达图、推分路线
 - **v0.4.0** (已完成): 算法重构 — 配置提取、文件拆分、JSDoc、测试完善、全服达成分布卡片优化、项目结构清理
 - **v0.4.1** (已完成): 渲染修复 — ErrorBoundary/并发安全/内存泄漏/性能优化/双池算法修复/预览虚化/导入弹窗美化
+- **落雪接入** (2026-11-09 已完成): 落雪 OAuth + 个人 API 密钥导入、落雪 CSV 导入导出、曲绘换源到落雪、Rating 取整修复
 - **阶段四** (待定): 五维算法优化 — 统计指标 → 定数分组五维 → 公式修复 → 双环雷达图
 
 ## 未来计划
@@ -109,6 +110,7 @@ React + TypeScript + Vite + TailwindCSS v4 + Zustand + Dexie(IndexedDB) + EChart
 - **tsc --noEmit vs tsc -b**：`npx tsc --noEmit` 默认使用根 `tsconfig.json`（`"files": []` 空文件），实际不检查任何代码。必须使用 `npx tsc -p tsconfig.app.json --noEmit` 才能执行严格类型检查（含 `noUnusedLocals`/`noUnusedParameters`）。
 - **forceRefreshStats 不得调用 resetStats**：`forceRefreshStats` 在后台曲库刷新时调用，若调用 `resetStats()` 会清空 `_loaded` 和内存数据，但已加载的组件（如 SongDetail）不会重新触发 useEffect，导致全服达成分布卡片数据消失。正确做法是直接从新数据重建 `_chartStats`/`_levelAvgs`/`_fitDiffAvgs`。
 - **MAX_SUGGESTIONS 陷阱**：推分建议排序时 B15 增益（对比 floor15=0）远超 B35（对比 floor35），全局上限会导致 B35 全部被截断。必须使用每池独立上限 (`MAX_SUGGESTIONS_PER_POOL`)。
+- **落雪 LXNS 四处易错点**（全部实测踩过）：① token/revoke 在 `/api/v0/oauth/*`，不在根路径；② 个人 API 密钥用 `X-User-Token`，只有 OAuth 令牌才用 `Authorization: Bearer`，混用一律 401；③ 个人/OAuth API 响应外层包了 `{ success, code, data }`，公共 API 才是裸数据；④ `Score` 的曲目 ID 字段是 `id`（不是 `song_id`），且 DX 与标准谱面共用一个 ID，本曲库沿用水鱼的「DX = 基础 + 10000」独立条目，查询前必须换算。
 
 ## UI 规范
 

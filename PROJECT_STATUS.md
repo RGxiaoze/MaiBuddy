@@ -1,5 +1,9 @@
 # PROJECT STATUS — 舞萌DX 伴侣 (maimai DX Companion)
 
+> ⚠️ **本文档生成于 2026-06-05，此后未同步。** 最新进度以
+> [docs/progress-report.md](docs/progress-report.md) 与 [开发日志/](开发日志/) 为准；
+> 模块结构以 [ARCHITECTURE.md](ARCHITECTURE.md) 为准。本文仅保留作历史参考。
+
 > **生成日期**: 2026-06-05 | **当前版本**: v0.4.0
 >
 > 本文档用于新 AI Agent 快速理解项目全貌，从零到可继续开发。
