@@ -32,6 +32,21 @@ export default function MainLayout() {
   const computeLocalB50 = usePlayerStore((s) => s.computeLocalB50)
   const bgCover = useBackgroundStore((s) => s.coverUrl)
 
+  // 背景交叉淡入：两图层交替「前台」，切换时旧图淡出、新图淡入，
+  // 两张各自 0 → 0.16 同时过渡，叠加强度基本恒定，不会闪一下。
+  const [bgSlots, setBgSlots] = useState<[string | null, string | null]>([bgCover, null])
+  const [bgFront, setBgFront] = useState(0)
+  useEffect(() => {
+    if (bgCover === bgSlots[bgFront]) return
+    const back = 1 - bgFront
+    setBgSlots((prev) => {
+      const next: [string | null, string | null] = [prev[0], prev[1]]
+      next[back] = bgCover
+      return next
+    })
+    setBgFront(back)
+  }, [bgCover, bgFront, bgSlots])
+
   useEffect(() => {
     if (songs.length === 0 && !songsLoading) fetchSongs()
     if (!scoresLoaded) fetchAllScores()
@@ -48,19 +63,30 @@ export default function MainLayout() {
 
   return (
     <div className="flex min-h-dvh relative">
-      {/* 全局背景：由各页面注册「本页第一个封面」，无封面的页面继承上一页 */}
-      {bgCover && (
-        <div
-          aria-hidden
-          className="fixed inset-0 pointer-events-none bg-center bg-cover"
-          style={{
-            backgroundImage: `url(${bgCover})`,
-            filter: 'blur(50px) saturate(1.3)',
-            opacity: 0.16,
-            transform: 'scale(1.15)',
-          }}
-        />
-      )}
+      {/* 全局背景：由各页面注册「本页第一个封面」，无封面的页面继承上一页。
+          两张图层交叉淡入，避免换页时背景突变。 */}
+      <div
+        aria-hidden
+        className="fixed inset-0 pointer-events-none bg-center bg-cover"
+        style={{
+          backgroundImage: bgSlots[0] ? `url(${bgSlots[0]})` : undefined,
+          filter: 'blur(50px) saturate(1.3)',
+          opacity: bgSlots[0] && bgFront === 0 ? 0.16 : 0,
+          transform: 'scale(1.15)',
+          transition: 'opacity 300ms ease',
+        }}
+      />
+      <div
+        aria-hidden
+        className="fixed inset-0 pointer-events-none bg-center bg-cover"
+        style={{
+          backgroundImage: bgSlots[1] ? `url(${bgSlots[1]})` : undefined,
+          filter: 'blur(50px) saturate(1.3)',
+          opacity: bgSlots[1] && bgFront === 1 ? 0.16 : 0,
+          transform: 'scale(1.15)',
+          transition: 'opacity 300ms ease',
+        }}
+      />
       {/* Sidebar: desktop visible / mobile overlay */}
       <Sidebar
         collapsed={collapsed}
