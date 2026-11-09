@@ -13,10 +13,19 @@ import type { OAuthProvider, TokenSet } from './oauthCore'
 
 export type { TokenSet } from './oauthCore'
 
+/**
+ * 换票代理地址（可选）。水鱼的 token 端点不返回 CORS 头，
+ * 浏览器直连会被拦；部署 workers/df-oauth-proxy.js 后把地址填进
+ * `.env.local` 的 `VITE_DF_OAUTH_PROXY`（如 https://df-oauth.xxx.workers.dev）。
+ * 未配置时保持直连（仍会 401/被 CORS 拦，但有清晰报错）。
+ */
+const OAUTH_PROXY = (import.meta.env.VITE_DF_OAUTH_PROXY as string | undefined)?.replace(/\/+$/, '')
+
 export const DF_PROVIDER: OAuthProvider = {
   id: 'df',
   name: '水鱼',
   authBase: 'https://auth.diving-fish.com',
+  ...(OAUTH_PROXY ? { tokenBase: OAUTH_PROXY } : {}),
   clientId: '7e6cd51604c3dd91d1607c7a06b25cf8',
   scope: 'openid profile prober.records.read',
   redirectUri: import.meta.env.DEV

@@ -17,6 +17,11 @@ export interface OAuthProvider {
   name: string
   /** 授权服务器根地址 */
   authBase: string
+  /**
+   * token / revoke 的根地址，默认同 authBase。
+   * 用于授权服务器不返回 CORS 头、必须走代理的情况（如水鱼）。
+   */
+  tokenBase?: string
   clientId: string
   scope: string
   redirectUri: string
@@ -38,8 +43,8 @@ const tokenKey = (id: string) => `oauth_token_${id}`
 const verifierKey = (id: string) => `oauth_verifier_${id}`
 const stateKey = (id: string) => `oauth_state_${id}`
 
-const tokenEndpoint = (p: OAuthProvider) => `${p.authBase}${p.tokenPath ?? '/oauth/token'}`
-const revokeEndpoint = (p: OAuthProvider) => `${p.authBase}${p.revokePath ?? '/oauth/revoke'}`
+const tokenEndpoint = (p: OAuthProvider) => `${p.tokenBase ?? p.authBase}${p.tokenPath ?? '/oauth/token'}`
+const revokeEndpoint = (p: OAuthProvider) => `${p.tokenBase ?? p.authBase}${p.revokePath ?? '/oauth/revoke'}`
 
 // ---- 授权跳转 ----
 
