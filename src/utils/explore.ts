@@ -158,6 +158,44 @@ export function highestPlayedBySong(playedKeys: Set<string>): Map<number, number
   return map
 }
 
+/** 「很久没玩」可信判定所需的最少不同游玩日期数 */
+export const MIN_DISTINCT_PLAY_DATES = 10
+
+/**
+ * 找出「很久没玩」的谱面 key（`songId-levelIndex`）。
+ *
+ * 数据可信度是关键：水鱼 API 不含时间戳，导入后 playDate 全是导入当天；
+ * 落雪提供真实的 play_time。若把导入日期当游玩日期，推荐会完全失效，
+ * 因此要求成绩里至少有 `minDistinctDates` 个不同的游玩日期才启用。
+ *
+ * @param months 多久算「很久」（默认 3 个月）
+ */
+export function buildStaleKeys(
+  scores: Array<{ songId: number; levelIndex: number; playDate?: string }>,
+  months = 3,
+  minDistinctDates = MIN_DISTINCT_PLAY_DATES,
+  now = new Date(),
+): Set<string> {
+  const dates = new Set<string>()
+  const byChart = new Map<string, string>()
+  for (const s of scores) {
+    if (!s.playDate) continue
+    dates.add(s.playDate)
+    byChart.set(`${s.songId}-${s.levelIndex}`, s.playDate)
+  }
+  if (dates.size < minDistinctDates) return new Set()
+
+  const cutoff = new Date(now)
+  cutoff.setMonth(cutoff.getMonth() - months)
+  const cutoffStr = cutoff.toISOString().slice(0, 10)
+
+  const stale = new Set<string>()
+  for (const [key, date] of byChart) {
+    if (date < cutoffStr) stale.add(key)
+  }
+  return stale
+}
+
 /** 从数组里随机取 n 个（部分洗牌，不修改原数组） */
 function sampleRandom<T>(arr: T[], n: number, random: () => number): T[] {
   const copy = [...arr]

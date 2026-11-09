@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildExplorePool, smoothWinRate, highestPlayedBySong } from '../explore'
+import { buildExplorePool, smoothWinRate, highestPlayedBySong, buildStaleKeys } from '../explore'
 import type { Song } from '@/types'
 
 function makeDiff(levelIndex: number, levelValue: number, level = '13'): {
@@ -50,6 +50,43 @@ describe('highestPlayedBySong', () => {
     const map = highestPlayedBySong(new Set(['bad', '1-x', '2-2']))
     expect(map.get(2)).toBe(2)
     expect(map.size).toBe(1)
+  })
+})
+
+describe('buildStaleKeys', () => {
+  const now = new Date('2026-11-09T00:00:00Z')
+  /** 生成 n 条不同日期的成绩；idFrom 用于避免两组数据的 songId 重叠 */
+  const manyDates = (n: number, dateFrom = 0, idFrom = 0) =>
+    Array.from({ length: n }, (_, i) => ({
+      songId: idFrom + i + 1,
+      levelIndex: 3,
+      playDate: new Date(Date.UTC(2026, 0, 1) + (dateFrom + i) * 86_400_000).toISOString().slice(0, 10),
+    }))
+
+  it('日期种类太少时视为时间数据不可信，返回空集', () => {
+    // 水鱼导入：所有成绩都是导入当天
+    const scores = Array.from({ length: 500 }, (_, i) => ({ songId: i + 1, levelIndex: 3, playDate: '2026-11-09' }))
+    expect(buildStaleKeys(scores, 3, 10, now).size).toBe(0)
+  })
+
+  it('分几天导入的水鱼数据同样不可信（日期种类不足 10）', () => {
+    const scores = [1, 2, 3].flatMap(d => ({ songId: d, levelIndex: 3, playDate: `2026-06-0${d}` }))
+    expect(buildStaleKeys(scores, 3, 10, now).size).toBe(0)
+  })
+
+  it('时间数据可信时，超过 3 个月没玩的谱面被选中', () => {
+    const old = manyDates(10, 0, 0)       // songId 1-10，2026-01-01 起，早已超过 3 个月
+    const recent = manyDates(10, 300, 100) // songId 101-110，2026-10-28 起，未超过
+    const stale = buildStaleKeys([...old, ...recent], 3, 10, now)
+    expect(stale.size).toBe(10)
+    expect(stale.has('1-3')).toBe(true)
+    expect(stale.has('101-3')).toBe(false)
+  })
+
+  it('无 playDate 的成绩被忽略', () => {
+    const scores = [...manyDates(10), { songId: 99, levelIndex: 3, playDate: undefined as unknown as string }]
+    const stale = buildStaleKeys(scores, 3, 10, now)
+    expect(stale.has('99-3')).toBe(false)
   })
 })
 

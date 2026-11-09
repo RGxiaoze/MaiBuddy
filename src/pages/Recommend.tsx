@@ -11,7 +11,7 @@ import { useScoreStore } from '@/store/scoreStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { usePushSuggestions } from '@/hooks/usePushSuggestions'
 import { loadVoteStats, getAllVoteStats, isVoteStatsLoaded, isVoteStatsFailed } from '@/services/voteService'
-import { buildExplorePool, buildPreferenceProfile, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
+import { buildExplorePool, buildPreferenceProfile, buildStaleKeys, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
 
 /** 「很久没玩」判定阈值（月） */
 const STALE_MONTHS = 3
@@ -122,28 +122,9 @@ export default function Recommend() {
     [songs, playedKeys],
   )
 
-  // 「很久没玩」候选：仅当成绩带有真实时间戳时才启用。
-  // 水鱼导入的成绩没有任何时间戳，playDate 全是导入当天，
-  // 因此用「日期取值是否不止一种」判断时间数据是否可信，不可信就不启用。
-  const staleKeys = useMemo(() => {
-    const set = new Set<string>()
-    const dates = new Set<string>()
-    const byChart = new Map<string, string>()
-    for (const s of scores) {
-      if (!s.playDate) continue
-      dates.add(s.playDate)
-      byChart.set(`${s.songId}-${s.levelIndex}`, s.playDate)
-    }
-    if (dates.size <= 1) return set
-
-    const cutoff = new Date()
-    cutoff.setMonth(cutoff.getMonth() - STALE_MONTHS)
-    const cutoffStr = cutoff.toISOString().slice(0, 10)
-    for (const [key, date] of byChart) {
-      if (date < cutoffStr) set.add(key)
-    }
-    return set
-  }, [scores])
+  // 「很久没玩」候选：仅当成绩带有足够多的真实游玩日期时才启用
+  // （水鱼导入的 playDate 全是导入当天，会在 buildStaleKeys 内被判定为不可信）
+  const staleKeys = useMemo(() => buildStaleKeys(scores, STALE_MONTHS), [scores])
 
   const exploreList = useMemo(() => {
     if (voteState !== 'ready' || songs.length === 0) return []
