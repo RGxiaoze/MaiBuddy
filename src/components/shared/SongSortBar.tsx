@@ -35,10 +35,11 @@ export default function SongSortBar({ compact = false }: SongSortBarProps) {
       <button
         onClick={toggleSortOrder}
         className={`rounded-md border border-border bg-surface text-text-secondary
-                   hover:border-primary transition-colors cursor-pointer ${size}`}
+                   hover:border-primary transition-colors cursor-pointer whitespace-nowrap ${size}`}
         title={sortOrder === 'desc' ? '降序 ↓' : '升序 ↑'}
       >
-        {sortOrder === 'desc' ? '↓' : '↑'}
+        {/* 移动端只有一个箭头看不懂，compact 时补上文字 */}
+        {compact ? (sortOrder === 'desc' ? '降序 ↓' : '升序 ↑') : (sortOrder === 'desc' ? '↓' : '↑')}
       </button>
     </>
   )

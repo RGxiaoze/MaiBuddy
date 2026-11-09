@@ -427,11 +427,11 @@ export default function SongList() {
             <SongSortBar compact />
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className={`px-2 py-1.5 rounded-md text-xs border transition-colors cursor-pointer
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs border transition-colors cursor-pointer
                 ${showAdvanced ? 'bg-primary text-white border-primary' : 'bg-surface text-text-secondary border-border hover:border-primary'}`}
               title="高级搜索"
             >
-              <Settings size={14} />
+              <Settings size={14} />筛选
             </button>
           </div>
         </div>
