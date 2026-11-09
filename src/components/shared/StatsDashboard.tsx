@@ -6,13 +6,19 @@
 //      + 难度二级筛选行（仅达成等级/曲包维度）
 //      + 统计卡（曲目总数/平均达成率/AP/最高定数，可点击钻取）
 //      + 评级分布（SSS+/SSS/SS/S 条状图，颜色取游戏评级色系相近色）
+//      + 匹配曲目列表（筛选 + 排序与检索页共用）
 // ============================================================
 
 import { Fragment, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { SlidersHorizontal } from 'lucide-react'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
+import SongFilterPanel from './SongFilterPanel'
+import SongSortBar from './SongSortBar'
+import SongResultList from './SongResultList'
+import { buildScoreStats } from '@/utils/songSort'
+import { matchRateValue } from '@/utils/stats'
 import { computeTheoreticalMaxBoth } from '@/utils/b50'
 import {
   computeStats, getLevelTabs, getGenreTabs,
@@ -43,11 +49,15 @@ const RATE_BAR_COLORS: Record<string, string> = {
   s: '#FFC53D',
 }
 
-/** 达成等级值 → 钻取 URL 参数名 */
-function rateParamFor(v: string): string {
-  if (RATE_TABS.some(t => t.value === v)) return 'rate'
-  if (FC_TABS.some(t => t.value === v)) return 'fc'
-  return 'fs'
+/** 钻取条件（页内筛选，替代原来的跳转 URL 参数） */
+interface DrillState {
+  /** 难度索引 */
+  lv?: LevelIndex
+  /** 官标等级标签（如 "14+"） */
+  level?: string
+  genre?: string
+  /** 成绩维度条件（rate/fc/fs 的取值） */
+  played?: string
 }
 
 interface TabButtonProps {
@@ -70,10 +80,13 @@ function TabButton({ label, active, onClick }: TabButtonProps) {
 }
 
 export default function StatsDashboard() {
-  const navigate = useNavigate()
   const { localB50 } = usePlayerStore()
   const { scores } = useScoreStore()
   const { songs } = useSongStore()
+  const getFilteredSongs = useSongStore((s) => s.getFilteredSongs)
+  const advancedFilters = useSongStore((s) => s.advancedFilters)
+  const sortBy = useSongStore((s) => s.sortBy)
+  const sortOrder = useSongStore((s) => s.sortOrder)
 
   // ---- 常驻 Rating 进度（AP 加成已禁用，扣除历史数据中的加成） ----
   const theoryMax = useMemo(
@@ -119,18 +132,38 @@ export default function StatsDashboard() {
     ? difficulty === 'all'
     : String(difficulty) === t.value
 
-  // ---- 钻取 URL ----
-  const baseDrill = (): string => {
-    const params: Record<string, string> = {}
-    if (dimension === 'difficulty' && value !== 'all') params.lv = value
-    if (dimension === 'level' && value !== 'all') params.level = value
-    if (dimension === 'genre' && value !== 'all') params.genre = value
-    if (dimension === 'rate' && value !== 'all') params[rateParamFor(value)] = value
-    if (difficulty !== 'all') params.lv = String(difficulty)
-    const qs = new URLSearchParams(params).toString()
-    return `/songs${qs ? `?${qs}` : ''}`
+  // ---- 钻取：本页内筛选，不再跳转到检索页 ----
+  const [drill, setDrill] = useState<DrillState>({})
+  const [showFilters, setShowFilters] = useState(false)
+
+  const baseDrill = (): DrillState => {
+    const next: DrillState = {}
+    if (dimension === 'difficulty' && value !== 'all') next.lv = Number(value) as LevelIndex
+    if (dimension === 'level' && value !== 'all') next.level = value
+    if (dimension === 'genre' && value !== 'all') next.genre = value
+    if (dimension === 'rate' && value !== 'all') next.played = value
+    if (difficulty !== 'all') next.lv = difficulty
+    return next
   }
-  const drill = (path: string) => navigate(path)
+  const applyDrill = (next: DrillState) => setDrill(next)
+
+  // 匹配曲目：全局筛选（检索页同一份）+ 本次钻取 + 成绩排序
+  const scoreStats = useMemo(() => buildScoreStats(songs, scores), [songs, scores])
+  const drilledSongs = useMemo(() => {
+    let list = getFilteredSongs(undefined, scoreStats)
+    const diffsOf = (s: typeof list[number]) => [...s.difficulties.standard, ...s.difficulties.dx]
+
+    if (drill.level) list = list.filter((s) => diffsOf(s).some((d) => d.level === drill.level))
+    if (drill.lv != null) list = list.filter((s) => diffsOf(s).some((d) => d.levelIndex === drill.lv))
+    if (drill.genre) list = list.filter((s) => s.genre === drill.genre)
+    if (drill.played) {
+      const played = drill.played
+      list = list.filter((s) => scores.some((sc) => sc.songId === s.id && matchRateValue(sc, played)))
+    }
+    return list
+    // advancedFilters / sortBy / sortOrder 变化时重新计算
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songs, scores, scoreStats, drill, getFilteredSongs, advancedFilters, sortBy, sortOrder])
 
   if (!stats) {
     return (
@@ -210,7 +243,7 @@ export default function StatsDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* 曲目总数 */}
         <button
-          onClick={() => drill(baseDrill())}
+          onClick={() => applyDrill(baseDrill())}
           className="bg-surface border border-border rounded-lg p-4 text-left cursor-pointer hover:border-primary hover:shadow-sm transition-all"
         >
           <p className="text-xs text-text-secondary mb-1.5 font-medium">曲目总数</p>
@@ -223,7 +256,7 @@ export default function StatsDashboard() {
 
         {/* 平均达成率 */}
         <button
-          onClick={() => drill(baseDrill())}
+          onClick={() => applyDrill(baseDrill())}
           className="bg-surface border border-border rounded-lg p-4 text-left cursor-pointer hover:border-primary hover:shadow-sm transition-all"
         >
           <p className="text-xs text-text-secondary mb-1.5 font-medium">平均达成率</p>
@@ -233,7 +266,7 @@ export default function StatsDashboard() {
 
         {/* AP 数量 */}
         <button
-          onClick={() => drill('/songs?fc=ap')}
+          onClick={() => applyDrill({ played: 'ap' })}
           className="bg-surface border border-border rounded-lg p-4 text-left cursor-pointer hover:border-primary hover:shadow-sm transition-all"
         >
           <p className="text-xs text-text-secondary mb-1.5 font-medium">AP</p>
@@ -243,7 +276,7 @@ export default function StatsDashboard() {
 
         {/* 最高定数 */}
         <button
-          onClick={() => drill(baseDrill())}
+          onClick={() => applyDrill(baseDrill())}
           className="bg-surface border border-border rounded-lg p-4 text-left cursor-pointer hover:border-primary hover:shadow-sm transition-all"
         >
           <p className="text-xs text-text-secondary mb-1.5 font-medium">最高定数</p>
@@ -259,7 +292,7 @@ export default function StatsDashboard() {
           {stats.rateDist.map(r => (
             <button
               key={r.key}
-              onClick={() => drill(`/songs?rate=${r.key}`)}
+              onClick={() => applyDrill({ played: r.key })}
               className="w-full flex items-center gap-2 cursor-pointer border-none bg-transparent p-0 text-left group"
             >
               <span className="w-10 text-xs font-medium text-text-secondary shrink-0">{r.label}</span>
@@ -273,6 +306,38 @@ export default function StatsDashboard() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* 匹配曲目：筛选 + 排序与检索页共用，点击统计卡在此就地筛选 */}
+      <div className="mt-4">
+        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-text">匹配曲目</p>
+            {Object.keys(drill).length > 0 && (
+              <button
+                onClick={() => setDrill({})}
+                className="text-[11px] text-primary hover:underline cursor-pointer border-none bg-transparent p-0"
+              >
+                清除钻取条件
+              </button>
+            )}
+          </div>
+          <div className="flex gap-1.5">
+            <SongSortBar compact />
+            <button
+              onClick={() => setShowFilters(v => !v)}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs border transition-colors cursor-pointer
+                ${showFilters ? 'bg-primary text-white border-primary' : 'bg-surface text-text-secondary border-border hover:border-primary'}`}
+              title="筛选"
+            >
+              <SlidersHorizontal size={13} />筛选
+            </button>
+          </div>
+        </div>
+
+        {showFilters && <SongFilterPanel />}
+
+        <SongResultList songs={drilledSongs} pageSize={20} />
       </div>
     </div>
   )
