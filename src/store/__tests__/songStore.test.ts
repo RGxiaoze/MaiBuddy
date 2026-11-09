@@ -34,7 +34,7 @@ describe('getFilteredSongs — 谱面级条件必须同一谱面满足', () => {
       songs: [song(1, [diff(0, 5.0), diff(3, 13.0)]), song(2, [diff(0, 13.0)])],
     } as never)
 
-    const result = filterWith({ difficultyLevel: 0, levelValueMin: 13.0, levelValueMax: 13.0 })
+    const result = filterWith({ difficultyLevels: [0], levelValueMin: 13.0, levelValueMax: 13.0 })
     expect(result.map(s => s.id)).toEqual([2])
   })
 
@@ -57,7 +57,7 @@ describe('getFilteredSongs — 谱面级条件必须同一谱面满足', () => {
       ],
     } as never)
 
-    const result = filterWith({ difficultyLevel: 0, level: '13' })
+    const result = filterWith({ difficultyLevels: [0], level: '13' })
     expect(result.map(s => s.id)).toEqual([2])
   })
 })

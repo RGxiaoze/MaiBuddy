@@ -7,6 +7,7 @@
 
 import { useMemo } from 'react'
 import { useSongStore } from '@/store/songStore'
+import MultiSelect from './MultiSelect'
 import { LEVEL_INDEX_MAP } from '@/data/constants'
 import { VERSION_ORDER, getVersionDisplay } from '@/data/versions'
 
@@ -115,16 +116,12 @@ export default function SongFilterPanel() {
 
         <label className="flex flex-col gap-1 text-xs text-text-secondary">
           版本
-          <select
-            value={advancedFilters.version ?? ''}
-            onChange={(e) => setAdvancedFilters({ version: e.target.value || undefined })}
-            className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
-          >
-            <option value="">全部版本</option>
-            {versions.map((v) => (
-              <option key={v} value={v}>{getVersionDisplay(v)}</option>
-            ))}
-          </select>
+          <MultiSelect
+            placeholder="全部版本"
+            options={versions.map((v) => ({ value: v, label: getVersionDisplay(v) }))}
+            selected={advancedFilters.versions ?? []}
+            onChange={(next) => setAdvancedFilters({ versions: next.length > 0 ? next : undefined })}
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-xs text-text-secondary">
@@ -143,16 +140,14 @@ export default function SongFilterPanel() {
 
         <label className="flex flex-col gap-1 text-xs text-text-secondary">
           难度
-          <select
-            value={advancedFilters.difficultyLevel != null ? advancedFilters.difficultyLevel : ''}
-            onChange={(e) => setAdvancedFilters({ difficultyLevel: e.target.value ? parseInt(e.target.value) : undefined })}
-            className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
-          >
-            <option value="">全部难度</option>
-            {Object.entries(LEVEL_INDEX_MAP).map(([idx, { label }]) => (
-              <option key={idx} value={idx}>{label}</option>
-            ))}
-          </select>
+          <MultiSelect
+            placeholder="全部难度"
+            options={Object.entries(LEVEL_INDEX_MAP).map(([idx, { label }]) => ({ value: idx, label }))}
+            selected={(advancedFilters.difficultyLevels ?? []).map(String)}
+            onChange={(next) => setAdvancedFilters({
+              difficultyLevels: next.length > 0 ? next.map(Number) : undefined,
+            })}
+          />
         </label>
 
         {/* 宴会场：没有定数与难度数据，默认不混入列表 */}

@@ -21,11 +21,12 @@ function computeVersionFingerprint(songs: Song[]): number {
   }
   return max
 }
-export type SortBy = 'default' | 'bpm' | 'version' | 'levelValue' | 'title' | 'achievements' | 'dxScoreRate' | 'addedAt'
+export type SortBy = 'default' | 'bpm' | 'version' | 'levelValue' | 'title' | 'achievements' | 'dxScoreRate' | 'addedAt' | 'releaseDate'
 export type SortOrder = 'asc' | 'desc'
 
 export const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: 'addedAt', label: '添加日期' },
+  { value: 'releaseDate', label: '实装日期' },
   { value: 'default', label: '最高定数' },
   { value: 'bpm', label: 'BPM' },
   { value: 'version', label: '版本' },
@@ -38,8 +39,10 @@ interface AdvancedFilters {
   levelValueMin?: number
   levelValueMax?: number
   genre?: string
-  version?: string           // from (e.g. "FESTiVAL")
-  difficultyLevel?: number   // LevelIndex (0-4)
+  /** 版本名多选（如 ["舞萌2025", "CiRCLE"]） */
+  versions?: string[]
+  /** 难度索引多选（0-4） */
+  difficultyLevels?: number[]
   level?: string             // 歌曲等级标签（如 "14+"），谱面级精确匹配
   /** 是否把宴会场曲目（ID ≥ 100000）纳入列表，默认 false */
   includeUtage?: boolean
@@ -183,17 +186,17 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
       // Genre 精确匹配
       if (advancedFilters.genre && song.genre !== advancedFilters.genre) return false
 
-      // Version 精确匹配
-      if (advancedFilters.version && song.from !== advancedFilters.version) return false
+      // Version 多选
+      if (advancedFilters.versions?.length && !advancedFilters.versions.includes(song.from)) return false
 
       // DifficultyLevel / LevelValue / Level 三个条件都是「谱面级」的，
       // 必须由**同一个谱面**同时满足：
       // 「BASIC 且 13.0」= 存在一个 BASIC 谱面且它的定数就是 13.0，
       // 而不是「有 BASIC 谱面」+「有某个 13.0 谱面」（那可能是两首不同的谱）。
       const chartPredicates: Array<(d: ChartDifficulty) => boolean> = []
-      if (advancedFilters.difficultyLevel != null) {
-        const want = advancedFilters.difficultyLevel
-        chartPredicates.push(d => d.levelIndex === want)
+      if (advancedFilters.difficultyLevels?.length) {
+        const want = advancedFilters.difficultyLevels
+        chartPredicates.push(d => want.includes(d.levelIndex))
       }
       if (advancedFilters.levelValueMin != null) {
         const min = advancedFilters.levelValueMin

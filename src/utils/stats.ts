@@ -8,6 +8,7 @@
 import type { LevelIndex, Song } from '@/types'
 import type { ScoreRecord } from '@/db/database'
 import { LEVEL_INDEX_MAP } from '@/data/constants'
+import { UTAGE_ID_THRESHOLD } from '@/config/algorithms'
 
 export type StatsDimension = 'difficulty' | 'level' | 'rate' | 'genre'
 
@@ -117,6 +118,8 @@ function collectCharts(songs: Song[], filter: StatsFilter): { charts: Set<string
   const charts = new Set<string>()
   const songIds = new Set<number>()
   for (const song of songs) {
+    // 宴会场（ID ≥ 100000）没有定数与难度数据，不参与统计口径
+    if (song.id >= UTAGE_ID_THRESHOLD) continue
     const diffs = [
       ...song.difficulties.standard.map(d => ({ ...d, type: 'standard' as const })),
       ...song.difficulties.dx.map(d => ({ ...d, type: 'dx' as const })),

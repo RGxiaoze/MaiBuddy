@@ -161,7 +161,7 @@ export default function SongList() {
     const fs = searchParams.get('fs')
     if (lv || level || genre) {
       setAdvancedFilters({
-        ...(lv ? { difficultyLevel: Number(lv) } : {}),
+        ...(lv ? { difficultyLevels: [Number(lv)] } : {}),
         ...(level ? { level } : {}),
         ...(genre ? { genre } : {}),
       })
@@ -241,7 +241,7 @@ export default function SongList() {
       // 若同时带难度（?lv=），难度应作用于「成绩所属难度」而非「曲目包含该难度」，
       // 否则统计卡上的数字（如 SSS+ & MASTER = 1241）与列表条数（1318）对不上。
       if (!playedFilter) return base
-      const drillLevel = advancedFilters.difficultyLevel
+      const drillLevel = advancedFilters.difficultyLevels?.[0]
       return base.filter(song => scores.some(sc =>
         sc.songId === song.id &&
         matchRateValue(sc, playedFilter) &&
