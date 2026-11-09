@@ -12,6 +12,9 @@ import { usePlayerStore } from '@/store/playerStore'
 import { usePushSuggestions } from '@/hooks/usePushSuggestions'
 import { loadVoteStats, getAllVoteStats, isVoteStatsLoaded, isVoteStatsFailed } from '@/services/voteService'
 import { buildExplorePool, buildPreferenceProfile, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
+
+/** 「很久没玩」判定阈值（月） */
+const STALE_MONTHS = 3
 import { getBlockedSongIds, blockSong, clearBlockedSongs } from '@/db/database'
 import { getCoverUrl } from '@/data/constants'
 import { useBackgroundStore } from '@/store/backgroundStore'
@@ -119,6 +122,29 @@ export default function Recommend() {
     [songs, playedKeys],
   )
 
+  // 「很久没玩」候选：仅当成绩带有真实时间戳时才启用。
+  // 水鱼导入的成绩没有任何时间戳，playDate 全是导入当天，
+  // 因此用「日期取值是否不止一种」判断时间数据是否可信，不可信就不启用。
+  const staleKeys = useMemo(() => {
+    const set = new Set<string>()
+    const dates = new Set<string>()
+    const byChart = new Map<string, string>()
+    for (const s of scores) {
+      if (!s.playDate) continue
+      dates.add(s.playDate)
+      byChart.set(`${s.songId}-${s.levelIndex}`, s.playDate)
+    }
+    if (dates.size <= 1) return set
+
+    const cutoff = new Date()
+    cutoff.setMonth(cutoff.getMonth() - STALE_MONTHS)
+    const cutoffStr = cutoff.toISOString().slice(0, 10)
+    for (const [key, date] of byChart) {
+      if (date < cutoffStr) set.add(key)
+    }
+    return set
+  }, [scores])
+
   const exploreList = useMemo(() => {
     if (voteState !== 'ready' || songs.length === 0) return []
     const votes = getAllVoteStats()
@@ -129,8 +155,9 @@ export default function Recommend() {
       seenKeys,
       blockedSongIds: blockedIds,
       preference,
+      ...(staleKeys.size > 0 ? { staleKeys } : {}),
     })
-  }, [voteState, songs, playedKeys, exploreWide, levelRange, seenKeys, blockedIds, preference])
+  }, [voteState, songs, playedKeys, exploreWide, levelRange, seenKeys, blockedIds, preference, staleKeys])
 
   const refreshExplore = () => {
     setSeenKeys(prev => {
@@ -259,19 +286,22 @@ function PushTab({ items, newVersion }: {
         )}
       </p>
 
-      <PushGroup title="B15 池（新版本）" hint="池子小，每个版本理论上都能推" items={b15} tagColor="#B8A0E8" />
-      <PushGroup title="B35 池（旧版本）" hint="老玩家的可推空间往往已被历史成绩占满" items={b35} tagColor="#5BA4CF" />
+      <PushGroup title="B15 池（新版本）" hint="池子小，每个版本理论上都能推" items={b15} tagColor="#B8A0E8" defaultVisible={5} />
+      <PushGroup title="B35 池（旧版本）" hint="老玩家的可推空间往往已被历史成绩占满" items={b35} tagColor="#5BA4CF" defaultVisible={10} />
     </div>
   )
 }
 
-function PushGroup({ title, hint, items, tagColor }: {
+function PushGroup({ title, hint, items, tagColor, defaultVisible }: {
   title: string
   hint: string
   items: Array<{ s: PushSuggestion; maxGain: number }>
   tagColor: string
+  /** 默认展开的条数，其余折叠在「展开全部」里 */
+  defaultVisible: number
 }) {
   const [showChallenging, setShowChallenging] = useState(false)
+  const [showAll, setShowAll] = useState(false)
 
   if (items.length === 0) return null
 
@@ -310,8 +340,18 @@ function PushGroup({ title, hint, items, tagColor }: {
       <p className="text-[11px] text-text-tertiary mb-2">{hint}</p>
 
       <div className="space-y-2">
-        {mainList.map(renderCard)}
+        {(showAll ? mainList : mainList.slice(0, defaultVisible)).map(renderCard)}
       </div>
+
+      {mainList.length > defaultVisible && (
+        <button
+          onClick={() => setShowAll(v => !v)}
+          className="w-full mt-2 flex items-center justify-center gap-1 py-2 rounded-md text-[11px] font-medium text-text-secondary bg-surface border border-border hover:border-primary hover:text-primary transition-colors cursor-pointer"
+        >
+          {showAll ? '收起' : `展开全部 ${mainList.length} 条`}
+          <span>{showAll ? '▾' : '▸'}</span>
+        </button>
+      )}
 
       {foldedList.length > 0 && (
         <>

@@ -133,6 +133,8 @@ export function toDfScores(rawScores: LxnsScore[], songMap: Map<number, Song>): 
       rate: raw.rate ?? '',
       fcType: raw.fc ?? null,
       fsType: raw.fs ?? null,
+      // 落雪给的是 UTC 时间戳，取日期部分即可（探索用「多久没玩」）
+      playDate: raw.play_time ? raw.play_time.slice(0, 10) : undefined,
     })
   }
 

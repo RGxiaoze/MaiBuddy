@@ -21,6 +21,8 @@ export interface DfScore {
   rate: string
   fcType: string | null
   fsType: string | null
+  /** 最近游玩日期（YYYY-MM-DD）；仅落雪提供，水鱼与在线查分没有 */
+  playDate?: string
 }
 
 // ---- Internal helpers ----
@@ -115,6 +117,6 @@ export function toInternalScore(df: DfScore): Score {
     fsType: (df.fsType as Score['fsType']) || null,
     dxScore: df.dxScore,
     dxRating: df.dxRating,
-    playDate: new Date().toISOString(),
+    playDate: df.playDate ?? new Date().toISOString().slice(0, 10),
   }
 }

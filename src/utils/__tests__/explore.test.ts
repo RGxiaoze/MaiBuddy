@@ -61,6 +61,26 @@ describe('buildExplorePool', () => {
     expect(pool.map(p => p.songId)).toEqual([2])
   })
 
+  // 玩过很多谱面的玩家需要「很久没玩」的推荐：这些谱面仍在 playedKeys 里，
+  // 但由调用方判定为「超过阈值没碰过」后放进 staleKeys，允许重新进入池子。
+  it('很久没玩的谱面可以回到池子', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(3, 13)])]
+    const votes = new Map([[1, vote(0.7, 500)]])
+    const pool = buildExplorePool(songs, new Set(['1-3']), votes, {
+      minVotes: 30, random: noShuffle, staleKeys: new Set(['1-3']),
+    })
+    expect(pool.map(p => p.songId)).toEqual([1])
+  })
+
+  it('未在 staleKeys 里的已游玩谱面仍被排除', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(3, 13)]), makeSong(2, 'B', [makeDiff(3, 13)])]
+    const votes = new Map([[1, vote(0.7, 500)], [2, vote(0.7, 500)]])
+    const pool = buildExplorePool(songs, new Set(['1-3', '2-3']), votes, {
+      minVotes: 30, random: noShuffle, staleKeys: new Set(['1-3']),
+    })
+    expect(pool.map(p => p.songId)).toEqual([1])
+  })
+
   it('排除无投票数据的谱面', () => {
     const songs = [makeSong(1, 'A', [makeDiff(3, 13)]), makeSong(2, 'B', [makeDiff(3, 13)])]
     const votes = new Map([[1, vote(0.7, 500)]])

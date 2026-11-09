@@ -129,9 +129,6 @@ export async function importScoresFromFile(
 }
 
 /** 落雪 CSV 的行键：与曲库的 ID 方案对齐，用于回填 play_time */
-function chartKey(baseId: number, isDx: boolean, levelIndex: number): string {
-  return `${isDx ? baseId + 10000 : baseId}-${levelIndex}`
-}
 
 /**
  * Import scores from a LXNS-exported CSV.
@@ -147,35 +144,25 @@ async function importLxnsCsv(text: string, songMap?: Map<number, Song>): Promise
     return { total: 0, imported: 0, updated: 0, skipped: 0, errors: [{ index: -1, message: '未识别到落雪成绩 CSV，请确认表头与导出格式' }] }
   }
 
-  // 落雪 ID → 曲库 ID 的换算复用在线导入同一套逻辑
+  // 落雪 ID → 曲库 ID 的换算复用在线导入同一套逻辑（含 play_time → playDate）
   const dfScores = toDfScores(rows, songMap)
 
-  const playTimeByChart = new Map<string, string | null>()
-  for (const row of rows) {
-    if (typeof row.id !== 'number') continue
-    const isDx = row.type === 'dx'
-    playTimeByChart.set(chartKey(row.id, isDx, row.level_index), row.play_time ?? null)
-  }
-
-  const records: Omit<ScoreRecord, 'id' | 'createdAt'>[] = dfScores.map((d) => {
-    const playTime = playTimeByChart.get(`${d.songId}-${d.levelIndex}`)
-    return {
-      songId: d.songId,
-      songTitle: d.title,
-      levelIndex: d.levelIndex,
-      level: d.level,
-      levelValue: d.levelValue,
-      songType: d.songType,
-      achievements: d.achievements,
-      rate: d.rate,
-      fcType: d.fcType,
-      fsType: d.fsType,
-      dxScore: d.dxScore,
-      dxRating: d.dxRating,
-      dxScoreDetail: null,
-      playDate: playTime ? playTime.slice(0, 10) : new Date().toISOString().slice(0, 10),
-    }
-  })
+  const records: Omit<ScoreRecord, 'id' | 'createdAt'>[] = dfScores.map((d) => ({
+    songId: d.songId,
+    songTitle: d.title,
+    levelIndex: d.levelIndex,
+    level: d.level,
+    levelValue: d.levelValue,
+    songType: d.songType,
+    achievements: d.achievements,
+    rate: d.rate,
+    fcType: d.fcType,
+    fsType: d.fsType,
+    dxScore: d.dxScore,
+    dxRating: d.dxRating,
+    dxScoreDetail: null,
+    playDate: d.playDate ?? new Date().toISOString().slice(0, 10),
+  }))
 
   const result = await bulkUpsertScores(records)
   return { ...result, skipped: result.skipped + (rows.length - records.length) }

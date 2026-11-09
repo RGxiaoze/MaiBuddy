@@ -15,7 +15,7 @@ import {
   MAX_ACHIEVEMENTS, UTAGE_ID_THRESHOLD, B35_FALLBACK_LEVEL, B35_MODE_MIN_COUNT,
   SKIP_LOW_LEVEL, SKIP_LOW_ACH,
   SSSP_SORT_WEIGHT, SUGGESTION_SORT_TOLERANCE,
-  B15_SIZE, MAX_SUGGESTIONS_PER_POOL,
+  B15_SIZE, MAX_B15_SUGGESTIONS, MAX_B35_SUGGESTIONS,
 } from '@/config/algorithms'
 
 // ---- Types ----
@@ -379,11 +379,11 @@ export function computePushSuggestions(
     return bScore - aScore
   })
 
-  // Cap per pool (B35 and B15 each get their own budget)
+  // Cap per pool (B35 / B15 各用各的上限)
   const b35Pool = suggestions.filter(s => s.pool === 'b35')
   const b15Pool = suggestions.filter(s => s.pool === 'b15')
-  if (b35Pool.length > MAX_SUGGESTIONS_PER_POOL) b35Pool.length = MAX_SUGGESTIONS_PER_POOL
-  if (b15Pool.length > MAX_SUGGESTIONS_PER_POOL) b15Pool.length = MAX_SUGGESTIONS_PER_POOL
+  if (b35Pool.length > MAX_B35_SUGGESTIONS) b35Pool.length = MAX_B35_SUGGESTIONS
+  if (b15Pool.length > MAX_B15_SUGGESTIONS) b15Pool.length = MAX_B15_SUGGESTIONS
   suggestions.length = 0
   suggestions.push(...b35Pool, ...b15Pool)
 

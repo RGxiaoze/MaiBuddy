@@ -39,6 +39,11 @@ export interface ExploreOptions {
   blockedSongIds?: Set<number>
   /** 已展示过的条目 key（`songId-levelIndex`），换一批时用于去重 */
   seenKeys?: Set<string>
+  /**
+   * 「很久没玩」的谱面 key（`songId-levelIndex`）。
+   * 这些谱面仍属于已游玩，但允许重新进入推荐池 —— 给玩遍全部谱面的玩家用。
+   */
+  staleKeys?: Set<string>
   /** 随机源，便于测试注入 */
   random?: () => number
   /** 偏好画像：命中偏好谱师 / 冷门曲风时小幅加权 */
@@ -190,6 +195,7 @@ export function buildExplorePool(
     seenKeys,
     random = Math.random,
     preference,
+    staleKeys,
   } = options
 
   const highestPlayed = highestPlayedBySong(playedKeys)
@@ -209,7 +215,9 @@ export function buildExplorePool(
     for (const diff of diffs) {
       if (!diff || diff.levelValue <= 0) continue
       if (isChartExcluded(song.id, diff.levelIndex)) continue
-      if (playedKeys.has(`${song.id}-${diff.levelIndex}`)) continue
+      const key = `${song.id}-${diff.levelIndex}`
+      // 「很久没玩」的谱面允许回到池子（给已经玩遍的玩家）
+      if (playedKeys.has(key) && !staleKeys?.has(key)) continue
       // 禁止降级：不推荐低于该曲已游玩最高难度的谱面
       if (highest != null && diff.levelIndex < highest) continue
       if (minLevel != null && diff.levelValue < minLevel) continue
