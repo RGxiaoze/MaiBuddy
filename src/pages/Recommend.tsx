@@ -265,15 +265,14 @@ function PushTab({ items, newVersion }: {
         )}
       </p>
 
-      <PushGroup title="B15 池（新版本）" hint="池子小，每个版本理论上都能推" items={b15} tagColor="#B8A0E8" defaultVisible={5} />
-      <PushGroup title="B35 池（旧版本）" hint="老玩家的可推空间往往已被历史成绩占满" items={b35} tagColor="#5BA4CF" defaultVisible={10} />
+      <PushGroup title="B15 池（新版本）" items={b15} tagColor="#B8A0E8" defaultVisible={5} />
+      <PushGroup title="B35 池（旧版本）" items={b35} tagColor="#5BA4CF" defaultVisible={10} />
     </div>
   )
 }
 
-function PushGroup({ title, hint, items, tagColor, defaultVisible }: {
+function PushGroup({ title, items, tagColor, defaultVisible }: {
   title: string
-  hint: string
   items: Array<{ s: PushSuggestion; maxGain: number }>
   tagColor: string
   /** 默认展开的条数，其余折叠在「展开全部」里 */
@@ -316,7 +315,6 @@ function PushGroup({ title, hint, items, tagColor, defaultVisible }: {
         <span className="text-sm font-semibold text-text">{title}</span>
         <span className="text-[10px] text-text-tertiary tabular-nums">{items.length} 条</span>
       </div>
-      <p className="text-[11px] text-text-tertiary mb-2">{hint}</p>
 
       <div className="space-y-2">
         {(showAll ? mainList : mainList.slice(0, defaultVisible)).map(renderCard)}
