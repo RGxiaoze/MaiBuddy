@@ -44,13 +44,21 @@ describe('buildScoreStats', () => {
     const stats = buildScoreStats(songs, [])
     expect(stats.size).toBe(0)
   })
+
+  it('添加日期取该曲最近一次的成绩添加时间', () => {
+    const stats = buildScoreStats(songs, [
+      { songId: 1, levelIndex: 3, achievements: 99, dxScore: 1000, createdAt: new Date('2026-01-01T00:00:00Z') },
+      { songId: 1, levelIndex: 3, achievements: 98, dxScore: 900, createdAt: new Date('2026-05-01T00:00:00Z') },
+    ])
+    expect(stats.get(1)?.addedAt).toBe(new Date('2026-05-01T00:00:00Z').getTime())
+  })
 })
 
 describe('sortSongs', () => {
   const songs = [song(1, [diff(3, 13.0)]), song(2, [diff(3, 14.5)]), song(3, [diff(3, 12.0)])]
   const stats = new Map([
-    [1, { achievements: 99.0, dxScoreRate: 0.8 }],
-    [2, { achievements: 97.5, dxScoreRate: 0.95 }],
+    [1, { achievements: 99.0, dxScoreRate: 0.8, addedAt: 1000 }],
+    [2, { achievements: 97.5, dxScoreRate: 0.95, addedAt: 3000 }],
   ])
 
   it('按定数降序（默认）', () => {
@@ -75,6 +83,23 @@ describe('sortSongs', () => {
   it('缺省 scoreStats 时不报错，按 id 稳定排列', () => {
     const out = sortSongs(songs, { sortBy: 'achievements', sortOrder: 'desc' })
     expect(out).toHaveLength(3)
+  })
+
+  // 添加日期：数据库 createdAt，更新更好成绩时刷新
+  it('按添加日期降序：最近添加的在前，未游玩排最后', () => {
+    expect(sortSongs(songs, { sortBy: 'addedAt', sortOrder: 'desc', scoreStats: stats }).map(s => s.id))
+      .toEqual([2, 1, 3])
+  })
+
+  it('按添加日期升序：最早添加的在前，未游玩仍在最后', () => {
+    expect(sortSongs(songs, { sortBy: 'addedAt', sortOrder: 'asc', scoreStats: stats }).map(s => s.id))
+      .toEqual([1, 2, 3])
+  })
+
+  it('都没成绩时按最高定数降序兜底，列表不会看起来乱序', () => {
+    const empty = new Map<number, { achievements: number; dxScoreRate: number; addedAt: number }>()
+    expect(sortSongs(songs, { sortBy: 'addedAt', sortOrder: 'desc', scoreStats: empty }).map(s => s.id))
+      .toEqual([2, 1, 3])
   })
 
   it('不修改输入数组', () => {

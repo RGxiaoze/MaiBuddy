@@ -18,6 +18,8 @@ export type SortBy =
   | 'achievements'
   /** 最高 DX 分数率 = dxScore ÷ (总物量 × 3) */
   | 'dxScoreRate'
+  /** 最近一次添加成绩的时间（数据库 createdAt） */
+  | 'addedAt'
 
 export type SortOrder = 'asc' | 'desc'
 
@@ -25,6 +27,8 @@ export type SortOrder = 'asc' | 'desc'
 export interface SongScoreStat {
   achievements: number
   dxScoreRate: number
+  /** 最近一次添加这条成绩的时间（ms） */
+  addedAt: number
 }
 
 export interface SortOptions {
@@ -49,7 +53,7 @@ function maxLevelValue(song: Song): number {
  */
 export function buildScoreStats(
   songs: Song[],
-  scores: Array<{ songId: number; levelIndex: number; achievements: number; dxScore: number }>,
+  scores: Array<{ songId: number; levelIndex: number; achievements: number; dxScore: number; createdAt?: Date | string | number }>,
 ): Map<number, SongScoreStat> {
   const notesByChart = new Map<string, number>()
   for (const s of songs) {
@@ -63,18 +67,29 @@ export function buildScoreStats(
   for (const sc of scores) {
     const total = notesByChart.get(`${sc.songId}-${sc.levelIndex}`)
     const rate = total && total > 0 ? sc.dxScore / (total * 3) : 0
+    const addedAt = toTimestamp(sc.createdAt)
 
     const prev = stats.get(sc.songId)
     if (!prev) {
-      stats.set(sc.songId, { achievements: sc.achievements, dxScoreRate: rate })
+      stats.set(sc.songId, { achievements: sc.achievements, dxScoreRate: rate, addedAt })
     } else {
       stats.set(sc.songId, {
         achievements: Math.max(prev.achievements, sc.achievements),
         dxScoreRate: Math.max(prev.dxScoreRate, rate),
+        addedAt: Math.max(prev.addedAt, addedAt),
       })
     }
   }
   return stats
+}
+
+/** createdAt 可能是 Date / ISO 字符串 / 毫秒数；无法解析时按 0 处理 */
+function toTimestamp(value?: Date | string | number): number {
+  if (value == null) return 0
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'number') return value
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 /**
@@ -102,10 +117,12 @@ export function sortSongs(songs: Song[], { sortBy, sortOrder, scoreStats }: Sort
         // 曲名以日文假名 / 汉字 / 英文混合为主，按日文排序规则比较
         return a.title.localeCompare(b.title, 'ja') * mult
       case 'achievements':
-      case 'dxScoreRate': {
+      case 'dxScoreRate':
+      case 'addedAt': {
         const sa = statOf(a)
         const sb = statOf(b)
-        if (!sa && !sb) return 0
+        // 都没成绩时按最高定数兜底，避免默认排序下列表看起来乱序
+        if (!sa && !sb) return maxLevelValue(b) - maxLevelValue(a)
         if (!sa) return 1
         if (!sb) return -1
         return (sa[sortBy] - sb[sortBy]) * mult

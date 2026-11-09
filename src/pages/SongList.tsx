@@ -24,6 +24,7 @@ import {
 import { Settings, FolderOpen, X } from 'lucide-react'
 import { importScoresFromFile } from '@/utils/importScores'
 import { matchRateValue } from '@/utils/stats'
+import { buildScoreStats } from '@/utils/songSort'
 
 // ---- Inline: login-to-token form ----
 
@@ -231,9 +232,11 @@ export default function SongList() {
   const deferredSearchQuery = useDeferredValue(searchQuery)
 
   // Memoize filtered results
+  // 成绩摘要供「成绩 / DX 分数 / 添加日期」三种排序使用
+  const scoreStats = useMemo(() => buildScoreStats(songs, scores), [songs, scores])
   const filteredSongs = useMemo(
     () => {
-      const base = getFilteredSongs(deferredSearchQuery)
+      const base = getFilteredSongs(deferredSearchQuery, scoreStats)
       // 成绩维度钻取：仅保留有匹配成绩的曲目。
       // 若同时带难度（?lv=），难度应作用于「成绩所属难度」而非「曲目包含该难度」，
       // 否则统计卡上的数字（如 SSS+ & MASTER = 1241）与列表条数（1318）对不上。
@@ -245,7 +248,7 @@ export default function SongList() {
         (drillLevel == null || sc.levelIndex === drillLevel)
       ))
     },
-    [songs, deferredSearchQuery, advancedFilters, sortBy, sortOrder, getFilteredSongs, playedFilter, scores]
+    [songs, deferredSearchQuery, advancedFilters, sortBy, sortOrder, getFilteredSongs, playedFilter, scores, scoreStats]
   )
 
   // 注册本页背景：列表第一首的封面
