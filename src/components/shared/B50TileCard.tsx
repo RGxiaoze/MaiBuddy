@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import GradeBadge from '@/components/shared/GradeBadge'
 import DxStars from '@/components/shared/DxStars'
-import { LEVEL_INDEX_MAP } from '@/data/constants'
+import { LEVEL_INDEX_MAP, LEVEL_BADGE_CLASS } from '@/data/constants'
 import { FC_LABELS, FS_LABELS } from '@/data/constants'
 import { getCoverUrl } from '@/data/constants'
 import { computeDxStar } from '@/utils/dxStar'
@@ -18,7 +18,10 @@ import type { LevelIndex } from '@/types'
 interface B50TileCardProps {
   songId: number
   levelIndex: number
+  /** 官标等级（如 "14+"），保留以便其他地方复用 */
   level: string
+  /** 具体定数（如 14.8）——B50 里直接显示它比等级更有信息量 */
+  levelValue: number
   title: string
   achievements: number
   rate: string
@@ -30,7 +33,7 @@ interface B50TileCardProps {
 }
 
 export default function B50TileCard({
-  songId, levelIndex, level, title, achievements, rate, dxRating, fcType, fsType, dxScore, totalNotes,
+  songId, levelIndex, levelValue, title, achievements, rate, dxRating, fcType, fsType, dxScore, totalNotes,
 }: B50TileCardProps) {
   const [imgError, setImgError] = useState(false)
   const levelColors = LEVEL_INDEX_MAP[levelIndex as LevelIndex]
@@ -74,7 +77,7 @@ export default function B50TileCard({
 
         {/* 定数 + FC/FS */}
         <div className="flex items-center gap-1.5 text-[10px]">
-          <span className="px-1 py-px rounded text-[9px] font-medium tabular-nums" style={{ backgroundColor: levelColors.badgeBg, color: levelColors.badgeFg }}>{level}</span>
+          <span className={`${LEVEL_BADGE_CLASS} py-px rounded text-[9px] font-medium`} style={{ backgroundColor: levelColors.badgeBg, color: levelColors.badgeFg }}>{levelValue.toFixed(1)}</span>
           {(fcType || fsType) && (
             <span className="text-success font-medium truncate">
               {fcType && FC_LABELS[fcType]}{fsType && ` ${FS_LABELS[fsType]}`}

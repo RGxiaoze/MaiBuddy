@@ -25,6 +25,15 @@ export const LEVEL_LABELS: Record<LevelIndex, string> = {
   0: 'Basic', 1: 'Advanced', 2: 'Expert', 3: 'Master', 4: 'Re:Master',
 }
 
+/**
+ * 难度/等级徽章的统一宽度。
+ *
+ * 等级有 "7" / "10+" / "14" / "15+" 等形态，宽度不一致时同一行里参差不齐。
+ * 用固定宽度（而非 min-width）+ 居中 + 等宽数字，保证一位/两位、带不带 "+" 都一样宽。
+ * 32px 足够容纳 11px 字号下的 "15+"。
+ */
+export const LEVEL_BADGE_CLASS = 'inline-flex items-center justify-center w-8 tabular-nums'
+
 // ---- Song type labels ----
 
 export const SONG_TYPE_LABELS: Record<SongType, string> = {

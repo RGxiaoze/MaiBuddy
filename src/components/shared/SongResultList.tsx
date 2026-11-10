@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router'
 import { Music } from 'lucide-react'
 import Pagination from './Pagination'
 import { useSongStore } from '@/store/songStore'
-import { LEVEL_INDEX_MAP } from '@/data/constants'
+import { LEVEL_INDEX_MAP, LEVEL_BADGE_CLASS } from '@/data/constants'
 import { getVersionDisplay } from '@/data/versions'
 import type { LevelIndex, Song } from '@/types'
 
@@ -113,7 +113,7 @@ export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, em
                       {levelLabels.map(({ idx, label, badgeBg, badgeFg }) => (
                         <span
                           key={idx}
-                          className="px-1.5 py-0.5 rounded text-[10px] font-medium leading-tight"
+                          className={`${LEVEL_BADGE_CLASS} py-0.5 rounded text-[10px] font-medium leading-tight`}
                           style={{ backgroundColor: badgeBg, color: badgeFg }}
                         >
                           {label}
@@ -171,7 +171,7 @@ export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, em
                     {levelLabels.map(({ idx, label, badgeBg, badgeFg }) => (
                       <span
                         key={idx}
-                        className="px-1.5 py-0.5 rounded text-[11px] font-medium leading-tight"
+                        className={`${LEVEL_BADGE_CLASS} py-0.5 rounded text-[11px] font-medium leading-tight`}
                         style={{ backgroundColor: badgeBg, color: badgeFg }}
                       >
                         {label}
