@@ -15,14 +15,19 @@ export const LXNS_PROVIDER: OAuthProvider = {
   id: 'lxns',
   name: '落雪',
   authBase: 'https://maimai.lxns.net',
-  clientId: 'EwdXSkBPEE52rsP4R5TXvUqBnM1GTVP45IlQVEEgi0g=',
+  clientId: 'a5a08c6a-c2f1-4bb0-bfc9-fbf0594337a4',
   /** read_player 覆盖玩家信息、谱面成绩与历史成绩 */
   scope: 'read_player',
   /** 落雪的授权端点不在根路径；token / revoke 都在 /api/v0 下 */
   tokenPath: '/api/v0/oauth/token',
   revokePath: '/api/v0/oauth/revoke',
+  /**
+   * dev 下跟随当前 origin：sessionStorage 按 origin 隔离，
+   * 固定用 127.0.0.1 会让从 localhost 发起的授权在回跳后读不到 PKCE verifier。
+   * 面板需同时登记 http://127.0.0.1:5173/ 与 http://localhost:5173/。
+   */
   redirectUri: import.meta.env.DEV
-    ? 'http://127.0.0.1:5173/'
+    ? `${globalThis.location?.origin ?? 'http://127.0.0.1:5173'}/`
     : 'https://rgxiaoze.github.io/MaiBuddy/',
 }
 

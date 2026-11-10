@@ -7,7 +7,7 @@
 // 支持水鱼（df）与落雪（lxns）两家，来源由发起授权时写入的 provider id 决定。
 // ============================================================
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { readCallbackParams, readPendingProviderId } from '@/services/oauthCore'
@@ -68,7 +68,6 @@ export default function OAuthCallbackHandler() {
         const result = await provider.importScores(token.accessToken)
         setMessage(`${provider.name}授权成功，已导入 ${result.imported + result.updated} 条成绩`)
         setStatus('done')
-        setTimeout(() => { navigate('/player') }, 1500)
       } catch (err) {
         setMessage(err instanceof Error ? err.message : '授权失败，请重试')
         setStatus('error')
@@ -76,10 +75,25 @@ export default function OAuthCallbackHandler() {
     })()
   }, [navigate])
 
+  /** 成功后收起提示：1 秒自动消失，或用户点任意处立刻收起 */
+  const dismissDone = useCallback(() => {
+    setStatus('idle')
+    navigate('/player')
+  }, [navigate])
+
+  useEffect(() => {
+    if (status !== 'done') return
+    const timer = setTimeout(dismissDone, 1000)
+    return () => clearTimeout(timer)
+  }, [status, dismissDone])
+
   if (status === 'idle') return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={status === 'done' ? dismissDone : undefined}
+    >
       <div className="bg-surface border border-border rounded-lg p-6 max-w-sm w-full text-center shadow-lg">
         {status === 'working' && (
           <>
