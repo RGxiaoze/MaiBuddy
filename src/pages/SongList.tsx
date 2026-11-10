@@ -211,6 +211,9 @@ export default function SongList() {
   const [fileImporting, setFileImporting] = useState(false)
   const [fileImportResult, setFileImportResult] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  /** 水鱼 Import-Token 的折叠区与输入框：代理不可达时自动展开并聚焦 */
+  const dfTokenDetailsRef = useRef<HTMLDetailsElement>(null)
+  const dfTokenInputRef = useRef<HTMLInputElement>(null)
 
   // Auto-close import modal after successful import (2.5s delay)
   useEffect(() => {
@@ -266,6 +269,9 @@ export default function SongList() {
       // 不让用户卡在默认网络超时上
       if (hasOAuthProxy() && !(await probeOAuthProxy())) {
         setImportError('水鱼授权代理当前不可达，请直接使用下方的 Import-Token 导入')
+        // 直接把 Token 区打开并聚焦，省去用户自己找
+        if (dfTokenDetailsRef.current) dfTokenDetailsRef.current.open = true
+        requestAnimationFrame(() => dfTokenInputRef.current?.focus())
         return
       }
       const url = await buildAuthorizeUrl()
@@ -490,9 +496,14 @@ export default function SongList() {
               <p className="text-[11px] text-text-tertiary mt-2 leading-relaxed">
                 在你自己的水鱼账号页面完成登录与授权，本站接触不到你的密码。
               </p>
+              {hasOAuthProxy() && (
+                <p className="text-[10px] text-text-tertiary mt-1">
+                  需代理环境：境内未翻墙时授权会失败，请展开下方 Import-Token 导入
+                </p>
+              )}
 
               {/* 同一张卡内提供备用方式：授权不可用时直接用 Import-Token */}
-              <details open={!import.meta.env.DEV} className="mt-3 pt-3 border-t border-primary/15 text-xs text-text-secondary">
+              <details ref={dfTokenDetailsRef} open={!import.meta.env.DEV} className="mt-3 pt-3 border-t border-primary/15 text-xs text-text-secondary">
                 <summary className="hover:text-primary transition-colors select-none cursor-pointer">
                   {import.meta.env.DEV ? '备用：使用 Import-Token 导入' : '无法授权？使用 Import-Token 导入'}
                 </summary>
@@ -501,6 +512,7 @@ export default function SongList() {
                     在 Diving-Fish 网站「编辑个人资料」中生成 Token 后粘贴到下方
                   </p>
                   <input
+                    ref={dfTokenInputRef}
                     type="password"
                     value={importToken}
                     onChange={(e) => saveImportToken(e.target.value)}
