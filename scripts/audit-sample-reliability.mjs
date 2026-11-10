@@ -46,7 +46,12 @@ const median = (arr) => {
 const medians = new Map([...countsByLevel].map(([k, v]) => [k, median(v)]))
 
 const isReliable = (cnt, level) => {
-  const threshold = Math.max((medians.get(level) ?? 0) * RELIABLE_RATIO, MIN_ABSOLUTE_SAMPLE)
+  const median = medians.get(level) ?? 0
+  const relative = median * RELIABLE_RATIO
+  // 与运行时一致：整档样本稀薄时只看相对比例
+  const threshold = median > 0 && median < MIN_ABSOLUTE_SAMPLE
+    ? relative
+    : Math.max(relative, MIN_ABSOLUTE_SAMPLE)
   return cnt > 0 && cnt >= threshold
 }
 
