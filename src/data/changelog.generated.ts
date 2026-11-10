@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-10",
     "commits": [
       {
+        "hash": "779d25e",
+        "type": "feat",
+        "message": "推分定数上限改以 B1+0.2 为锚，特简单谱可放宽并封顶鸟",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "9431c26",
         "type": "feat",
         "message": "推分目标改按玩家自身水平（B50 同定数段中位数）",
