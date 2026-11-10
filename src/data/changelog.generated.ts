@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-10",
     "commits": [
       {
+        "hash": "3520e4f",
+        "type": "fix",
+        "message": "整档样本稀薄时不套绝对下限，避免低档位误标",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "64d17e2",
         "type": "fix",
         "message": "样本可信度阈值改为中位数 30% 与绝对下限 12000",
