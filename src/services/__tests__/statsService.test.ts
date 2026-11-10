@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeSssFitDiff, computeRateRank, SSS_FIT_MIN_LEVEL, SSS_FIT_SLOPE } from '../statsService'
+import { computeSssFitDiff, computeRateRank, SSS_FIT_MIN_LEVEL, SSS_FIT_SLOPE, hasSampleCount } from '../statsService'
 import type { ChartStatSummary, FitDiffAvg } from '../statsService'
 
 function makeStat(overrides: Partial<ChartStatSummary> = {}): ChartStatSummary {
@@ -75,5 +75,19 @@ describe('computeRateRank', () => {
   it('样本不足 3 个时返回 null（避免「2 首中第 1」的误导）', () => {
     expect(computeRateRank([0.9, 0.5], 0.9)).toBeNull()
     expect(computeRateRank([], 0.9)).toBeNull()
+  })
+})
+
+describe('hasSampleCount', () => {
+  const makeData = (entries: unknown[]) =>
+    ({ charts: { '1': entries }, diff_data: {} }) as unknown as Parameters<typeof hasSampleCount>[0]
+
+  it('任一条目带 cnt 即视为可判定可信度', () => {
+    expect(hasSampleCount(makeData([{ diff: '13', dist: [1, 2] }]))).toBe(false)
+    expect(hasSampleCount(makeData([{ diff: '13', cnt: 500, dist: [1, 2] }]))).toBe(true)
+  })
+
+  it('空 charts 返回 false（无法判定）', () => {
+    expect(hasSampleCount({ charts: {}, diff_data: {} } as unknown as Parameters<typeof hasSampleCount>[0])).toBe(false)
   })
 })

@@ -210,6 +210,10 @@ export async function loadStats(officialLevelMap?: Map<string, number>): Promise
         if (chartCount === 0) {
           console.warn('statsService: 缓存数据为空，尝试从 API 重新获取')
           data = null as unknown as ChartStatsResponse // invalidate cache
+        } else if (!hasSampleCount(data)) {
+          // 旧缓存没有 cnt（样本量）：无法做可信度判定，视为过期，重新拉取
+          console.warn('statsService: 缓存缺少样本量，重新获取')
+          data = null as unknown as ChartStatsResponse
         }
       }
 
@@ -268,6 +272,19 @@ export function isStatsLoaded(): boolean {
 }
 
 // ---- Internal precomputation ----
+
+/**
+ * 缓存数据里是否带样本量（`cnt`）。
+ * 早期缓存没有这个字段 —— 缺它就无法判定样本可信度，需要重新拉取。
+ */
+export function hasSampleCount(data: ChartStatsResponse): boolean {
+  for (const entries of Object.values(data.charts ?? {})) {
+    for (const entry of entries) {
+      if (typeof (entry as { cnt?: number }).cnt === 'number') return true
+    }
+  }
+  return false
+}
 
 function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary> {
   const map = new Map<string, ChartStatSummary>()
