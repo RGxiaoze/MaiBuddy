@@ -16,6 +16,7 @@ import {
   SKIP_LOW_LEVEL, SKIP_LOW_ACH,
   SSSP_SORT_WEIGHT, SUGGESTION_SORT_TOLERANCE,
   B15_SIZE, MAX_B15_SUGGESTIONS, MAX_B35_SUGGESTIONS,
+  RECOMMEND_CAP_ABOVE_B1, RECOMMEND_CAP_SIMPLE, SIMPLE_FIT_DIFF_GAP, SIMPLE_TARGET_FLOOR,
 } from '@/config/algorithms'
 
 // ---- Types ----
@@ -79,6 +80,29 @@ function computeLevelMode(levels: number[], precision: number = 0.1): number {
   return mode
 }
 
+/**
+ * 推荐定数上限：以 B50 中 Rating 最高的那条（B1）为锚点。
+ * 返回 null 表示没有 B50，调用方应退回旧规则。
+ */
+export function computeRecommendCaps(b50: B50Result): { capBase: number | null; capSimple: number | null } {
+  const b1 = [...b50.best35, ...b50.best15]
+    .reduce<typeof b50.best35[number] | null>((best, e) => (!best || e.dxRating > best.dxRating ? e : best), null)
+  if (!b1) return { capBase: null, capSimple: null }
+
+  // 一位小数取整，避免 14.0 + 0.2 = 14.200000000000001 把 14.2 挡掉
+  const round1 = (v: number) => Math.round(v * 10) / 10
+  return {
+    capBase: round1(b1.levelValue + RECOMMEND_CAP_ABOVE_B1),
+    capSimple: round1(b1.levelValue + RECOMMEND_CAP_SIMPLE),
+  }
+}
+
+/** 「特简单」：拟合定数比官标低至少 SIMPLE_FIT_DIFF_GAP，且拟合定数已知（>0） */
+export function isSimpleChart(levelValue: number, fitDiff?: number): boolean {
+  if (!fitDiff || fitDiff <= 0) return false
+  return Math.round((levelValue - fitDiff) * 10) / 10 >= SIMPLE_FIT_DIFF_GAP
+}
+
 function makeSuggestion(
   songId: number, songTitle: string,
   levelIndex: number, level: string, levelValue: number,
@@ -93,8 +117,12 @@ function makeSuggestion(
   mode: number,
   samples: readonly LevelSample[],
   excludeKey?: string,
+  targetCeiling?: number,
 ): PushSuggestion {
-  const ceiling = realisticTargetAchFor(levelValue, mode, samples, excludeKey)
+  const ceiling = Math.min(
+    realisticTargetAchFor(levelValue, mode, samples, excludeKey),
+    targetCeiling ?? MAX_ACHIEVEMENTS,
+  )
   const gains: PushGain[] = targetLevels.map((targetAch) => {
     const cappedTarget = Math.min(ceiling, targetAch)
     const targetRating = computeRating(levelValue, Math.min(cappedTarget, MAX_ACHIEVEMENTS))
@@ -212,13 +240,13 @@ export function computePushSuggestions(
   const mode = b35Levels.length >= B35_MODE_MIN_COUNT
     ? computeLevelMode(b35Levels)
     : (b35Levels.length > 0 ? b35Levels.reduce((s, l) => s + l, 0) / b35Levels.length : B35_FALLBACK_LEVEL)
-  // Upper bound: narrower for high-level players (14+ → mode+0.3, otherwise mode+0.5)
-  // 定数上限：两池诉求不同，必须分开。
-  // B35 保守——打不动的谱推了也没用；
-  // B15 放宽——新曲池子小、地板高，高定数往往是进榜的唯一途径，
-  // 若沿用 B35 的 mode+0.3，会把 14.9 / 15.0 这类真正能加分的曲子全部挡掉。
-  const STRETCH_UPPER_B35 = mode > 14 ? mode + 0.3 : (mode > 0 ? mode + 0.5 : B35_FALLBACK_LEVEL)
-  const STRETCH_UPPER_B15 = mode > 0 ? mode + 1.0 : B35_FALLBACK_LEVEL
+  // Upper bound: 以「当前最强一手」B1（Rating 最高的那条，可能来自 B15）为锚点。
+  // 旧规则只看 B50 定数众数：B35 全是 13.8 鸟加的人也会被推 14.4 的谱。
+  const { capBase, capSimple } = computeRecommendCaps(currentB50)
+
+  // 无 B50 时退回旧规则，保证新用户仍有建议
+  const STRETCH_UPPER_B35 = capBase ?? (mode > 14 ? mode + 0.3 : (mode > 0 ? mode + 0.5 : B35_FALLBACK_LEVEL))
+  const STRETCH_UPPER_B15 = capBase ?? (mode > 0 ? mode + 1.0 : B35_FALLBACK_LEVEL)
   // Unified lower bound: mode - 1.0 (covers both B35 optimization and B15 floor replacement)
   const STRETCH_LOWER = mode > 0 ? Math.max(0, mode - 1.0) : 0
   // Progressive widening: when a pool has few entries, widen its lower bound to capture more candidates.
@@ -260,11 +288,12 @@ export function computePushSuggestions(
       const isNew = song.isNew
 
       // Filter: in stretch zone OR already in B50
+      // 破顶候选（B1+0.2 ~ B1+0.4）先放行，稍后按拟合定数判定是否「特简单」
       if (inB50.has(key)) {
       } else {
         const minZ = isNew ? B15_STRETCH_LOWER : B35_STRETCH_LOWER
         const maxZ = isNew ? STRETCH_UPPER_B15 : STRETCH_UPPER_B35
-        if (lv < minZ || lv > maxZ) continue
+        if (lv < minZ || lv > (capSimple ?? maxZ)) continue
       }
 
       // Determine precision + current achievements
@@ -290,6 +319,14 @@ export function computePushSuggestions(
 
       const stats = getStats?.(song.id, diff.level)
 
+      // 破顶判定：超过 B1+0.2 的候选只允许「特简单」的谱（拟合定数比官标低 ≥0.3），
+      // 且目标封顶在鸟（100.0%），避免「推上去也打不到」。
+      let targetCeiling: number | undefined
+      if (!inB50.has(key) && capBase !== null && lv > capBase) {
+        if (!isSimpleChart(lv, stats?.fitDiff)) continue
+        targetCeiling = SIMPLE_TARGET_FLOOR
+      }
+
       if (!inB50.has(key)) {
         // Chart NOT in B50 — suggest for its version's pool
         const pool = isNew ? 'b15' as const : 'b35' as const
@@ -311,6 +348,7 @@ export function computePushSuggestions(
           mode,
           b50Samples,
           key,
+          targetCeiling,
         )
         // Only add if at least one gain > 0 (or AP gain exists)
         if (cand.gains.some(g => g.ratingGain > 0) || (cand.apGain && cand.apGain.ratingGain > 0)) {

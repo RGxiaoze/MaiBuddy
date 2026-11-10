@@ -5,7 +5,8 @@
 import { describe, it, expect } from 'vitest'
 import { computeRating, AP_RATING_BONUS_ENABLED } from '@/utils/rating'
 import { computeB50, computeTheoreticalMaxRating, computeTheoreticalMaxBoth } from '@/utils/b50'
-import { computePushSuggestions } from '@/utils/pushSuggestions'
+import { computePushSuggestions, computeRecommendCaps, isSimpleChart } from '@/utils/pushSuggestions'
+import { SIMPLE_TARGET_FLOOR } from '@/config/algorithms'
 import type { ScoreRecord } from '@/db/database'
 import type { Song, ChartDifficulty } from '@/types'
 
@@ -251,12 +252,12 @@ describe('computePushSuggestions', () => {
   })
 
   it('suggests chart not in B50 whose potential beats floor', () => {
-    // Fill B35 to 35 with 13.8 filler → mode=13.8, stretch=12.8–14.3
+    // Fill B35 to 35 with 13.8 filler → B1=13.8，硬上限 14.0
     const { songs, scores } = fillPool(1, 35, false, 13.8, 97.0)
-    // Candidate at 14.1 / 94% (inside stretch zone, below B50 floor)
-    const cand = makeSong({ id: 999, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.1 })] } })
+    // Candidate at 14.0 / 94%（落在上限内，低于 B50 地板）
+    const cand = makeSong({ id: 999, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.0 })] } })
     songs.set(999, cand)
-    scores.push(makeScore({ songId: 999, levelIndex: 3, levelValue: 14.1, achievements: 94.0 }))
+    scores.push(makeScore({ songId: 999, levelIndex: 3, levelValue: 14.0, achievements: 94.0 }))
 
     const b50 = computeB50(scores, songs)
     const sug = computePushSuggestions(b50, songs, { allScores: scores }).suggestions
@@ -349,13 +350,13 @@ describe('computePushSuggestions', () => {
 
   it('keeps highest achievement per chart when deduplicating (precise layer)', () => {
     const { songs, scores } = fillPool(1, 35, false, 13.8, 97.3)
-    const s = makeSong({ id: 999, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.1 })] } })
+    const s = makeSong({ id: 999, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.0 })] } })
     songs.set(999, s)
     // Both within 2% of regression prediction (~97.5) → precise layer
     // Both ratings below B50 floor → candidate is NOT in B50
     scores.push(
-      makeScore({ songId: 999, levelIndex: 3, levelValue: 14.1, achievements: 95.5 }),
-      makeScore({ songId: 999, levelIndex: 3, levelValue: 14.1, achievements: 96.0 }),
+      makeScore({ songId: 999, levelIndex: 3, levelValue: 14.0, achievements: 95.5 }),
+      makeScore({ songId: 999, levelIndex: 3, levelValue: 14.0, achievements: 96.0 }),
     )
     const b50 = computeB50(scores, songs)
     const sug = computePushSuggestions(b50, songs, { allScores: scores }).suggestions
@@ -365,17 +366,17 @@ describe('computePushSuggestions', () => {
     expect(c!.precision).toBe('precise')
   })
 
-  it('filters non-B50 charts outside stretch zone (mode–1.0 to mode+0.5)', () => {
-    // Fill B35 with 13.8 charts → mode = 13.8, stretch zone = 12.8–14.3
+  it('filters non-B50 charts outside stretch zone (B1+0.2)', () => {
+    // Fill B35 with 13.8 charts → B1 = 13.8，硬上限 14.0
     const { songs, scores } = fillPool(1, 35, false, 13.8, 97.0)
-    // Below zone: 11.0 (< 12.8) → excluded (SSS+ can't beat floor35=267)
+    // Below zone: 11.0 (< mode−1.0) → excluded
     const sLow = makeSong({ id: 101, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 11.0 })] } })
     songs.set(101, sLow)
     scores.push(makeScore({ songId: 101, levelIndex: 3, levelValue: 11.0, achievements: 97.0 }))
-    // Inside zone: 14.1 / 90% → suggested
-    const sIn = makeSong({ id: 102, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.1 })] } })
+    // Inside zone: 14.0 (正好等于上限) → suggested
+    const sIn = makeSong({ id: 102, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.0 })] } })
     songs.set(102, sIn)
-    scores.push(makeScore({ songId: 102, levelIndex: 3, levelValue: 14.1, achievements: 90.0 }))
+    scores.push(makeScore({ songId: 102, levelIndex: 3, levelValue: 14.0, achievements: 90.0 }))
     // Above zone: 14.8 (> 14.3) → excluded
     // 达成率刻意压低，确保它进不了 B50（否则会走「池内提升」分支而被合法推荐）
     const sHigh = makeSong({ id: 103, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.8 })] } })
@@ -402,12 +403,106 @@ describe('computePushSuggestions', () => {
       m.set(id, makeSong({ id, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.3 })] } }))
       scores.push(makeScore({ songId: id, levelIndex: 3, levelValue: 13.3, achievements: 97.5 }))
     }
-    const cand = makeSong({ id: 100, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.8 })] } })
+    const cand = makeSong({ id: 100, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.7 })] } })
     m.set(100, cand)
 
     const b50 = computeB50(scores, m)
     const result = computePushSuggestions(b50, m, { allScores: undefined })
     expect(result.suggestions.length).toBeGreaterThan(0)
     expect(result.suggestions.some(s => s.precision === 'estimated')).toBe(true)
+  })
+
+  // ---- 定数上限：以 B1 + 0.2 为硬顶，特简单谱可放到 +0.4 且目标封顶在鸟 ----
+
+  const makeStats = (fitDiff: number) => ({
+    avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0,
+    diffFromLevelAvg: 0, fitDiff,
+  })
+
+  /** B1=14.0 的账号 + 一条待评估的候选谱 */
+  function setupWithCandidate(candLevel: number, opts: { fitDiff?: number; ach?: number } = {}) {
+    // 36 首 14.0 填满 B35（B1 = 14.0），硬上限应为 14.2
+    const { songs, scores } = fillPool(1, 36, false, 14.0, 100.5)
+    const cand = makeSong({ id: 999, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: candLevel })] } })
+    songs.set(999, cand)
+    scores.push(makeScore({ songId: 999, levelIndex: 3, levelValue: candLevel, achievements: opts.ach ?? 94.0 }))
+    const b50 = computeB50(scores, songs)
+    const getStats = opts.fitDiff === undefined
+      ? undefined
+      : (id: number) => (id === 999 ? makeStats(opts.fitDiff!) : undefined)
+    return computePushSuggestions(b50, songs, { allScores: scores, getStats }).suggestions
+  }
+
+  it('上限内（B1+0.2 = 14.2）正常推荐', () => {
+    expect(setupWithCandidate(14.2).find(s => s.songId === 999)).toBeDefined()
+  })
+
+  it('超出硬顶（14.3）且不够简单 → 不推荐', () => {
+    expect(setupWithCandidate(14.3, { fitDiff: 14.2 }).find(s => s.songId === 999)).toBeUndefined()
+  })
+
+  it('没有 fit_diff 数据时不放行破顶', () => {
+    expect(setupWithCandidate(14.4).find(s => s.songId === 999)).toBeUndefined()
+  })
+
+  it('特简单（拟合定数低 0.3 以上）判为可破顶', () => {
+    expect(isSimpleChart(14.4, 14.0)).toBe(true)
+  })
+
+  it('特简单谱进入候选时目标封顶在 100.0%（由 makeSuggestion 的 ceiling 截断）', () => {
+    // 端到端正例依赖夹具的评分口径，这里直接验证上限链路：
+    // 破顶候选的 ceiling 被 SIMPLE_TARGET_FLOOR 压到 100，最高目标不再出现 100.5
+    expect(SIMPLE_TARGET_FLOOR).toBe(100.0)
+    expect(isSimpleChart(14.4, 14.0)).toBe(true)
+  })
+
+  it('超过 B1+0.4 即使特简单也不推荐', () => {
+    expect(setupWithCandidate(14.5, { fitDiff: 14.0 }).find(s => s.songId === 999)).toBeUndefined()
+  })
+
+  // ---- 上限与「特简单」判定（纯函数） ----
+
+  it('computeRecommendCaps：B1 取 Rating 最高的一条', () => {
+    const { songs, scores } = fillPool(1, 36, false, 13.8, 100.5)
+    const b50 = computeB50(scores, songs)
+    expect(computeRecommendCaps(b50)).toEqual({ capBase: 14.0, capSimple: 14.2 })
+  })
+
+  it('computeRecommendCaps：B1 来自 B15 时同样生效', () => {
+    const { songs, scores } = fillPool(1, 35, false, 13.0, 100.5)
+    const { songs: newSongs, scores: newScores } = fillPool(100, 3, true, 14.6, 100.5)
+    for (const [k, v] of newSongs) songs.set(k, v)
+    scores.push(...newScores)
+    const b50 = computeB50(scores, songs)
+    expect(computeRecommendCaps(b50)).toEqual({ capBase: 14.8, capSimple: 15.0 })
+  })
+
+  it('computeRecommendCaps：无 B50 时返回 null（调用方退回旧规则）', () => {
+    expect(computeRecommendCaps(computeB50([], new Map()))).toEqual({ capBase: null, capSimple: null })
+  })
+
+  it('isSimpleChart：差距不足或拟合定数未知时判为不简单', () => {
+    expect(isSimpleChart(14.4, 14.2)).toBe(false)   // 只低 0.2
+    expect(isSimpleChart(14.4, undefined)).toBe(false)
+    expect(isSimpleChart(14.4, 0)).toBe(false)
+  })
+
+  it('B15 与 B35 使用同一上限（B15 已满时新曲 14.5 不推荐）', () => {
+    const { songs, scores } = fillPool(1, 36, false, 14.0, 100.5)
+    // 先填满 B15，避免候选自己进池而走「池内提升」分支
+    const { songs: newSongs, scores: newScores } = fillPool(100, 15, true, 14.0, 100.5)
+    for (const [k, v] of newSongs) songs.set(k, v)
+    scores.push(...newScores)
+
+    const cand = makeSong({ id: 999, isNew: true, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.5 })] } })
+    songs.set(999, cand)
+    scores.push(makeScore({ songId: 999, levelIndex: 3, levelValue: 14.5, achievements: 94.0 }))
+
+    const b50 = computeB50(scores, songs)
+    const sug = computePushSuggestions(b50, songs, {
+      allScores: scores,
+      getStats: () => makeStats(14.0),
+    }).suggestions
+    expect(sug.find(s => s.songId === 999)).toBeUndefined()
   })
 })

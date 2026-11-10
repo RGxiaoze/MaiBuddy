@@ -135,6 +135,17 @@ export const DIFF_GAP_NORM_MAX = 15
 export const DIFF_GAP_MEDIUM = 1.0
 export const DIFF_GAP_HARD = 3.0
 
+// ---- 推分建议的定数上限（以「当前最强一手」B1 为锚点） ----
+
+/** 硬上限：B1 定数 + 0.2（B15/B35 统一） */
+export const RECOMMEND_CAP_ABOVE_B1 = 0.2
+/** 「特简单」谱可放宽到的上限：B1 + 0.4 */
+export const RECOMMEND_CAP_SIMPLE = 0.4
+/** 拟合定数比官标低多少算「特简单」 */
+export const SIMPLE_FIT_DIFF_GAP = 0.3
+/** 破顶谱的目标达成率封顶（鸟） */
+export const SIMPLE_TARGET_FLOOR = 100.0
+
 /** diffFromLevelAvg 归一化偏移（diff + offset）/ (offset*2) 映射到 [0,1] */
 export const DIFF_COMMUNITY_NORM_OFFSET = 5
 
