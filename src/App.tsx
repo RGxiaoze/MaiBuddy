@@ -56,6 +56,8 @@ export default function App() {
           <Route path="/guide" element={<Suspense fallback={<PageLoader />}><Guide /></Suspense>} />
           <Route path="/changelog" element={<Suspense fallback={<PageLoader />}><Changelog /></Suspense>} />
           <Route path="/docs" element={<Suspense fallback={<PageLoader />}><Docs /></Suspense>} />
+          {/* 未知路径兜底：畸形链接（如漏写 ? 的 /songs&import=1）此前会整页白屏 */}
+          <Route path="*" element={<Navigate to="/songs" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

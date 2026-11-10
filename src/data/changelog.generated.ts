@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-10",
     "commits": [
       {
+        "hash": "e0d4440",
+        "type": "fix",
+        "message": "授权被拒绝时给出明确提示，不再静默失败",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "1e60ec1",
         "type": "fix",
         "message": "落雪 OAuth 换用正式应用 ID，修正回调地址与成功提示",
