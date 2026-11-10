@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-10",
     "commits": [
       {
+        "hash": "9431c26",
+        "type": "feat",
+        "message": "推分目标改按玩家自身水平（B50 同定数段中位数）",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "22dc8b7",
         "type": "fix",
         "message": "推分难度标签纳入玩家差距，避免 +19 分仍标轻松",
