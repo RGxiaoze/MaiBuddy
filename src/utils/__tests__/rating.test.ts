@@ -5,7 +5,8 @@
 import { describe, it, expect } from 'vitest'
 import { computeRating, AP_RATING_BONUS_ENABLED } from '@/utils/rating'
 import { computeB50, computeTheoreticalMaxRating, computeTheoreticalMaxBoth } from '@/utils/b50'
-import { allowBreakCap, computePushSuggestions, computeRecommendCaps, isSimpleChart } from '@/utils/pushSuggestions'
+import { allowBreakCap, applyLevelQuota, computePushSuggestions, computeRecommendCaps, isSimpleChart } from '@/utils/pushSuggestions'
+import type { PushSuggestion } from '@/utils/pushSuggestions'
 import { SIMPLE_TARGET_FLOOR } from '@/config/algorithms'
 import type { ScoreRecord } from '@/db/database'
 import type { Song, ChartDifficulty } from '@/types'
@@ -516,5 +517,55 @@ describe('computePushSuggestions', () => {
       getStats: () => makeStats(14.0),
     }).suggestions
     expect(sug.find(s => s.songId === 999)).toBeUndefined()
+  })
+
+  // ---- 定数分档配额 ----
+
+  describe('applyLevelQuota', () => {
+    const mk = (levelValue: number, gain: number) => ({
+      songId: Math.round(levelValue * 1000) + gain,
+      songTitle: `lv${levelValue}-${gain}`,
+      levelIndex: 3,
+      level: String(levelValue),
+      levelValue,
+      currentAchievements: 99,
+      currentRating: 0,
+      pool: 'b35',
+      difficulty: 'medium',
+      sssPlusRate: 0,
+      apRate: 0,
+      gains: [
+        { targetAch: 99, targetRating: 0, ratingGain: gain },
+        { targetAch: 100, targetRating: 0, ratingGain: gain },
+        { targetAch: 100.5, targetRating: 0, ratingGain: gain },
+      ],
+      precision: 'precise',
+      reliable: true,
+    } as unknown as PushSuggestion)
+
+    it('各定数档都有配额，低定数在前', () => {
+      const pool = [
+        mk(14.2, 10), mk(14.2, 9), mk(14.2, 8),
+        mk(13.9, 3), mk(13.9, 2),
+        mk(13.8, 2), mk(13.8, 1),
+      ]
+      const out = applyLevelQuota(pool, 6)
+      expect(out).toHaveLength(6)
+      expect(out.filter((s) => s.levelValue === 13.8)).toHaveLength(2)
+      expect(out.filter((s) => s.levelValue === 13.9)).toHaveLength(2)
+      expect(out.filter((s) => s.levelValue === 14.2)).toHaveLength(2)
+      const levels = out.map((s) => s.levelValue)
+      expect(levels).toEqual([...levels].sort((a, b) => a - b))
+    })
+
+    it('高收益的高定数谱不会垄断列表', () => {
+      const pool = Array.from({ length: 10 }, (_, i) => mk(14.4, 100 - i)).concat([mk(13.8, 1)])
+      const out = applyLevelQuota(pool, 4)
+      expect(out.some((s) => s.levelValue === 13.8)).toBe(true)
+    })
+
+    it('候选不足上限时全部返回', () => {
+      expect(applyLevelQuota([mk(13.8, 1), mk(13.9, 1)], 35)).toHaveLength(2)
+    })
   })
 })

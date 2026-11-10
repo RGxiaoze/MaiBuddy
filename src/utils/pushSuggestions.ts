@@ -119,6 +119,72 @@ export function allowBreakCap(
   return isSimpleChart(levelValue, stats?.fitDiff)
 }
 
+const DIFF_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 }
+
+/** 单池内的推荐排序：非 AP 按 SSS+ 收益降序，AP 条目统一排在后 */
+function compareSuggestion(a: PushSuggestion, b: PushSuggestion): number {
+  const aHasAP = !!(a.apGain && a.apGain.ratingGain > 0)
+  const bHasAP = !!(b.apGain && b.apGain.ratingGain > 0)
+
+  if (aHasAP && bHasAP) {
+    if (a.apRate !== b.apRate) return b.apRate - a.apRate
+    if (a.levelValue !== b.levelValue) return a.levelValue - b.levelValue
+    return DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty]
+  }
+  if (aHasAP !== bHasAP) return aHasAP ? 1 : -1
+
+  const aScore = a.gains[2].ratingGain * (1 + a.sssPlusRate * SSSP_SORT_WEIGHT)
+  const bScore = b.gains[2].ratingGain * (1 + b.sssPlusRate * SSSP_SORT_WEIGHT)
+  if (Math.abs(bScore - aScore) < SUGGESTION_SORT_TOLERANCE) {
+    // 同收益时：样本偏斜（隐藏区域等）的谱靠后，再按定数降序
+    const aUnreliable = a.reliable === false ? 1 : 0
+    const bUnreliable = b.reliable === false ? 1 : 0
+    if (aUnreliable !== bUnreliable) return aUnreliable - bUnreliable
+    return b.levelValue - a.levelValue
+  }
+  return bScore - aScore
+}
+
+/**
+ * 按定数分档配额取推荐。
+ *
+ * 纯收益排序会让高定数谱垄断列表（它们的 ratingGain 天然更大），
+ * 把定数较低、但同样能涨分的谱全部挤掉。这里改为：按 0.1 定数分档，
+ * 每轮每档各取 1 条（档内仍按收益排序），于是
+ *   · 低定数档不会被高定数档挤掉
+ *   · 输出天然按定数升序，靠近地板的谱排在前面
+ */
+export function applyLevelQuota(pool: PushSuggestion[], max: number): PushSuggestion[] {
+  const byLevel = new Map<number, PushSuggestion[]>()
+  for (const s of pool) {
+    const key = Math.round(s.levelValue * 10) / 10
+    const list = byLevel.get(key)
+    if (list) list.push(s)
+    else byLevel.set(key, [s])
+  }
+  for (const list of byLevel.values()) list.sort(compareSuggestion)
+
+  const levels = [...byLevel.keys()].sort((a, b) => a - b)
+  const counters = new Map(levels.map((lv) => [lv, 0]))
+  const out: PushSuggestion[] = []
+  while (out.length < max) {
+    let progressed = false
+    for (const lv of levels) {
+      if (out.length >= max) break
+      const list = byLevel.get(lv)!
+      const idx = counters.get(lv)!
+      if (idx >= list.length) continue
+      out.push(list[idx])
+      counters.set(lv, idx + 1)
+      progressed = true
+    }
+    if (!progressed) break
+  }
+  // 取满配额后按定数升序排列（档内保持收益序），让靠近地板的谱排在前面
+  out.sort((a, b) => a.levelValue - b.levelValue || compareSuggestion(a, b))
+  return out
+}
+
 function makeSuggestion(
   songId: number, songTitle: string,
   levelIndex: number, level: string, levelValue: number,
@@ -436,41 +502,9 @@ export function computePushSuggestions(
     }
   }
 
-  // 7. Sort: non-AP entries by SSS+ gain descending; AP entries by apRate descending
-  const DIFF_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 }
-  suggestions.sort((a, b) => {
-    const aHasAP = !!(a.apGain && a.apGain.ratingGain > 0)
-    const bHasAP = !!(b.apGain && b.apGain.ratingGain > 0)
-
-    // AP entries sort by apRate (desc) → levelValue (asc) → difficulty
-    if (aHasAP && bHasAP) {
-      if (a.apRate !== b.apRate) return b.apRate - a.apRate
-      if (a.levelValue !== b.levelValue) return a.levelValue - b.levelValue
-      return DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty]
-    }
-    // Non-AP entries come before AP entries
-    if (aHasAP !== bHasAP) return aHasAP ? 1 : -1
-
-    // Both non-AP: sort by SSS+ gain descending
-    const aGain = a.gains[2].ratingGain
-    const bGain = b.gains[2].ratingGain
-    const aScore = aGain * (1 + a.sssPlusRate * SSSP_SORT_WEIGHT)
-    const bScore = bGain * (1 + b.sssPlusRate * SSSP_SORT_WEIGHT)
-    if (Math.abs(bScore - aScore) < SUGGESTION_SORT_TOLERANCE) {
-      // 同收益时：样本偏斜（隐藏区域等）的谱靠后，再按定数降序
-      const aUnreliable = a.reliable === false ? 1 : 0
-      const bUnreliable = b.reliable === false ? 1 : 0
-      if (aUnreliable !== bUnreliable) return aUnreliable - bUnreliable
-      return b.levelValue - a.levelValue
-    }
-    return bScore - aScore
-  })
-
-  // Cap per pool (B35 / B15 各用各的上限)
-  const b35Pool = suggestions.filter(s => s.pool === 'b35')
-  const b15Pool = suggestions.filter(s => s.pool === 'b15')
-  if (b35Pool.length > MAX_B35_SUGGESTIONS) b35Pool.length = MAX_B35_SUGGESTIONS
-  if (b15Pool.length > MAX_B15_SUGGESTIONS) b15Pool.length = MAX_B15_SUGGESTIONS
+  // 7. 按定数分档配额：低定数（靠近地板）优先，避免高收益的高定数谱垄断列表
+  const b35Pool = applyLevelQuota(suggestions.filter((s) => s.pool === 'b35'), MAX_B35_SUGGESTIONS)
+  const b15Pool = applyLevelQuota(suggestions.filter((s) => s.pool === 'b15'), MAX_B15_SUGGESTIONS)
   suggestions.length = 0
   suggestions.push(...b35Pool, ...b15Pool)
 
