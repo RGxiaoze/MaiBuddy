@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-10",
     "commits": [
       {
+        "hash": "22dc8b7",
+        "type": "fix",
+        "message": "推分难度标签纳入玩家差距，避免 +19 分仍标轻松",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "2568c69",
         "type": "feat",
         "message": "代理不可达时自动展开并聚焦 Import-Token 输入",
