@@ -19,6 +19,27 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-10",
     "commits": [
       {
+        "hash": "5ad5c7d",
+        "type": "fix",
+        "message": "五维特征数据改提交 gzip 版，修复线上加载不到",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
+        "hash": "c0ceffd",
+        "type": "feat",
+        "message": "水鱼授权前探测代理可达性，不可达时提示改用 Token",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "3d91e91",
+        "type": "feat",
+        "message": "水鱼换票支持走 Worker 代理（VITE_DF_OAUTH_PROXY）",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "4f78fa7",
         "type": "feat",
         "message": "更新记录按天折叠，细节修正合并为一行",
