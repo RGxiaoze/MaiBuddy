@@ -333,6 +333,13 @@ export function computePushSuggestions(
           }
         }
 
+        // 难度按「收益最大的那一档」衡量玩家还差多远，
+        // 否则卡片写着 +19 分、标签却是「轻松」
+        const bestLift = lifts.reduce((a, b) => (b.ratingGain > a.ratingGain ? b : a))
+        const chosenTarget = floorApGain && floorApGain.ratingGain > bestLift.ratingGain
+          ? floorApGain.targetAch
+          : bestLift.targetAch
+
         // Include if any gain > 0 or AP gain exists (SSS+ already achievable)
         if (lifts.some(g => g.ratingGain > 0) || (floorApGain && floorApGain.ratingGain > 0)) {
           suggestions.push({
@@ -341,7 +348,7 @@ export function computePushSuggestions(
             currentAchievements: currentAch,
             currentRating,
             pool,
-            difficulty: classifyDifficulty({ levelValue: lv, achievements: currentAch } as ScoreRecord, stats),
+            difficulty: classifyDifficulty({ levelValue: lv, achievements: currentAch } as ScoreRecord, stats, chosenTarget),
             sssPlusRate: stats?.sssPlusRate ?? 0,
             apRate: stats?.apRate ?? 0,
             gains: lifts as [PushGain, PushGain, PushGain],

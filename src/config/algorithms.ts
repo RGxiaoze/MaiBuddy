@@ -123,6 +123,18 @@ export const DIFF_LEVEL_BASE = 12
 /** gap 归一化分母（超出此值 gap 分归零） */
 export const DIFF_GAP_NORM_MAX = 15
 
+/**
+ * 目标与当前达成率的差距（百分点）→ 难度下限。
+ *
+ * 全服数据只能说明「这首谱对大家好不好吃分」，说明不了「你还差多远」。
+ * 差距超过阈值时抬到对应档位，避免「98.7% 推 100.5%（+19 分）」被标成「轻松」。
+ *
+ * 阈值有意设得保守（1.0 / 3.0）：只纠正明显不合理的情况，
+ * 不粗暴覆盖全服信号，否则所有卡片都会变成「挑战」而失去区分度。
+ */
+export const DIFF_GAP_MEDIUM = 1.0
+export const DIFF_GAP_HARD = 3.0
+
 /** diffFromLevelAvg 归一化偏移（diff + offset）/ (offset*2) 映射到 [0,1] */
 export const DIFF_COMMUNITY_NORM_OFFSET = 5
 

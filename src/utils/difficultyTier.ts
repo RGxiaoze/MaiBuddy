@@ -12,6 +12,7 @@ import {
   DIFF_WEIGHT_COMMUNITY, DIFF_WEIGHT_GAP,
   DIFF_COMPOSITE_EASY, DIFF_COMPOSITE_MEDIUM,
   DIFF_GAP_NORM_MAX, DIFF_COMMUNITY_NORM_OFFSET,
+  DIFF_GAP_HARD, DIFF_GAP_MEDIUM,
   DIFF_FALLBACK_GAP_THRESHOLD,
   DIFF_LEVEL_PENALTY, DIFF_LEVEL_BASE,
 } from '@/config/algorithms'
@@ -81,7 +82,7 @@ export function realisticTargetAch(levelValue: number, baseLevel: number): numbe
  * @param targetAchievements - 目标达成率（如 100.5），用于 gap 评分
  * @returns 推分难度分类
  */
-export function classifyDifficulty(
+function classifyBaseDifficulty(
   score: ScoreRecord,
   chartStats?: ChartStatSummary,
   targetAchievements?: number,
@@ -157,4 +158,43 @@ export function classifyDifficulty(
     return 'medium'
   }
   return 'hard'
+}
+
+/** easy < medium < hard 的档位序号 */
+const DIFF_RANK: Record<'easy' | 'medium' | 'hard', number> = { easy: 0, medium: 1, hard: 2 }
+
+/**
+ * 按「目标 − 当前」的差距抬升难度下限。
+ *
+ * 之前推分建议调用本函数时没传 targetAchievements，标签完全由全服数据决定：
+ * 一首全服好打的谱，即使玩家自己只打到 98%，也会被标成「轻松」。
+ */
+function applyGapFloor(
+  difficulty: 'easy' | 'medium' | 'hard',
+  score: ScoreRecord,
+  targetAchievements?: number,
+): 'easy' | 'medium' | 'hard' {
+  if (targetAchievements === undefined) return difficulty
+
+  const gap = targetAchievements - score.achievements
+  const floor = gap > DIFF_GAP_HARD ? 'hard' : gap > DIFF_GAP_MEDIUM ? 'medium' : 'easy'
+  return DIFF_RANK[difficulty] >= DIFF_RANK[floor] ? difficulty : floor
+}
+
+/**
+ * 推分/推荐场景的难度判定。
+ *
+ * 在基础判定（全服数据 + 定数惩罚）之上，再叠加「玩家自己离目标多远」的下限，
+ * 让标签反映的是「对你难不难」，而不只是「这首谱在全服好不好吃分」。
+ */
+export function classifyDifficulty(
+  score: ScoreRecord,
+  chartStats?: ChartStatSummary,
+  targetAchievements?: number,
+): 'easy' | 'medium' | 'hard' {
+  return applyGapFloor(
+    classifyBaseDifficulty(score, chartStats, targetAchievements),
+    score,
+    targetAchievements,
+  )
 }
