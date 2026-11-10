@@ -41,6 +41,13 @@ const JP_VERSION_ORDER: Record<string, number> = {
   'maimai でらっくす FESTiVAL': 860,
   'maimai でらっくす BUDDiES':  880,
   'maimai でらっくす PRiSM':    900,
+  // DX 时代的「+」版本：每个大版本间隔 20，PLUS 取 +10
+  'maimai でらっくす PLUS':         810,
+  'maimai でらっくす Splash PLUS':   830,
+  'maimai でらっくす UNiVERSE PLUS': 850,
+  'maimai でらっくす FESTiVAL PLUS': 870,
+  'maimai でらっくす BUDDiES PLUS':  890,
+  'maimai でらっくす PRiSM PLUS':    910,
 }
 
 /** 国服 版本名 → 排序值（与日文值隔开避免碰撞） */
@@ -52,6 +59,7 @@ const CN_VERSION_ORDER: Record<string, number> = {
   '舞萌DX 2023':   8040,
   '舞萌2024':      8050,
   '舞萌2025':      8060,
+  '舞萌2026':      8070,
 }
 
 /** 统一映射（日文 + 国服合并），用于 adapter 的 parseVersion */
