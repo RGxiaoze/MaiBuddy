@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-10",
     "commits": [
       {
+        "hash": "d4fb2ce",
+        "type": "fix",
+        "message": "旧统计缓存缺样本量时自动重新拉取",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "2bcfefb",
         "type": "feat",
         "message": "采集样本量判定可信度，修正隐藏区域曲目拟合偏低",
