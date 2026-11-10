@@ -94,6 +94,9 @@ export const FALLBACK_MEDIUM_ACH = 98.0
 /** 15 级谱面永远归类为 hard（个人差极大） */
 export const ALWAYS_HARD_LEVEL = 15
 
+/** 该定数及以上不允许标「轻松」，最低「适中」 */
+export const MIN_MEDIUM_LEVEL = 14.9
+
 /** 推分建议中排除"随便打打"的低定数低达成率曲目：定数 < 此值且达成率 < 97% */
 export const SKIP_LOW_LEVEL = 14
 

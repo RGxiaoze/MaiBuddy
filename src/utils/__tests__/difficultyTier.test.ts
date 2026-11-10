@@ -65,6 +65,16 @@ describe('classifyDifficulty', () => {
     expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 5, fitDiff: 15 })).toBe('hard')
   })
 
+  it('定数 14.9 起不再标「轻松」，最低「适中」', () => {
+    const s = makeScore({ levelValue: 14.9, achievements: 99.5 })
+    const stats = { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 3.0, fitDiff: 14.8 }
+    expect(classifyDifficulty(s, stats)).toBe('medium')
+  })
+
+  it('15 级在无 chart_stats 的路径下同样判挑战', () => {
+    expect(classifyDifficulty(makeScore({ levelValue: 15.0, achievements: 100.5 }))).toBe('hard')
+  })
+
   it('大水分曲（diff > 2.0）→ easy', () => {
     const s = makeScore({ levelValue: 14.0 })
     expect(classifyDifficulty(s, { avg: 0, stdDev: 0, sssRate: 0, sssPlusRate: 0, cumSssRate: 0, apRate: 0, diffFromLevelAvg: 3.0, fitDiff: 14 })).toBe('easy')

@@ -15,6 +15,7 @@ import {
   DIFF_GAP_HARD, DIFF_GAP_MEDIUM,
   DIFF_FALLBACK_GAP_THRESHOLD,
   DIFF_LEVEL_PENALTY, DIFF_LEVEL_BASE,
+  MIN_MEDIUM_LEVEL,
 } from '@/config/algorithms'
 
 /** Clamp value to [0, 1] */
@@ -253,9 +254,14 @@ export function classifyDifficulty(
   chartStats?: ChartStatSummary,
   targetAchievements?: number,
 ): 'easy' | 'medium' | 'hard' {
-  return applyGapFloor(
+  const base = applyGapFloor(
     classifyBaseDifficulty(score, chartStats, targetAchievements),
     score,
     targetAchievements,
   )
+  // 15 级个人差极大，一律挑战（覆盖无 chart_stats 的路径）
+  if (score.levelValue >= ALWAYS_HARD_LEVEL) return 'hard'
+  // 14.9 起不再标「轻松」，最低「适中」
+  if (score.levelValue >= MIN_MEDIUM_LEVEL && base === 'easy') return 'medium'
+  return base
 }
