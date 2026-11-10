@@ -52,23 +52,44 @@ export function getFeatureNorms(): Record<string, number> | null {
 
 // ---- Loading ----
 
+const DATA_URL = `${import.meta.env.BASE_URL}data/simai_features.json`
+
+/**
+ * 优先取 gzip 版（4.5 MB → 872 KB）。
+ *
+ * 原始 JSON 由 `scripts/extract-features.ts` 手动生成、被 gitignore，
+ * CI 从不产生它 —— 线上一直 404，五维页拿不到谱面特征却照常渲染。
+ * 因此把压缩版提交进仓库，由 Vite 原样拷进产物。
+ */
+async function fetchCompressed(): Promise<FeaturesFile> {
+  if (typeof DecompressionStream === 'undefined') {
+    throw new Error('浏览器不支持 DecompressionStream')
+  }
+  const res = await fetch(`${DATA_URL}.gz`)
+  if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
+  const stream = res.body.pipeThrough(new DecompressionStream('gzip'))
+  const text = await new Response(stream).text()
+  return JSON.parse(text) as FeaturesFile
+}
+
 export async function loadFeatures(): Promise<FeaturesFile | null> {
   if (_features) return _features
   if (_loading && _loadPromise) return _loadPromise
 
   _loading = true
-  _loadPromise = fetch(`${import.meta.env.BASE_URL}data/simai_features.json`)
-    .then(res => {
+  _loadPromise = fetchCompressed()
+    .catch(() => fetch(DATA_URL).then(res => {
+      // 本地开发通常有未压缩版本；线上没有则应报错而不是静默空数据
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      return res.json()
-    })
+      return res.json() as Promise<FeaturesFile>
+    }))
     .then(data => {
-      _features = data as FeaturesFile
+      _features = data
       _loading = false
       return _features
     })
     .catch(err => {
-      console.warn('Failed to load simai_features.json:', err)
+      console.warn('Failed to load simai_features:', err)
       _loading = false
       _features = null
       return null
