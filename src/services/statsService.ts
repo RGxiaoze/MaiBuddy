@@ -5,6 +5,8 @@
 import { fetchChartStats, type ChartStatsResponse } from './divingFishApi'
 import { getCachedStats, setCachedStats } from '@/db/database'
 import { isReliableCount } from '@/utils/sampleReliability'
+import { getInstallYear, loadInstallYear } from './installYearService'
+import { FIT_DIFF_YEAR_CORRECTION, SSS_FIT_YEAR_CORRECTION } from '@/config/algorithms'
 
 // ---- Precomputed data structures ----
 
@@ -23,8 +25,16 @@ export interface ChartStatSummary {
   apRate: number
   /** 全服平均达成率 - 同难度平均达成率（正 = 比同定数容易） */
   diffFromLevelAvg: number
-  /** 拟合定数 */
+  /** 拟合定数（已按实装年校正） */
   fitDiff: number
+  /** 校正前的原始拟合定数，供详情页并列展示 */
+  fitDiffRaw?: number
+  /** SSS 口径拟合定数（已按实装年校正）；仅 ≥12 级且样本足够时提供 */
+  sssFitDiff?: number
+  /** 校正前的 SSS 口径拟合定数 */
+  sssFitDiffRaw?: number
+  /** 该谱面的国服实装年；未知时为空 */
+  installYear?: number | null
   /** 样本量（打过该谱的人数）；缺省表示数据源未提供 */
   sampleCount?: number
   /**
@@ -105,7 +115,11 @@ export function computeSssFitDiff(
   if (officialLevelValue < SSS_FIT_MIN_LEVEL) return null
   if (officialLevelAvg.chartCount < 3) return null
   const deviation = chartStat.cumSssRate - officialLevelAvg.cumSssRate
-  return officialLevelValue + SSS_FIT_SLOPE * deviation
+  const raw = officialLevelValue + SSS_FIT_SLOPE * deviation
+  // SSS 口径同样存在新曲偏移，按实装年校正
+  const year = chartStat.installYear ?? null
+  const correction = year !== null ? (SSS_FIT_YEAR_CORRECTION[year] ?? 0) : 0
+  return raw + correction
 }
 
 // ---- 同定数档内排名 ----
@@ -171,6 +185,9 @@ let _loadPromise: Promise<void> | null = null
 // ---- Public interface ----
 
 export async function loadStats(officialLevelMap?: Map<string, number>): Promise<void> {
+  // 实装年数据用于校正拟合定数，必须先行加载（失败时内部降级为空表，校正量为 0）
+  await loadInstallYear()
+
   // If loaded but the data is empty (previous load failed silently), retry
   if (_loaded && _chartStats && _chartStats.size === 0) {
     _loaded = false
@@ -311,7 +328,8 @@ function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary
 
   for (const [songIdStr, entries] of Object.entries(data.charts)) {
     const songId = Number(songIdStr)
-    for (const entry of entries) {
+    for (let levelIndex = 0; levelIndex < entries.length; levelIndex++) {
+      const entry = entries[levelIndex]
       // Skip padding entries (diff is null for non-existent charts like missing Re:MASTER)
       if (entry.diff == null) continue
       const key = `${songId}-${entry.diff}`
@@ -332,6 +350,12 @@ function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary
       const levelAvg = levelData?.achievements ?? entry.avg
       const diffFromLevelAvg = entry.avg - levelAvg
 
+      // 按实装年校正拟合定数（新曲世代水鱼系统性偏低）
+      const installYear = getInstallYear(songId, levelIndex)
+      const correction = installYear !== null ? (FIT_DIFF_YEAR_CORRECTION[installYear] ?? 0) : 0
+      const fitDiffRaw = entry.fit_diff
+      const fitDiff = fitDiffRaw + correction
+
       map.set(key, {
         avg: entry.avg,
         stdDev: entry.std_dev,
@@ -340,7 +364,9 @@ function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary
         cumSssRate,
         apRate,
         diffFromLevelAvg,
-        fitDiff: entry.fit_diff,
+        fitDiff,
+        fitDiffRaw,
+        installYear,
         sampleCount: entry.cnt ?? totalDist,
         reliable: isReliableCount(entry.cnt ?? totalDist, medianByLevel.get(entry.diff) ?? 0),
       })

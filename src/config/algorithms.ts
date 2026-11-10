@@ -97,6 +97,36 @@ export const ALWAYS_HARD_LEVEL = 15
 /** 该定数及以上不允许标「轻松」，最低「适中」 */
 export const MIN_MEDIUM_LEVEL = 14.9
 
+// ---- 拟合定数的版本校正 ----
+//
+// 依据：按国服实装年统计「官标 − 水鱼拟合」，新曲世代单调偏低
+// （2024 +0.122、2026 +0.241，t=14.3）。越新的曲，水鱼越认为它简单。
+// 早期年份偏差 < 0.06，不做校正，避免过度拟合。
+
+/** 各实装年对 fit_diff 的校正量（水鱼偏低 → 加回） */
+export const FIT_DIFF_YEAR_CORRECTION: Record<number, number> = {
+  2024: 0.12,
+  2026: 0.24,
+}
+
+/**
+ * 各实装年对 SSS 口径拟合的校正量。
+ * 项目自算的 SSS 拟合与 fit_diff 方向一致但幅度小约 40%
+ * （2026 −0.149 vs −0.241），且老曲端偏正（2020 +0.038）。
+ */
+export const SSS_FIT_YEAR_CORRECTION: Record<number, number> = {
+  2020: -0.04,
+  2024: 0.05,
+  2026: 0.15,
+}
+
+/**
+ * 早期曲版本阈值：`version <= 此值`（GreeN PLUS 及以前）的谱面
+ * 异常率 10.4%，是后期（3.2%）的 3.3 倍。
+ * 原因是早期制谱思路不规范、配置少见不规律，不是定数调整。
+ */
+export const EARLY_VERSION_MAX = 210
+
 /** 推分建议中排除"随便打打"的低定数低达成率曲目：定数 < 此值且达成率 < 97% */
 export const SKIP_LOW_LEVEL = 14
 

@@ -17,6 +17,7 @@ import {
   SSSP_SORT_WEIGHT, SUGGESTION_SORT_TOLERANCE,
   B15_SIZE, MAX_B15_SUGGESTIONS, MAX_B35_SUGGESTIONS,
   RECOMMEND_CAP_ABOVE_B1, RECOMMEND_CAP_SIMPLE, SIMPLE_FIT_DIFF_GAP, SIMPLE_TARGET_FLOOR,
+  EARLY_VERSION_MAX,
 } from '@/config/algorithms'
 
 // ---- Types ----
@@ -369,6 +370,12 @@ export function computePushSuggestions(
       const lv = diff.levelValue
       if (lv <= 0) continue
       const isNew = song.isNew
+      /**
+       * 早期曲（GreeN PLUS 及以前）的拟合异常率 10.4%，是后期 3.2% 的 3.3 倍。
+       * 原因是早期制谱思路不规范、配置少见不规律，不是定数调整。
+       * `version === 0` 表示版本未知，按正常处理。
+       */
+      const isEarlyChart = song.version > 0 && song.version <= EARLY_VERSION_MAX
       // B15（新版本）池子小、样本偏斜，目标拉伸更保守
       const stretch = isNew ? TYPICAL_STRETCH_B15 : TYPICAL_STRETCH
 
@@ -438,7 +445,7 @@ export function computePushSuggestions(
           targetCeiling,
           stretch,
         )
-        cand.reliable = stats?.reliable !== false
+        cand.reliable = stats?.reliable !== false && !isEarlyChart
         // Only add if at least one gain > 0 (or AP gain exists)
         if (cand.gains.some(g => g.ratingGain > 0) || (cand.apGain && cand.apGain.ratingGain > 0)) {
           suggestions.push(cand)
@@ -495,7 +502,7 @@ export function computePushSuggestions(
             gains: lifts as [PushGain, PushGain, PushGain],
             apGain: floorApGain,
             precision,
-            reliable: stats?.reliable !== false,
+            reliable: stats?.reliable !== false && !isEarlyChart,
           })
         }
       }

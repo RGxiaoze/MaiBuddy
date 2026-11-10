@@ -12,6 +12,7 @@ import GradeBadge from '@/components/shared/GradeBadge'
 import type { ChartDifficulty, LevelIndex, Score } from '@/types'
 import type { ScoreRecord } from '@/db/database'
 import { computeRating } from '@/utils/rating'
+import { EARLY_VERSION_MAX } from '@/config/algorithms'
 import { computeDxStar, renderStars } from '@/utils/dxStar'
 import { getAliasesForSong, loadAliasData } from '@/data/aliases'
 import { formatDesignerName } from '@/data/designer-aliases'
@@ -309,6 +310,15 @@ export default function SongDetail() {
                 <span className="text-text-secondary">拟合定数：</span>
                 <strong className="text-base text-primary tabular-nums">{chartStats.fitDiff.toFixed(2)}</strong>
                 <span className="text-[11px] text-text-tertiary">SSS+ 口径</span>
+                {chartStats.fitDiffRaw != null && chartStats.installYear != null &&
+                  Math.abs(chartStats.fitDiff - chartStats.fitDiffRaw) > 0.005 && (
+                  <span className="text-[11px] text-text-tertiary">
+                    （原始 {chartStats.fitDiffRaw.toFixed(2)}，
+                    按 {chartStats.installYear} 实装校正
+                    {chartStats.fitDiff >= chartStats.fitDiffRaw ? ' +' : ' '}
+                    {(chartStats.fitDiff - chartStats.fitDiffRaw).toFixed(2)}）
+                  </span>
+                )}
                 {sssFit != null && (
                   <>
                     <span className="text-text-tertiary">/</span>
@@ -324,6 +334,14 @@ export default function SongDetail() {
                   ) : (
                     <span className="text-[11px] text-text-tertiary">样本 {Math.round(chartStats.sampleCount)}</span>
                   )
+                )}
+                {(song?.version ?? 0) > 0 && (song?.version ?? 0) <= EARLY_VERSION_MAX && (
+                  <span
+                    className="text-[11px] text-warning"
+                    title="GreeN PLUS 及以前实装的早期谱面，制谱思路尚未规范化、配置少见不规律，水鱼拟合的异常率是后期的 3 倍"
+                  >
+                    早期谱面 · 拟合参考价值有限
+                  </span>
                 )}
               </div>
             )}

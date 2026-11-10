@@ -16,6 +16,67 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    "date": "2026-11-11",
+    "commits": [
+      {
+        "hash": "5f7dc05",
+        "type": "feat",
+        "message": "AWMC 支持全量抓取，新增人工评审页生成脚本",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "764e9de",
+        "type": "feat",
+        "message": "14.9 起不标「轻松」，15 级一律挑战",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "ee0703f",
+        "type": "feat",
+        "message": "新增 B50 地板诊断脚本，忽略测试成绩 CSV",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "d913e6c",
+        "type": "feat",
+        "message": "推荐改按定数分档配额，低定数谱不再被高收益谱挤掉",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "f335427",
+        "type": "feat",
+        "message": "新增 AWMC 与水鱼拟合定数的分歧分析脚本",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "55a8faa",
+        "type": "feat",
+        "message": "新增 AWMC 校准数据取样脚本",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "d476804",
+        "type": "feat",
+        "message": "样本不可信的谱面不再被排除在破顶候选之外",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "1e25f59",
+        "type": "feat",
+        "message": "谱面特征补全至 1340 首，改用 download.wmc.pub 源",
+        "label": "新功能",
+        "color": "green"
+      }
+    ]
+  },
+  {
     "date": "2026-11-10",
     "commits": [
       {
