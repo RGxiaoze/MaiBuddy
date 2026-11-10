@@ -377,9 +377,10 @@ describe('computePushSuggestions', () => {
     songs.set(102, sIn)
     scores.push(makeScore({ songId: 102, levelIndex: 3, levelValue: 14.1, achievements: 90.0 }))
     // Above zone: 14.8 (> 14.3) → excluded
+    // 达成率刻意压低，确保它进不了 B50（否则会走「池内提升」分支而被合法推荐）
     const sHigh = makeSong({ id: 103, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.8 })] } })
     songs.set(103, sHigh)
-    scores.push(makeScore({ songId: 103, levelIndex: 3, levelValue: 14.8, achievements: 97.0 }))
+    scores.push(makeScore({ songId: 103, levelIndex: 3, levelValue: 14.8, achievements: 85.0 }))
 
     const b50 = computeB50(scores, songs)
     const sug = computePushSuggestions(b50, songs, { allScores: scores }).suggestions

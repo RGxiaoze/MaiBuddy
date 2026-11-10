@@ -50,6 +50,64 @@ export function realisticTargetAch(levelValue: number, baseLevel: number): numbe
   return TARGET_FALLBACK_ACH
 }
 
+// ---- 方案 C：用玩家自己的成绩定目标 ----
+
+/** 样本：某条成绩的定数与达成率（可带谱面键，便于排除自身） */
+export interface LevelSample {
+  levelValue: number
+  achievements: number
+  key?: string
+}
+
+/** 判定「定数相近」的窗口（±） */
+export const TYPICAL_WINDOW = 0.3
+/** 少于该样本数时不信中位数，退回档位规则 */
+export const TYPICAL_MIN_SAMPLES = 5
+/** 在自己典型成绩上加多少作为可争取的目标 */
+export const TYPICAL_STRETCH = 0.5
+
+/**
+ * 玩家在某个定数附近的**典型达成率**（中位数）。
+ *
+ * 样本不足时返回 null —— 宁可退回保守的档位规则，也不用一两条成绩定目标。
+ */
+export function typicalAchievement(
+  levelValue: number,
+  samples: readonly LevelSample[],
+  excludeKey?: string,
+): number | null {
+  const near = samples
+    .filter(s => s.key !== excludeKey)
+    .filter(s => Math.abs(s.levelValue - levelValue) <= TYPICAL_WINDOW)
+    .map(s => s.achievements)
+    .sort((a, b) => a - b)
+
+  if (near.length < TYPICAL_MIN_SAMPLES) return null
+  const mid = Math.floor(near.length / 2)
+  return near.length % 2 === 1 ? near[mid] : (near[mid - 1] + near[mid]) / 2
+}
+
+/**
+ * 目标达成率 = min(档位天花板, 玩家典型成绩 + 0.5)。
+ *
+ * 档位天花板由 `realisticTargetAch` 给出；玩家样本不足时完全退化为原规则。
+ * 这样「B50 里 14.1 的谱普遍只打 98%」的人不会再被推 100.5%。
+ */
+export function realisticTargetAchFor(
+  levelValue: number,
+  baseLevel: number,
+  samples?: readonly LevelSample[],
+  excludeKey?: string,
+): number {
+  const tierCeiling = realisticTargetAch(levelValue, baseLevel)
+  if (!samples || samples.length === 0) return tierCeiling
+
+  const typical = typicalAchievement(levelValue, samples, excludeKey)
+  if (typical === null) return tierCeiling
+
+  return Math.min(tierCeiling, Math.min(typical + TYPICAL_STRETCH, MAX_ACHIEVEMENTS))
+}
+
 /**
  * Classify push difficulty for a score, with optional target achievement for gap-based adjustment.
  *

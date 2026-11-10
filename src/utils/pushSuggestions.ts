@@ -8,7 +8,7 @@ import type { Song } from '@/types'
 import type { ChartStatSummary } from '@/services/statsService'
 import { type B50Result } from './b50'
 import { computeRating } from './rating'
-import { classifyDifficulty, realisticTargetAch } from './difficultyTier'
+import { classifyDifficulty, realisticTargetAchFor, type LevelSample } from './difficultyTier'
 import { isChartExcluded } from '@/data/excluded-charts'
 import { predictLevelToAch } from './regression'
 import {
@@ -91,9 +91,12 @@ function makeSuggestion(
   floorRating: number,
   targetLevels: readonly number[],
   mode: number,
+  samples: readonly LevelSample[],
+  excludeKey?: string,
 ): PushSuggestion {
+  const ceiling = realisticTargetAchFor(levelValue, mode, samples, excludeKey)
   const gains: PushGain[] = targetLevels.map((targetAch) => {
-    const cappedTarget = Math.min(realisticTargetAch(levelValue, mode), targetAch)
+    const cappedTarget = Math.min(ceiling, targetAch)
     const targetRating = computeRating(levelValue, Math.min(cappedTarget, MAX_ACHIEVEMENTS))
     const ratingGain = targetRating - floorRating
     // targetAch 存「实际可达成的目标」（可能被现实目标截断），
@@ -104,7 +107,7 @@ function makeSuggestion(
   // AP gain: only when SSS+ gain is already 0 (no more rating from achievement)
   let apGain: PushGain | undefined
   if (gains[2].ratingGain === 0) {
-    const cappedTarget = Math.min(realisticTargetAch(levelValue, mode), MAX_ACHIEVEMENTS)
+    const cappedTarget = Math.min(ceiling, MAX_ACHIEVEMENTS)
     const apRating = computeRating(levelValue, cappedTarget, 'ap')
     const apGainVal = Math.max(0, apRating - floorRating)
     if (apGainVal > 0) {
@@ -177,6 +180,11 @@ export function computePushSuggestions(
   const b50Scores = [
     ...currentB50.best35.map(e => ({ levelValue: e.levelValue, achievements: e.achievements })),
     ...currentB50.best15.map(e => ({ levelValue: e.levelValue, achievements: e.achievements })),
+  ]
+  // 方案 C：用玩家自己在该定数段的典型成绩定目标（带谱面键，便于排除自身）
+  const b50Samples: LevelSample[] = [
+    ...currentB50.best35.map(e => ({ levelValue: e.levelValue, achievements: e.achievements, key: `${e.songId}-${e.levelIndex}` })),
+    ...currentB50.best15.map(e => ({ levelValue: e.levelValue, achievements: e.achievements, key: `${e.songId}-${e.levelIndex}` })),
   ]
   const predictFn = predictLevelToAch(b50Scores)
 
@@ -290,13 +298,19 @@ export function computePushSuggestions(
         const cand = makeSuggestion(
           song.id, song.title, diff.levelIndex, diff.level, lv,
           currentAch, currentRating, pool,
-          classifyDifficulty({ levelValue: lv, achievements: currentAch } as ScoreRecord, stats, 100.5),
+          classifyDifficulty(
+            { levelValue: lv, achievements: currentAch } as ScoreRecord,
+            stats,
+            realisticTargetAchFor(lv, mode, b50Samples, key),
+          ),
           stats?.sssPlusRate ?? 0,
           stats?.apRate ?? 0,
           precision,
           floorRating,
           TARGET_LEVELS,
           mode,
+          b50Samples,
+          key,
         )
         // Only add if at least one gain > 0 (or AP gain exists)
         if (cand.gains.some(g => g.ratingGain > 0) || (cand.apGain && cand.apGain.ratingGain > 0)) {
@@ -309,7 +323,7 @@ export function computePushSuggestions(
         const pool = currentB50.best35.some(e => `${e.songId}-${e.levelIndex}` === key) ? 'b35' as const : 'b15' as const
 
         // Calculate gains against current rating (improving this score)
-        const realistic = realisticTargetAch(lv, mode)
+        const realistic = realisticTargetAchFor(lv, mode, b50Samples, key)
         // 已有成绩已超过「现实目标」时，说明模型低估了玩家在此定数的水平，
         // 不再把目标向下截断——否则「100.24% 打到 100.0 目标」会被判为无提升空间。
         const capFor = (targetAch: number) =>
@@ -325,7 +339,7 @@ export function computePushSuggestions(
         // AP gain for floor entry — compute before filter check
         let floorApGain: PushGain | undefined
         if (lifts[2].ratingGain === 0) {
-          const cappedTarget = Math.min(realisticTargetAch(lv, mode), MAX_ACHIEVEMENTS)
+          const cappedTarget = Math.min(realisticTargetAchFor(lv, mode, b50Samples, key), MAX_ACHIEVEMENTS)
           const apRatingFloor = computeRating(lv, cappedTarget, 'ap')
           const apGainFloor = Math.max(0, apRatingFloor - currentRating)
           if (apGainFloor > 0) {

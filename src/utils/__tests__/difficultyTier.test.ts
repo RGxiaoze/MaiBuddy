@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { realisticTargetAch, classifyDifficulty } from '@/utils/difficultyTier'
+import { realisticTargetAch, classifyDifficulty, typicalAchievement, realisticTargetAchFor } from '@/utils/difficultyTier'
 import type { ScoreRecord } from '@/db/database'
 import { MAX_ACHIEVEMENTS } from '@/config/algorithms'
 
@@ -173,5 +173,56 @@ describe('classifyDifficulty', () => {
   it('未传目标时不应用差距下限（保持原有行为）', () => {
     const s = makeScore({ levelValue: 14.1, achievements: 97.0 })
     expect(classifyDifficulty(s, easyStats)).toBe('easy')
+  })
+})
+
+// ---- 方案 C：用玩家自己的成绩定目标 ----
+
+const levelSamples = (achievements: number[], levelValue = 14.1) =>
+  achievements.map((a, i) => ({ levelValue, achievements: a, key: `s${i}-3` }))
+
+describe('typicalAchievement', () => {
+  it('取定数附近成绩的中位数', () => {
+    expect(typicalAchievement(14.1, levelSamples([98.0, 98.5, 99.0, 99.5, 99.9]))).toBe(99.0)
+  })
+
+  it('只统计窗口内的样本（±0.3）', () => {
+    const samples = [
+      ...levelSamples([98.0, 98.5, 99.0, 99.5, 99.9]),
+      { levelValue: 15.0, achievements: 80.0, key: 'far-3' }, // 窗口外
+    ]
+    expect(typicalAchievement(14.1, samples)).toBe(99.0)
+  })
+
+  it('样本不足 5 条时返回 null（不信中位数）', () => {
+    expect(typicalAchievement(14.1, levelSamples([98.0, 98.5, 99.0]))).toBeNull()
+  })
+
+  it('可排除指定谱面，避免自身成绩抬高基准', () => {
+    const samples = levelSamples([98.0, 98.5, 99.0, 99.5, 100.5])
+    expect(typicalAchievement(14.1, samples)).toBe(99.0)
+    // 排除那条 100.5 后剩 4 条 → 不足样本数
+    expect(typicalAchievement(14.1, samples, 's4-3')).toBeNull()
+  })
+})
+
+describe('realisticTargetAchFor', () => {
+  it('目标受玩家典型成绩约束：典型 98% → 天花板 98.5%', () => {
+    const samples = levelSamples([97.8, 98.0, 98.0, 98.2, 98.4])
+    expect(realisticTargetAchFor(14.1, 14.1, samples)).toBeCloseTo(98.5, 5)
+  })
+
+  it('玩家水平够高时不压低目标', () => {
+    const samples = levelSamples([100.2, 100.4, 100.5, 100.5, 100.5])
+    expect(realisticTargetAchFor(14.1, 14.1, samples)).toBe(100.5)
+  })
+
+  it('样本不足时退回到档位规则', () => {
+    // 定数远高于舒适区（gap 1.0）→ 档位规则给 99.0
+    expect(realisticTargetAchFor(15.0, 14.0, levelSamples([98.0, 98.5]))).toBe(99.0)
+  })
+
+  it('不传样本时行为与旧规则一致', () => {
+    expect(realisticTargetAchFor(15.0, 14.0)).toBe(realisticTargetAch(15.0, 14.0))
   })
 })
