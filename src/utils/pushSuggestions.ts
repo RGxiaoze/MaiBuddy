@@ -105,6 +105,20 @@ export function isSimpleChart(levelValue: number, fitDiff?: number): boolean {
   return Math.round((levelValue - fitDiff) * 10) / 10 >= SIMPLE_FIT_DIFF_GAP
 }
 
+/**
+ * 超过硬上限（B1+0.2）的谱面是否仍允许进入候选。
+ *
+ * 样本不可信时 fit_diff 本身偏斜，无法判断是否「特简单」——
+ * 此时放行，但目标由调用方封顶在鸟，避免给出打不到的目标。
+ */
+export function allowBreakCap(
+  levelValue: number,
+  stats?: { fitDiff?: number; reliable?: boolean },
+): boolean {
+  if (stats?.reliable === false) return true
+  return isSimpleChart(levelValue, stats?.fitDiff)
+}
+
 function makeSuggestion(
   songId: number, songTitle: string,
   levelIndex: number, level: string, levelValue: number,
@@ -328,9 +342,9 @@ export function computePushSuggestions(
       // 且目标封顶在鸟（100.0%），避免「推上去也打不到」。
       let targetCeiling: number | undefined
       if (!inB50.has(key) && capBase !== null && lv > capBase) {
-        // 隐藏/联动区域的谱样本偏斜，fit_diff 会被低估 —— 不可信的样本不给破顶
-        if (stats && stats.reliable === false) continue
-        if (!isSimpleChart(lv, stats?.fitDiff)) continue
+        // 样本不可信时 fit_diff 靠不住，无法判断是否「特简单」：
+        // 不再直接排除，而是放行并把目标同样封顶在鸟，排序阶段再降权
+        if (!allowBreakCap(lv, stats)) continue
         targetCeiling = SIMPLE_TARGET_FLOOR
       }
 
