@@ -28,8 +28,10 @@ const CSV_PATH = path.join(ROOT, 'awmc-calibration.local.csv')
 
 const LEVEL_MIN = 12.0
 const LEVEL_MAX = 14.5
-const STAGE1_TARGET = 300
-const STAGE3_TARGET = 150
+/** --all：抓取区间内全部谱面，不做两阶段截取 */
+const FETCH_ALL = process.argv.includes('--all')
+const STAGE1_TARGET = FETCH_ALL ? Number.MAX_SAFE_INTEGER : 300
+const STAGE3_TARGET = FETCH_ALL ? Number.MAX_SAFE_INTEGER : 150
 const CONCURRENT = 4
 
 function get(url, headers = {}) {
