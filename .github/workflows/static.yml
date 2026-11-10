@@ -36,6 +36,9 @@ jobs:
       # kb.json / docs-index.json / changelog，跳过就会在线上 404
       - name: Build
         run: npm run build
+        env:
+          # 可选：水鱼 OAuth 换票代理地址（仓库 Variables 里配置）
+          VITE_DF_OAUTH_PROXY: ${{ vars.VITE_DF_OAUTH_PROXY }}
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

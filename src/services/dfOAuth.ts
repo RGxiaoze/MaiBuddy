@@ -21,6 +21,35 @@ export type { TokenSet } from './oauthCore'
  */
 const OAUTH_PROXY = (import.meta.env.VITE_DF_OAUTH_PROXY as string | undefined)?.replace(/\/+$/, '')
 
+/** 是否配置了换票代理 */
+export const hasOAuthProxy = (): boolean => !!OAUTH_PROXY
+
+/**
+ * 探测代理是否可达。
+ *
+ * `workers.dev` 在国内常被 DNS 污染，配置了代理但连不通时，
+ * 用户点「授权」会干等默认网络超时。这里用 2.5 秒探测提前给出结论，
+ * 让人直接改用 Import-Token。
+ *
+ * 未配置代理时返回 true（交给直连去失败，报错更明确）。
+ */
+export async function probeOAuthProxy(timeoutMs = 2500): Promise<boolean> {
+  if (!OAUTH_PROXY) return true
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(`${OAUTH_PROXY}/oauth/token`, {
+      method: 'OPTIONS',
+      signal: controller.signal,
+    })
+    return res.ok
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export const DF_PROVIDER: OAuthProvider = {
   id: 'df',
   name: '水鱼',

@@ -14,7 +14,7 @@ import SongSortBar from '@/components/shared/SongSortBar'
 import SongResultList from '@/components/shared/SongResultList'
 import { getCoverUrl } from '@/data/constants'
 import { loginToProber, generateImportToken } from '@/services/divingFishApi'
-import { buildAuthorizeUrl } from '@/services/dfOAuth'
+import { buildAuthorizeUrl, hasOAuthProxy, probeOAuthProxy } from '@/services/dfOAuth'
 import {
   buildAuthorizeUrl as buildLxnsAuthorizeUrl,
   isLxnsConfigured,
@@ -262,6 +262,12 @@ export default function SongList() {
   /** 跳转到水鱼授权页；授权完成后由 App 顶层的 OAuthCallbackHandler 接手 */
   const handleOAuthLogin = useCallback(async () => {
     try {
+      // 配了代理但连不通时（workers.dev 国内常被污染），提前给结论，
+      // 不让用户卡在默认网络超时上
+      if (hasOAuthProxy() && !(await probeOAuthProxy())) {
+        setImportError('水鱼授权代理当前不可达，请直接使用下方的 Import-Token 导入')
+        return
+      }
       const url = await buildAuthorizeUrl()
       window.location.href = url
     } catch (err) {
