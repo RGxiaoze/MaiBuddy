@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-10",
     "commits": [
       {
+        "hash": "2568c69",
+        "type": "feat",
+        "message": "代理不可达时自动展开并聚焦 Import-Token 输入",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "5ad5c7d",
         "type": "fix",
         "message": "五维特征数据改提交 gzip 版，修复线上加载不到",
