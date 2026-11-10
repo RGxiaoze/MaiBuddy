@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
-import { readCallbackParams, readPendingProviderId } from '@/services/oauthCore'
+import { readCallbackError, readCallbackParams, readPendingProviderId } from '@/services/oauthCore'
 import type { TokenSet } from '@/services/oauthCore'
 import * as dfOAuth from '@/services/dfOAuth'
 import * as lxnsOAuth from '@/services/lxnsOAuth'
@@ -43,12 +43,29 @@ const PROVIDERS: Record<string, CallbackProvider> = {
   },
 }
 
+/** 常见回调错误的友好文案；未列出的回落到 error_description 或原始 error */
+const CALLBACK_ERROR_TEXT: Record<string, string> = {
+  access_denied: '你在授权页拒绝了授权申请，未获得任何数据',
+}
+
 export default function OAuthCallbackHandler() {
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
+    // 拒绝授权等失败回调只有 error、没有 code，先于正常流程处理
+    const cbError = readCallbackError()
+    if (cbError) {
+      window.history.replaceState({}, '', window.location.pathname)
+      setMessage(
+        CALLBACK_ERROR_TEXT[cbError.error]
+          ?? (cbError.description || `授权未完成（${cbError.error}）`),
+      )
+      setStatus('error')
+      return
+    }
+
     const cb = readCallbackParams()
     if (!cb) return
 

@@ -78,6 +78,21 @@ export function readCallbackParams(search = window.location.search): { code: str
   return { code, state }
 }
 
+/**
+ * 从 URL 读取错误参数；返回 null 表示本次回调没有错误。
+ *
+ * 用户拒绝授权时回调形如 `?error=access_denied&state=...`，没有 code，
+ * 只看 code/state 会误判成「不是回调」而静默失败。
+ */
+export function readCallbackError(
+  search = window.location.search,
+): { error: string; description: string } | null {
+  const params = new URLSearchParams(search)
+  const error = params.get('error')
+  if (!error) return null
+  return { error, description: params.get('error_description') ?? '' }
+}
+
 /** 本次回调属于哪家授权服务器（由发起授权时记录） */
 export function readPendingProviderId(): string | null {
   try {
