@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-10",
     "commits": [
       {
+        "hash": "2bcfefb",
+        "type": "feat",
+        "message": "采集样本量判定可信度，修正隐藏区域曲目拟合偏低",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "779d25e",
         "type": "feat",
         "message": "推分定数上限改以 B1+0.2 为锚，特简单谱可放宽并封顶鸟",
