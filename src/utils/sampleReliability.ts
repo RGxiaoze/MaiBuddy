@@ -7,10 +7,10 @@
 // ============================================================
 
 /** 绝对样本下限：低于此值一律视为不可信 */
-export const MIN_ABSOLUTE_SAMPLE = 20
+export const MIN_ABSOLUTE_SAMPLE = 12000
 
-/** 相对同档中位数的比例下限 */
-export const RELIABLE_RATIO = 0.5
+/** 相对同档中位数的比例下限（低于它即不可信） */
+export const RELIABLE_RATIO = 0.3
 
 /**
  * 样本量是否可信。
