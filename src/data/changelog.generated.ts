@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-10",
     "commits": [
       {
+        "hash": "446cc6e",
+        "type": "fix",
+        "message": "未知路径重定向到曲库页，避免畸形链接整页白屏",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "e0d4440",
         "type": "fix",
         "message": "授权被拒绝时给出明确提示，不再静默失败",

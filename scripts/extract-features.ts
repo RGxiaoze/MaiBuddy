@@ -256,6 +256,14 @@ function extractInote(content: string, inoteId: number): { simaiText: string; bp
     const trimmed = line.trim()
     if (trimmed.startsWith(`&inote_${inoteId}=`)) {
       inSection = true
+      // download.wmc.pub 把首个 BPM 标记与 &inote_N= 写在同一行
+      // （如 `&inote_2=(138){1},`），整行跳过会丢掉它，导致 simai 解析失败
+      const inline = trimmed.slice(`&inote_${inoteId}=`.length)
+      if (inline) {
+        const bpmMatch = inline.match(/^\((\d+)\)/)
+        if (bpmMatch && bpm === 120) bpm = parseInt(bpmMatch[1])
+        chartText += inline + '\n'
+      }
       continue
     }
     if (inSection) {
