@@ -316,6 +316,15 @@ export default function SongDetail() {
                     <span className="text-[11px] text-text-tertiary">SSS 口径</span>
                   </>
                 )}
+                {chartStats.sampleCount != null && (
+                  chartStats.reliable === false ? (
+                    <span className="text-[11px] text-warning" title="该谱只在特定区域/联动中可玩，样本多为已解锁的熟练玩家，拟合定数会偏低">
+                      样本 {Math.round(chartStats.sampleCount)} · 参考价值有限
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-text-tertiary">样本 {Math.round(chartStats.sampleCount)}</span>
+                  )
+                )}
               </div>
             )}
 

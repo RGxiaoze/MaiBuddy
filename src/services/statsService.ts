@@ -4,6 +4,7 @@
 
 import { fetchChartStats, type ChartStatsResponse } from './divingFishApi'
 import { getCachedStats, setCachedStats } from '@/db/database'
+import { isReliableCount } from '@/utils/sampleReliability'
 
 // ---- Precomputed data structures ----
 
@@ -24,6 +25,15 @@ export interface ChartStatSummary {
   diffFromLevelAvg: number
   /** 拟合定数 */
   fitDiff: number
+  /** 样本量（打过该谱的人数）；缺省表示数据源未提供 */
+  sampleCount?: number
+  /**
+   * 样本是否可信。
+   * 隐藏/联动区域的谱只有解锁玩家会打，样本偏斜 → fit_diff 系统性偏低，
+   * 这类谱不应用来判定「简单」或参与排序加权。
+   * `undefined` 表示未知（旧缓存/测试夹具），按可信处理。
+   */
+  reliable?: boolean
 }
 
 export interface LevelAvg {
@@ -262,6 +272,26 @@ export function isStatsLoaded(): boolean {
 function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary> {
   const map = new Map<string, ChartStatSummary>()
 
+  // 先按官标档位收集样本量，算出各档中位数，用于判定「样本偏斜」
+  const countsByLevel = new Map<string, number[]>()
+  for (const entries of Object.values(data.charts)) {
+    for (const entry of entries) {
+      if (entry.diff == null) continue
+      const count = entry.cnt ?? entry.dist.reduce((s, v) => s + v, 0)
+      const bucket = countsByLevel.get(entry.diff)
+      if (bucket) bucket.push(count)
+      else countsByLevel.set(entry.diff, [count])
+    }
+  }
+
+  const medianByLevel = new Map<string, number>()
+  for (const [level, counts] of countsByLevel) {
+    counts.sort((a, b) => a - b)
+    const mid = Math.floor(counts.length / 2)
+    medianByLevel.set(level, counts.length % 2 === 1 ? counts[mid] : (counts[mid - 1] + counts[mid]) / 2)
+  }
+
+
   for (const [songIdStr, entries] of Object.entries(data.charts)) {
     const songId = Number(songIdStr)
     for (const entry of entries) {
@@ -294,6 +324,8 @@ function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary
         apRate,
         diffFromLevelAvg,
         fitDiff: entry.fit_diff,
+        sampleCount: entry.cnt ?? totalDist,
+        reliable: isReliableCount(entry.cnt ?? totalDist, medianByLevel.get(entry.diff) ?? 0),
       })
     }
   }

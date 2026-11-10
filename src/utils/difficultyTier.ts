@@ -65,6 +65,8 @@ export const TYPICAL_WINDOW = 0.3
 export const TYPICAL_MIN_SAMPLES = 5
 /** 在自己典型成绩上加多少作为可争取的目标 */
 export const TYPICAL_STRETCH = 0.5
+/** B15（新版本）池子小、样本偏斜，拉伸更保守 */
+export const TYPICAL_STRETCH_B15 = 0.3
 
 /**
  * 玩家在某个定数附近的**典型达成率**（中位数）。
@@ -98,6 +100,7 @@ export function realisticTargetAchFor(
   baseLevel: number,
   samples?: readonly LevelSample[],
   excludeKey?: string,
+  stretch = TYPICAL_STRETCH,
 ): number {
   const tierCeiling = realisticTargetAch(levelValue, baseLevel)
   if (!samples || samples.length === 0) return tierCeiling
@@ -105,7 +108,7 @@ export function realisticTargetAchFor(
   const typical = typicalAchievement(levelValue, samples, excludeKey)
   if (typical === null) return tierCeiling
 
-  return Math.min(tierCeiling, Math.min(typical + TYPICAL_STRETCH, MAX_ACHIEVEMENTS))
+  return Math.min(tierCeiling, Math.min(typical + stretch, MAX_ACHIEVEMENTS))
 }
 
 /**

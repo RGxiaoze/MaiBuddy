@@ -6,6 +6,7 @@ function makeStat(overrides: Partial<ChartStatSummary> = {}): ChartStatSummary {
   return {
     avg: 98, stdDev: 3, sssRate: 0.1, sssPlusRate: 0.2, cumSssRate: 0.3,
     apRate: 0.01, diffFromLevelAvg: 0, fitDiff: 13,
+    sampleCount: 500, reliable: true,
     ...overrides,
   }
 }

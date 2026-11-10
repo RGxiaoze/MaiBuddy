@@ -8,7 +8,7 @@ import type { Song } from '@/types'
 import type { ChartStatSummary } from '@/services/statsService'
 import { type B50Result } from './b50'
 import { computeRating } from './rating'
-import { classifyDifficulty, realisticTargetAchFor, type LevelSample } from './difficultyTier'
+import { classifyDifficulty, realisticTargetAchFor, TYPICAL_STRETCH, TYPICAL_STRETCH_B15, type LevelSample } from './difficultyTier'
 import { isChartExcluded } from '@/data/excluded-charts'
 import { predictLevelToAch } from './regression'
 import {
@@ -52,6 +52,8 @@ export interface PushSuggestion {
   apGain?: PushGain
   /** Precision: 'precise' when player achievement is known; 'estimated' otherwise */
   precision: 'precise' | 'estimated'
+  /** 全服样本是否可信；false 表示样本偏斜（隐藏区域等），排序时靠后 */
+  reliable?: boolean
 }
 
 export interface PushSuggestionsResult {
@@ -118,9 +120,10 @@ function makeSuggestion(
   samples: readonly LevelSample[],
   excludeKey?: string,
   targetCeiling?: number,
+  stretch = TYPICAL_STRETCH,
 ): PushSuggestion {
   const ceiling = Math.min(
-    realisticTargetAchFor(levelValue, mode, samples, excludeKey),
+    realisticTargetAchFor(levelValue, mode, samples, excludeKey, stretch),
     targetCeiling ?? MAX_ACHIEVEMENTS,
   )
   const gains: PushGain[] = targetLevels.map((targetAch) => {
@@ -286,6 +289,8 @@ export function computePushSuggestions(
       const lv = diff.levelValue
       if (lv <= 0) continue
       const isNew = song.isNew
+      // B15（新版本）池子小、样本偏斜，目标拉伸更保守
+      const stretch = isNew ? TYPICAL_STRETCH_B15 : TYPICAL_STRETCH
 
       // Filter: in stretch zone OR already in B50
       // 破顶候选（B1+0.2 ~ B1+0.4）先放行，稍后按拟合定数判定是否「特简单」
@@ -323,6 +328,8 @@ export function computePushSuggestions(
       // 且目标封顶在鸟（100.0%），避免「推上去也打不到」。
       let targetCeiling: number | undefined
       if (!inB50.has(key) && capBase !== null && lv > capBase) {
+        // 隐藏/联动区域的谱样本偏斜，fit_diff 会被低估 —— 不可信的样本不给破顶
+        if (stats && stats.reliable === false) continue
         if (!isSimpleChart(lv, stats?.fitDiff)) continue
         targetCeiling = SIMPLE_TARGET_FLOOR
       }
@@ -338,7 +345,7 @@ export function computePushSuggestions(
           classifyDifficulty(
             { levelValue: lv, achievements: currentAch } as ScoreRecord,
             stats,
-            realisticTargetAchFor(lv, mode, b50Samples, key),
+            realisticTargetAchFor(lv, mode, b50Samples, key, stretch),
           ),
           stats?.sssPlusRate ?? 0,
           stats?.apRate ?? 0,
@@ -349,7 +356,9 @@ export function computePushSuggestions(
           b50Samples,
           key,
           targetCeiling,
+          stretch,
         )
+        cand.reliable = stats?.reliable !== false
         // Only add if at least one gain > 0 (or AP gain exists)
         if (cand.gains.some(g => g.ratingGain > 0) || (cand.apGain && cand.apGain.ratingGain > 0)) {
           suggestions.push(cand)
@@ -361,7 +370,7 @@ export function computePushSuggestions(
         const pool = currentB50.best35.some(e => `${e.songId}-${e.levelIndex}` === key) ? 'b35' as const : 'b15' as const
 
         // Calculate gains against current rating (improving this score)
-        const realistic = realisticTargetAchFor(lv, mode, b50Samples, key)
+        const realistic = realisticTargetAchFor(lv, mode, b50Samples, key, stretch)
         // 已有成绩已超过「现实目标」时，说明模型低估了玩家在此定数的水平，
         // 不再把目标向下截断——否则「100.24% 打到 100.0 目标」会被判为无提升空间。
         const capFor = (targetAch: number) =>
@@ -377,7 +386,7 @@ export function computePushSuggestions(
         // AP gain for floor entry — compute before filter check
         let floorApGain: PushGain | undefined
         if (lifts[2].ratingGain === 0) {
-          const cappedTarget = Math.min(realisticTargetAchFor(lv, mode, b50Samples, key), MAX_ACHIEVEMENTS)
+          const cappedTarget = Math.min(realisticTargetAchFor(lv, mode, b50Samples, key, stretch), MAX_ACHIEVEMENTS)
           const apRatingFloor = computeRating(lv, cappedTarget, 'ap')
           const apGainFloor = Math.max(0, apRatingFloor - currentRating)
           if (apGainFloor > 0) {
@@ -406,6 +415,7 @@ export function computePushSuggestions(
             gains: lifts as [PushGain, PushGain, PushGain],
             apGain: floorApGain,
             precision,
+            reliable: stats?.reliable !== false,
           })
         }
       }
@@ -433,6 +443,10 @@ export function computePushSuggestions(
     const aScore = aGain * (1 + a.sssPlusRate * SSSP_SORT_WEIGHT)
     const bScore = bGain * (1 + b.sssPlusRate * SSSP_SORT_WEIGHT)
     if (Math.abs(bScore - aScore) < SUGGESTION_SORT_TOLERANCE) {
+      // 同收益时：样本偏斜（隐藏区域等）的谱靠后，再按定数降序
+      const aUnreliable = a.reliable === false ? 1 : 0
+      const bUnreliable = b.reliable === false ? 1 : 0
+      if (aUnreliable !== bUnreliable) return aUnreliable - bUnreliable
       return b.levelValue - a.levelValue
     }
     return bScore - aScore
