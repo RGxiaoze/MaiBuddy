@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-11",
     "commits": [
       {
+        "hash": "874d92d",
+        "type": "feat",
+        "message": "曲库支持按拟合定数筛选",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "ddf08e5",
         "type": "feat",
         "message": "变更日志过滤已下线板块的提交",
