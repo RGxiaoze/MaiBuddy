@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import { computeRating, AP_RATING_BONUS_ENABLED } from '@/utils/rating'
 import { computeB50, computeTheoreticalMaxRating, computeTheoreticalMaxBoth } from '@/utils/b50'
-import { allowBreakCap, applyLevelQuota, computePushSuggestions, computeRecommendCaps, isSimpleChart } from '@/utils/pushSuggestions'
+import { applyLevelQuota, computePushSuggestions, computeRecommendCaps, isSimpleChart } from '@/utils/pushSuggestions'
 import type { PushSuggestion } from '@/utils/pushSuggestions'
 import { SIMPLE_TARGET_FLOOR } from '@/config/algorithms'
 import type { ScoreRecord } from '@/db/database'
@@ -461,16 +461,12 @@ describe('computePushSuggestions', () => {
     expect(setupWithCandidate(14.5, { fitDiff: 14.0 }).find(s => s.songId === 999)).toBeUndefined()
   })
 
-  it('样本不可信时放行破顶（目标仍由 ceiling 封顶在鸟）', () => {
-    expect(allowBreakCap(14.3, { reliable: false })).toBe(true)
-    // 即使 fit_diff 看起来「不简单」，不可信样本也不据此排除
-    expect(allowBreakCap(14.3, { reliable: false, fitDiff: 14.2 })).toBe(true)
-  })
-
-  it('样本可信时仍按「特简单」判定破顶', () => {
-    expect(allowBreakCap(14.3, { reliable: true, fitDiff: 14.0 })).toBe(true)
-    expect(allowBreakCap(14.3, { reliable: true, fitDiff: 14.2 })).toBe(false)
-    expect(allowBreakCap(14.3, undefined)).toBe(false)
+  it('破顶只认「特简单」，与样本是否可信无关', () => {
+    // 不可信样本的 fit_diff 本身偏斜，不能据此越级 —— 这类谱仍可进普通候选，
+    // 只是不参与破顶（此前对不可信样本无条件放行，导致 14.38 的谱被推到鸟）
+    expect(isSimpleChart(14.3, 14.0)).toBe(true)
+    expect(isSimpleChart(14.3, 14.2)).toBe(false)
+    expect(isSimpleChart(14.3, undefined)).toBe(false)
   })
 
   // ---- 上限与「特简单」判定（纯函数） ----

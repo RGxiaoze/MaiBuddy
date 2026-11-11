@@ -19,7 +19,7 @@ import { formatDesignerName } from '@/data/designer-aliases'
 import { useBackgroundStore } from '@/store/backgroundStore'
 import { formatVersionLabel } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
-import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff, getRateRank } from '@/services/statsService'
+import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff, computeSssFitDiffRaw, getRateRank } from '@/services/statsService'
 
 export default function SongDetail() {
   const { songId } = useParams<{ songId: string }>()
@@ -137,6 +137,14 @@ export default function SongDetail() {
   const sssFit = useMemo(
     () => (chartStats && currentDiff
       ? computeSssFitDiff(chartStats, officialLevelAvg, currentDiff.levelValue)
+      : null),
+    [chartStats, officialLevelAvg, currentDiff?.levelValue],
+  )
+
+  // 同上，但取校正前的原始值，供并列展示
+  const sssFitRaw = useMemo(
+    () => (chartStats && currentDiff
+      ? computeSssFitDiffRaw(chartStats, officialLevelAvg, currentDiff.levelValue)
       : null),
     [chartStats, officialLevelAvg, currentDiff?.levelValue],
   )
@@ -306,24 +314,32 @@ export default function SongDetail() {
             </div>
 
             {chartStats?.fitDiff != null && (
-              <div className="sm:col-span-2 flex items-center gap-2 flex-wrap">
-                <span className="text-text-secondary">拟合定数：</span>
+              <div className="sm:col-span-2 flex items-center gap-1.5 flex-wrap">
+                <span className="text-text-secondary">拟合定数</span>
                 <strong className="text-base text-primary tabular-nums">{chartStats.fitDiff.toFixed(2)}</strong>
                 <span className="text-[11px] text-text-tertiary">SSS+ 口径</span>
                 {chartStats.fitDiffRaw != null && chartStats.installYear != null &&
                   Math.abs(chartStats.fitDiff - chartStats.fitDiffRaw) > 0.005 && (
                   <span className="text-[11px] text-text-tertiary">
-                    （原始 {chartStats.fitDiffRaw.toFixed(2)}，
-                    按 {chartStats.installYear} 实装校正
-                    {chartStats.fitDiff >= chartStats.fitDiffRaw ? ' +' : ' '}
-                    {(chartStats.fitDiff - chartStats.fitDiffRaw).toFixed(2)}）
+                    ＝ 水鱼 {chartStats.fitDiffRaw.toFixed(2)}
+                    {chartStats.fitDiff >= chartStats.fitDiffRaw ? ' + ' : ' − '}
+                    {Math.abs(chartStats.fitDiff - chartStats.fitDiffRaw).toFixed(2)}
+                    （{chartStats.installYear} 实装校正）
                   </span>
                 )}
                 {sssFit != null && (
                   <>
-                    <span className="text-text-tertiary">/</span>
+                    <span className="text-text-tertiary mx-1">·</span>
                     <strong className="text-base text-primary tabular-nums">{sssFit.toFixed(2)}</strong>
                     <span className="text-[11px] text-text-tertiary">SSS 口径</span>
+                    {sssFitRaw != null && chartStats.installYear != null &&
+                      Math.abs(sssFit - sssFitRaw) > 0.005 && (
+                      <span className="text-[11px] text-text-tertiary">
+                        ＝ 自算 {sssFitRaw.toFixed(2)}
+                        {sssFit >= sssFitRaw ? ' + ' : ' − '}
+                        {Math.abs(sssFit - sssFitRaw).toFixed(2)}
+                      </span>
+                    )}
                   </>
                 )}
                 {chartStats.sampleCount != null && (

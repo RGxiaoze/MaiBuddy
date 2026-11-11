@@ -106,7 +106,16 @@ export const SSS_FIT_MIN_LEVEL = 12
  *
  * @returns SSS 口径定数；定数低于 12 或样本不足时返回 null
  */
-export function computeSssFitDiff(
+/**
+ * 「SSS 口径拟合定数」的**未校正**值。
+ *
+ * 社区 fit_diff 主要由 SSS+ 率驱动（相关 -0.81），几乎不反映 SSS 难度
+ * （与本谱 SSS 率相关仅 -0.16）。这里改用「达到 SSS 及以上」的比例相对
+ * 同官方定数档的偏差来估算。
+ *
+ * @returns SSS 口径定数；定数低于 12 或样本不足时返回 null
+ */
+export function computeSssFitDiffRaw(
   chartStat: ChartStatSummary | undefined,
   officialLevelAvg: FitDiffAvg | undefined,
   officialLevelValue: number,
@@ -115,9 +124,21 @@ export function computeSssFitDiff(
   if (officialLevelValue < SSS_FIT_MIN_LEVEL) return null
   if (officialLevelAvg.chartCount < 3) return null
   const deviation = chartStat.cumSssRate - officialLevelAvg.cumSssRate
-  const raw = officialLevelValue + SSS_FIT_SLOPE * deviation
-  // SSS 口径同样存在新曲偏移，按实装年校正
-  const year = chartStat.installYear ?? null
+  return officialLevelValue + SSS_FIT_SLOPE * deviation
+}
+
+/**
+ * 「SSS 口径拟合定数」，已按实装年校正。
+ * 详情页需要并列展示原始值，请配合 `computeSssFitDiffRaw` 使用。
+ */
+export function computeSssFitDiff(
+  chartStat: ChartStatSummary | undefined,
+  officialLevelAvg: FitDiffAvg | undefined,
+  officialLevelValue: number,
+): number | null {
+  const raw = computeSssFitDiffRaw(chartStat, officialLevelAvg, officialLevelValue)
+  if (raw === null) return null
+  const year = chartStat?.installYear ?? null
   const correction = year !== null ? (SSS_FIT_YEAR_CORRECTION[year] ?? 0) : 0
   return raw + correction
 }

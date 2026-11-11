@@ -19,6 +19,34 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-11",
     "commits": [
       {
+        "hash": "9b4b1fc",
+        "type": "feat",
+        "message": "详情页版本改用国服口径，旧框曲沿用日服名",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "20b8071",
+        "type": "fix",
+        "message": "实装年数据在 dev 环境下加载失败导致校正失效",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
+        "hash": "8a2562d",
+        "type": "feat",
+        "message": "拟合定数按实装年校正，早期曲标为不可信",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "a20b0d6",
+        "type": "feat",
+        "message": "补齐版本映射并生成实装年数据",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "5f7dc05",
         "type": "feat",
         "message": "AWMC 支持全量抓取，新增人工评审页生成脚本",

@@ -106,20 +106,6 @@ export function isSimpleChart(levelValue: number, fitDiff?: number): boolean {
   return Math.round((levelValue - fitDiff) * 10) / 10 >= SIMPLE_FIT_DIFF_GAP
 }
 
-/**
- * 超过硬上限（B1+0.2）的谱面是否仍允许进入候选。
- *
- * 样本不可信时 fit_diff 本身偏斜，无法判断是否「特简单」——
- * 此时放行，但目标由调用方封顶在鸟，避免给出打不到的目标。
- */
-export function allowBreakCap(
-  levelValue: number,
-  stats?: { fitDiff?: number; reliable?: boolean },
-): boolean {
-  if (stats?.reliable === false) return true
-  return isSimpleChart(levelValue, stats?.fitDiff)
-}
-
 const DIFF_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 }
 
 /** 单池内的推荐排序：非 AP 按 SSS+ 收益降序，AP 条目统一排在后 */
@@ -415,9 +401,10 @@ export function computePushSuggestions(
       // 且目标封顶在鸟（100.0%），避免「推上去也打不到」。
       let targetCeiling: number | undefined
       if (!inB50.has(key) && capBase !== null && lv > capBase) {
-        // 样本不可信时 fit_diff 靠不住，无法判断是否「特简单」：
-        // 不再直接排除，而是放行并把目标同样封顶在鸟，排序阶段再降权
-        if (!allowBreakCap(lv, stats)) continue
+        // 破顶依赖 fit_diff 判断「是否特简单」。样本不可信时 fit_diff 本身偏斜，
+        // 不能据此越级 —— 这类谱仍可进普通候选（由上面的 capSimple 筛选），
+        // 只是不参与破顶。此前对不可信样本无条件放行，导致 14.38 的谱被推到鸟。
+        if (!isSimpleChart(lv, stats?.fitDiff)) continue
         targetCeiling = SIMPLE_TARGET_FLOOR
       }
 
