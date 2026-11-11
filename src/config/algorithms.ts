@@ -112,10 +112,13 @@ export const FIT_DIFF_YEAR_CORRECTION: Record<number, number> = {
 /**
  * 各实装年对 SSS 口径拟合的校正量。
  * 项目自算的 SSS 拟合与 fit_diff 方向一致但幅度小约 40%
- * （2026 −0.149 vs −0.241），且老曲端偏正（2020 +0.038）。
+ * （2026 −0.149 vs −0.241）。
+ *
+ * 不设 2020：installYear 取「首次出现定数的年份」，旧框曲移植到国服 DX 后
+ * 全部落在 2020，使该桶被老谱占满（Expert+ 的 1295 条中 1116 条是移植谱）。
+ * 老谱不吃 DX 世代的年度校正。
  */
 export const SSS_FIT_YEAR_CORRECTION: Record<number, number> = {
-  2020: -0.04,
   2024: 0.05,
   2026: 0.15,
 }

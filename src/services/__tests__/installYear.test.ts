@@ -40,8 +40,13 @@ describe('拟合定数的版本校正常量', () => {
   it('SSS 口径的校正幅度小于 fit_diff（斜率更平）', () => {
     expect(SSS_FIT_YEAR_CORRECTION[2026]).toBe(0.15)
     expect(SSS_FIT_YEAR_CORRECTION[2026]!).toBeLessThan(FIT_DIFF_YEAR_CORRECTION[2026]!)
-    // 老曲端方向相反：SSS 口径偏正，需要减回去
-    expect(SSS_FIT_YEAR_CORRECTION[2020]).toBe(-0.04)
+  })
+
+  it('2020 不校正：该年 Expert+ 的 1295 条里 1116 条是旧框移植老谱', () => {
+    // installYear 取「首次出现定数的年份」，旧框曲移植到国服 DX 后统一落在 2020，
+    // 使 2020 桶被老谱占满（DP 无法区分 DX 首发与移植）。
+    // 老谱制谱思路与 DX 世代不同，不该套用 DX 世代的年度校正。
+    expect(SSS_FIT_YEAR_CORRECTION[2020]).toBeUndefined()
   })
 
   it('早期曲阈值是 GreeN PLUS（210）', () => {
