@@ -7,7 +7,19 @@ import type { Song, ChartDifficulty } from '@/types'
 import { fetchMusicData } from '@/services/divingFishApi'
 import { getCachedSongs, setCachedSongs, db, getSetting, setSetting, SONG_CACHE_TTL_MS } from '@/db/database'
 import { searchAliases, getAliasIndex } from '@/data/aliases'
-import { VERSION_ORDER } from '@/data/versions'
+import { VERSION_ORDER, formatVersionLabel } from '@/data/versions'
+import { getInstallYear } from '@/services/installYearService'
+
+/**
+ * 曲目的版本展示标签，供筛选与列表统一使用。
+ *
+ * DX 时代取国服实装年对应的版本名（舞萌DX 20XX），旧框沿用日服名。
+ * 实装年数据未加载时退回 `song.from`，不影响筛选可用性。
+ */
+export function songVersionLabel(song: { id: number; from: string; version: number }): string {
+  const year = getInstallYear(song.id, 3) ?? getInstallYear(song.id, 2) ?? getInstallYear(song.id, 4)
+  return formatVersionLabel(song.from, song.version, year)
+}
 import { forceRefreshStats } from '@/services/statsService'
 import { UTAGE_ID_THRESHOLD } from '@/config/algorithms'
 import { sortSongs, type SongScoreStat } from '@/utils/songSort'
@@ -214,8 +226,8 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
       // Genre 精确匹配
       if (advancedFilters.genre && song.genre !== advancedFilters.genre) return false
 
-      // Version 多选
-      if (advancedFilters.versions?.length && !advancedFilters.versions.includes(song.from)) return false
+      // Version 多选（按展示口径匹配：DX 时代用国服版本名，旧框沿用日服名）
+      if (advancedFilters.versions?.length && !advancedFilters.versions.includes(songVersionLabel(song))) return false
 
       // DifficultyLevel / LevelValue / Level 三个条件都是「谱面级」的，
       // 必须由**同一个谱面**同时满足：

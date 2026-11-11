@@ -314,51 +314,83 @@ export default function SongDetail() {
             </div>
 
             {chartStats?.fitDiff != null && (
-              <div className="sm:col-span-2 flex items-center gap-1.5 flex-wrap">
-                <span className="text-text-secondary">拟合定数</span>
-                <strong className="text-base text-primary tabular-nums">{chartStats.fitDiff.toFixed(2)}</strong>
-                <span className="text-[11px] text-text-tertiary">SSS+ 口径</span>
-                {chartStats.fitDiffRaw != null && chartStats.installYear != null &&
-                  Math.abs(chartStats.fitDiff - chartStats.fitDiffRaw) > 0.005 && (
-                  <span className="text-[11px] text-text-tertiary">
-                    ＝ 水鱼 {chartStats.fitDiffRaw.toFixed(2)}
-                    {chartStats.fitDiff >= chartStats.fitDiffRaw ? ' + ' : ' − '}
-                    {Math.abs(chartStats.fitDiff - chartStats.fitDiffRaw).toFixed(2)}
-                    （{chartStats.installYear} 实装校正）
-                  </span>
-                )}
-                {sssFit != null && (
-                  <>
-                    <span className="text-text-tertiary mx-1">·</span>
-                    <strong className="text-base text-primary tabular-nums">{sssFit.toFixed(2)}</strong>
-                    <span className="text-[11px] text-text-tertiary">SSS 口径</span>
-                    {sssFitRaw != null && chartStats.installYear != null &&
-                      Math.abs(sssFit - sssFitRaw) > 0.005 && (
-                      <span className="text-[11px] text-text-tertiary">
-                        ＝ 自算 {sssFitRaw.toFixed(2)}
-                        {sssFit >= sssFitRaw ? ' + ' : ' − '}
-                        {Math.abs(sssFit - sssFitRaw).toFixed(2)}
-                      </span>
-                    )}
-                  </>
-                )}
-                {chartStats.sampleCount != null && (
-                  chartStats.reliable === false ? (
-                    <span className="text-[11px] text-warning" title="该谱只在特定区域/联动中可玩，样本多为已解锁的熟练玩家，拟合定数会偏低">
-                      样本 {Math.round(chartStats.sampleCount)} · 参考价值有限
-                    </span>
-                  ) : (
-                    <span className="text-[11px] text-text-tertiary">样本 {Math.round(chartStats.sampleCount)}</span>
+              <div className="sm:col-span-2">
+                {(() => {
+                  const official = currentDiff.levelValue
+                  const color = (v: number) => {
+                    const d = official - v
+                    if (d >= 0.3) return 'text-success'
+                    if (d <= -0.3) return 'text-error'
+                    return 'text-primary'
+                  }
+                  const fitCorr = chartStats.fitDiffRaw != null
+                    && chartStats.installYear != null
+                    && Math.abs(chartStats.fitDiff - chartStats.fitDiffRaw) > 0.005
+                  const sssCorr = sssFit != null && sssFitRaw != null
+                    && chartStats.installYear != null
+                    && Math.abs(sssFit - sssFitRaw) > 0.005
+                  return (
+                    <details className="group">
+                      <summary className="list-none cursor-pointer flex items-center gap-1.5 flex-wrap">
+                        <span className="text-text-secondary">拟合定数</span>
+                        <strong className={`text-base tabular-nums ${color(chartStats.fitDiff)}`}>
+                          {chartStats.fitDiff.toFixed(2)}
+                        </strong>
+                        <span className="text-[11px] text-text-tertiary">SSS+</span>
+                        {sssFit != null && (
+                          <>
+                            <strong className={`text-base tabular-nums ml-1 ${color(sssFit)}`}>
+                              {sssFit.toFixed(2)}
+                            </strong>
+                            <span className="text-[11px] text-text-tertiary">SSS</span>
+                          </>
+                        )}
+                        {(fitCorr || sssCorr) && (
+                          <span className="text-[11px] text-text-tertiary group-open:hidden">详情 ▾</span>
+                        )}
+                      </summary>
+                      {(fitCorr || sssCorr) && (
+                        <div className="mt-1.5 space-y-0.5 text-[11px] text-text-tertiary">
+                          {fitCorr && (
+                            <div>
+                              SSS+：水鱼 {chartStats.fitDiffRaw!.toFixed(2)}
+                              {chartStats.fitDiff >= chartStats.fitDiffRaw! ? ' + ' : ' − '}
+                              {Math.abs(chartStats.fitDiff - chartStats.fitDiffRaw!).toFixed(2)}
+                              （{chartStats.installYear} 实装校正）
+                            </div>
+                          )}
+                          {sssCorr && (
+                            <div>
+                              SSS：自算 {sssFitRaw!.toFixed(2)}
+                              {sssFit! >= sssFitRaw! ? ' + ' : ' − '}
+                              {Math.abs(sssFit! - sssFitRaw!).toFixed(2)}
+                              （{chartStats.installYear} 实装校正）
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </details>
                   )
-                )}
-                {(song?.version ?? 0) > 0 && (song?.version ?? 0) <= EARLY_VERSION_MAX && (
-                  <span
-                    className="text-[11px] text-warning"
-                    title="GreeN PLUS 及以前实装的早期谱面，制谱思路尚未规范化、配置少见不规律，水鱼拟合的异常率是后期的 3 倍"
-                  >
-                    早期谱面 · 拟合参考价值有限
-                  </span>
-                )}
+                })()}
+                <div className="mt-1 flex items-center gap-2 flex-wrap">
+                  {chartStats.sampleCount != null && (
+                    chartStats.reliable === false ? (
+                      <span className="text-[11px] text-warning" title="该谱只在特定区域/联动中可玩，样本多为已解锁的熟练玩家，拟合定数会偏低">
+                        样本 {Math.round(chartStats.sampleCount)} · 参考价值有限
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-text-tertiary">样本 {Math.round(chartStats.sampleCount)}</span>
+                    )
+                  )}
+                  {(song?.version ?? 0) > 0 && (song?.version ?? 0) <= EARLY_VERSION_MAX && (
+                    <span
+                      className="text-[11px] text-warning"
+                      title="GreeN PLUS 及以前实装的早期谱面，制谱思路尚未规范化、配置少见不规律，水鱼拟合的异常率是后期的 3 倍"
+                    >
+                      早期谱面 · 拟合参考价值有限
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 

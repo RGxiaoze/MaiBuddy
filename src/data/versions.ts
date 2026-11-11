@@ -82,15 +82,15 @@ export function getVersionDisplay(from: string): string {
   return VERSION_DISPLAY[from] ?? from
 }
 
-/** 国服年份 → 国服版本显示名（与 CN_VERSION_ORDER 的键保持一致） */
+/** 国服年份 → 国服版本显示名（统一「舞萌DX 20XX」格式） */
 const CN_YEAR_LABEL: Record<number, string> = {
   2020: '舞萌DX',
   2021: '舞萌DX 2021',
   2022: '舞萌DX 2022',
   2023: '舞萌DX 2023',
-  2024: '舞萌2024',
-  2025: '舞萌2025',
-  2026: '舞萌2026',
+  2024: '舞萌DX 2024',
+  2025: '舞萌DX 2025',
+  2026: '舞萌DX 2026',
 }
 
 /**

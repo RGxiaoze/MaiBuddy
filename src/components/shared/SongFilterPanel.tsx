@@ -6,10 +6,10 @@
 // ============================================================
 
 import { useMemo } from 'react'
-import { useSongStore } from '@/store/songStore'
+import { useSongStore, songVersionLabel } from '@/store/songStore'
 import MultiSelect from './MultiSelect'
 import { LEVEL_INDEX_MAP } from '@/data/constants'
-import { VERSION_ORDER, getVersionDisplay } from '@/data/versions'
+import { VERSION_ORDER } from '@/data/versions'
 
 /** 定数下拉选项：1.0 ~ 15.0，按整数分组 */
 const LEVEL_VALUE_GROUPS: { label: string; values: number[] }[] = (() => {
@@ -36,8 +36,19 @@ export default function SongFilterPanel() {
   const resetFilters = useSongStore((s) => s.resetFilters)
 
   const versions = useMemo(() => {
-    const set = new Set(songs.map((s) => s.from).filter(Boolean))
-    return [...set].sort((a, b) => (VERSION_ORDER.get(a) ?? 0) - (VERSION_ORDER.get(b) ?? 0))
+    const set = new Set<string>()
+    for (const s of songs) {
+      if (s.from) set.add(songVersionLabel(s))
+    }
+    // 旧框（日服名）按 VERSION_ORDER 排前面，国服版本按年份排后面
+    const rank = (label: string): number => {
+      const jp = VERSION_ORDER.get(label)
+      if (jp !== undefined) return jp
+      const m = label.match(/^舞萌DX(?: (\d{4}))?$/)
+      if (m) return 8000 + (m[1] ? Number(m[1]) - 2020 : 0)
+      return 9999
+    }
+    return [...set].sort((a, b) => rank(a) - rank(b))
   }, [songs])
 
   const genres = useMemo(() => {
@@ -118,7 +129,7 @@ export default function SongFilterPanel() {
           版本
           <MultiSelect
             placeholder="全部版本"
-            options={versions.map((v) => ({ value: v, label: getVersionDisplay(v) }))}
+            options={versions.map((v) => ({ value: v, label: v }))}
             selected={advancedFilters.versions ?? []}
             onChange={(next) => setAdvancedFilters({ versions: next.length > 0 ? next : undefined })}
           />

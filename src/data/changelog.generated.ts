@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-11",
     "commits": [
       {
+        "hash": "e32ed27",
+        "type": "fix",
+        "message": "收回不可信样本的破顶放行，拟合定数展示区分来源",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "9b4b1fc",
         "type": "feat",
         "message": "详情页版本改用国服口径，旧框曲沿用日服名",
