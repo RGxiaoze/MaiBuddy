@@ -5,11 +5,12 @@
 // 所以两个页面天然共享同一份筛选条件。
 // ============================================================
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSongStore, songVersionLabel } from '@/store/songStore'
 import MultiSelect from './MultiSelect'
 import { LEVEL_INDEX_MAP } from '@/data/constants'
 import { VERSION_ORDER } from '@/data/versions'
+import { isInstallYearLoaded, loadInstallYear } from '@/services/installYearService'
 
 /** 定数下拉选项：1.0 ~ 15.0，按整数分组 */
 const LEVEL_VALUE_GROUPS: { label: string; values: number[] }[] = (() => {
@@ -35,21 +36,30 @@ export default function SongFilterPanel() {
   const setAdvancedFilters = useSongStore((s) => s.setAdvancedFilters)
   const resetFilters = useSongStore((s) => s.resetFilters)
 
+  // 版本筛选依赖实装年数据（DX 时代用国服版本名）。
+  // 曲库页不会调用 loadStats，必须在这里主动加载，否则会回退到日服版本名。
+  const [yearReady, setYearReady] = useState(isInstallYearLoaded())
+  useEffect(() => {
+    if (yearReady) return
+    loadInstallYear().then(() => setYearReady(isInstallYearLoaded()))
+  }, [yearReady])
+
   const versions = useMemo(() => {
     const set = new Set<string>()
     for (const s of songs) {
       if (s.from) set.add(songVersionLabel(s))
     }
-    // 旧框（日服名）按 VERSION_ORDER 排前面，国服版本按年份排后面
+    // 旧框（日服名）按 VERSION_ORDER 排在前面，国服版本按年份排在后面。
+    // 注意必须**先**解析国服年份：VERSION_ORDER 里残留 '舞萌DX 2021/2022/2023'
+    // 这类旧键（值为 8020/8030/8040），与年份编号不连续，混用会导致排序错乱。
     const rank = (label: string): number => {
-      const jp = VERSION_ORDER.get(label)
-      if (jp !== undefined) return jp
       const m = label.match(/^舞萌DX(?: (\d{4}))?$/)
       if (m) return 8000 + (m[1] ? Number(m[1]) - 2020 : 0)
-      return 9999
+      return VERSION_ORDER.get(label) ?? 9999
     }
     return [...set].sort((a, b) => rank(a) - rank(b))
-  }, [songs])
+    // yearReady 变化时重新计算：实装年加载完成后标签会从日服名切到国服名
+  }, [songs, yearReady])
 
   const genres = useMemo(() => {
     const set = new Set(songs.map((s) => s.genre).filter(Boolean))

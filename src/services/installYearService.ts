@@ -31,7 +31,9 @@ export async function loadInstallYear(): Promise<void> {
         : new TextDecoder().decode(u8)
       _map = JSON.parse(text) as Record<string, number>
     } catch {
-      _map = {}
+      // 失败时**不缓存空表**：此前 `_map = {}` 会让后续调用直接返回，
+      // 一次网络抖动就永久降级成「没有实装年数据」，版本名全部退回日服口径。
+      _loadPromise = null
     }
   })()
   return _loadPromise

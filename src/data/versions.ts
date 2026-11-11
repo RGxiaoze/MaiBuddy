@@ -34,6 +34,7 @@ const JP_VERSION_ORDER: Record<string, number> = {
   'maimai MURASAKi PLUS':     510,
   'maimai MiLK':              600,
   'MiLK PLUS':                610,
+  'maimai MiLK PLUS':         610,   // 展示名带前缀，排序时也要能查到
   'maimai FiNALE':            700,
   'maimai でらっくす':         800,
   'maimai でらっくす Splash':   820,
@@ -94,6 +95,21 @@ const CN_YEAR_LABEL: Record<number, string> = {
 }
 
 /**
+ * 日服版本 → 国服实装年的兜底映射。
+ *
+ * 仅在 install-year 查不到时使用（2025 年实装的曲缺少数据）。
+ * 国服版本与日服版本的对应关系来自实际运营节奏，不保证逐首精确 ——
+ * 它的作用只是让筛选列表归入国服版本桶，而不是残留日服版本名。
+ */
+const JP_TO_CN_YEAR: Record<number, number> = {
+  800: 2020, 810: 2020, 820: 2020, 830: 2020,   // でらっくす ~ Splash PLUS
+  840: 2021, 850: 2021,                          // UNiVERSE
+  860: 2022, 870: 2022,                          // FESTiVAL
+  880: 2023, 890: 2023,                          // BUDDiES
+  900: 2025, 910: 2026,                          // PRiSM（国服滞后一年）
+}
+
+/**
  * 版本的展示口径。
  *
  * 水鱼的 `from` 是**日服**版本名（如 `maimai でらっくす PRiSM PLUS`），但国服
@@ -110,7 +126,8 @@ const CN_YEAR_LABEL: Record<number, string> = {
 export function formatVersionLabel(from: string, version: number, installYear?: number | null): string {
   // 旧框时期（maimai ~ FiNALE，索引 100~700）：沿用日服分类
   if (version > 0 && version <= 700) return getVersionDisplay(from)
-  // DX 时代：用国服实装年对应的版本名
-  if (installYear && CN_YEAR_LABEL[installYear]) return CN_YEAR_LABEL[installYear]
+  // DX 时代：优先用精确的实装年，缺失时按版本兜底
+  const year = installYear ?? (version > 0 ? JP_TO_CN_YEAR[version] : undefined)
+  if (year && CN_YEAR_LABEL[year]) return CN_YEAR_LABEL[year]
   return getVersionDisplay(from)
 }
