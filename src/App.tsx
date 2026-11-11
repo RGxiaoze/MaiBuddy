@@ -10,6 +10,7 @@ import ErrorBoundary from '@/components/shared/ErrorBoundary'
 import { loadAliasData } from '@/data/aliases'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useDarkMode } from '@/hooks/useDarkMode'
+import { ENABLE_DIMENSION_ANALYSIS } from '@/config/features'
 import './App.css'
 
 // Route-level code splitting — each page loaded on demand
@@ -51,7 +52,9 @@ export default function App() {
           <Route path="/songs" element={<Suspense fallback={<PageLoader />}><SongList /></Suspense>} />
           <Route path="/songs/:songId" element={<Suspense fallback={<PageLoader />}><SongDetail /></Suspense>} />
           <Route path="/player" element={<Suspense fallback={<PageLoader />}><ErrorBoundary title="B50 一览页面渲染出错"><PlayerInfo /></ErrorBoundary></Suspense>} />
-          <Route path="/analysis" element={<Suspense fallback={<PageLoader />}><ErrorBoundary title="五维分析页面渲染出错"><DimensionAnalysis /></ErrorBoundary></Suspense>} />
+          {ENABLE_DIMENSION_ANALYSIS && (
+            <Route path="/analysis" element={<Suspense fallback={<PageLoader />}><ErrorBoundary title="五维分析页面渲染出错"><DimensionAnalysis /></ErrorBoundary></Suspense>} />
+          )}
           <Route path="/recommend" element={<Suspense fallback={<PageLoader />}><ErrorBoundary title="推荐页面渲染出错"><Recommend /></ErrorBoundary></Suspense>} />
           <Route path="/guide" element={<Suspense fallback={<PageLoader />}><Guide /></Suspense>} />
           <Route path="/changelog" element={<Suspense fallback={<PageLoader />}><Changelog /></Suspense>} />

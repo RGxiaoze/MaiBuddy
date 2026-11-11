@@ -5,13 +5,16 @@
 import { useState } from 'react'
 import { NavLink, Link } from 'react-router'
 import { Music, User, BarChart3, BookOpen, ClipboardList, Sparkles } from 'lucide-react'
+import { ENABLE_DIMENSION_ANALYSIS } from '@/config/features'
 import UserInfoCard from './UserInfoCard'
 
 const links = [
   { to: '/songs',    label: '曲目检索',   Icon: Music },
   { to: '/player',   label: '成绩统计',   Icon: User },
   { to: '/recommend', label: '推荐',      Icon: Sparkles },
-  { to: '/analysis', label: '五维分析',   Icon: BarChart3 },
+  ...(ENABLE_DIMENSION_ANALYSIS
+    ? [{ to: '/analysis', label: '五维分析', Icon: BarChart3 }]
+    : []),
   { to: '/guide',     label: '使用指南',   Icon: BookOpen },
   { to: '/changelog', label: '更新记录',   Icon: ClipboardList },
 ]

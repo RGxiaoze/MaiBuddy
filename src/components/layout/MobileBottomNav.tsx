@@ -4,12 +4,15 @@
 
 import { NavLink } from 'react-router'
 import { Music, User, BarChart3, Sparkles } from 'lucide-react'
+import { ENABLE_DIMENSION_ANALYSIS } from '@/config/features'
 
 const tabs = [
   { to: '/songs',    label: '曲目',   Icon: Music },
   { to: '/player',   label: '成绩',   Icon: User },
   { to: '/recommend', label: '推荐',   Icon: Sparkles },
-  { to: '/analysis', label: '分析',   Icon: BarChart3 },
+  ...(ENABLE_DIMENSION_ANALYSIS
+    ? [{ to: '/analysis', label: '分析', Icon: BarChart3 }]
+    : []),
 ]
 
 export default function MobileBottomNav() {

@@ -11,6 +11,7 @@ import {
   BookOpen,
   Heart,
 } from 'lucide-react'
+import { ENABLE_DIMENSION_ANALYSIS } from '@/config/features'
 
 const Section = ({
   icon,
@@ -128,7 +129,8 @@ export default function Guide() {
         </div>
       </Section>
 
-      {/* 五维分析 */}
+      {/* 五维分析 —— 板块未开放时整节不渲染 */}
+      {ENABLE_DIMENSION_ANALYSIS && (
       <Section icon={<Radar size={20} />} title="五维分析">
         <div className="space-y-3 text-sm text-text-secondary leading-relaxed">
           <p>从<span className="font-medium text-text">底力/体力/爆发/定位/技巧</span>五个维度，基于手臂位移量客观评估谱面表现。</p>
@@ -145,6 +147,7 @@ export default function Guide() {
           </p>
         </div>
       </Section>
+      )}
 
       {/* 致谢 */}
       <Section icon={<Heart size={20} />} title="致谢与参考">
