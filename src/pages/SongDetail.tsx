@@ -17,7 +17,7 @@ import { computeDxStar, renderStars } from '@/utils/dxStar'
 import { getAliasesForSong, loadAliasData } from '@/data/aliases'
 import { formatDesignerName } from '@/data/designer-aliases'
 import { useBackgroundStore } from '@/store/backgroundStore'
-import { getVersionDisplay } from '@/data/versions'
+import { formatVersionLabel } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
 import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff, getRateRank } from '@/services/statsService'
 
@@ -229,7 +229,7 @@ export default function SongDetail() {
             <p className="text-xs sm:text-sm text-text-secondary truncate">{song.artist}</p>
             <div className="flex gap-2 sm:gap-3 mt-0.5 text-xs text-text-secondary flex-wrap">
               <span>BPM: <strong className="text-text">{song.bpm}</strong></span>
-              <span>版本: <strong className="text-text">{getVersionDisplay(song.from)}</strong></span>
+              <span>版本: <strong className="text-text">{formatVersionLabel(song.from, song.version, chartStats?.installYear)}</strong></span>
               <span className="hidden sm:inline">分类: <strong className="text-text">{song.genre}</strong></span>
             </div>
             {aliases.length > 0 && (
