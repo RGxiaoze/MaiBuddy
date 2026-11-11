@@ -11,6 +11,14 @@ import MultiSelect from './MultiSelect'
 import { LEVEL_INDEX_MAP } from '@/data/constants'
 import { VERSION_ORDER } from '@/data/versions'
 import { isInstallYearLoaded, loadInstallYear } from '@/services/installYearService'
+import { isStatsLoaded, loadStats } from '@/services/statsService'
+import type { FitDiffSource } from '@/types'
+
+/** 拟合定数的两个口径，标注与详情页一致 */
+const FIT_SOURCES: { value: FitDiffSource; label: string; hint: string }[] = [
+  { value: 'sssPlus', label: 'SSS+', hint: '水鱼 fit_diff：全服达成率拟合出的理论定数' },
+  { value: 'sss', label: 'SSS', hint: '项目自算：以 SSS 达成率为锚点拟合' },
+]
 
 /** 定数下拉选项：1.0 ~ 15.0，按整数分组 */
 const LEVEL_VALUE_GROUPS: { label: string; values: number[] }[] = (() => {
@@ -35,6 +43,7 @@ export default function SongFilterPanel() {
   const advancedFilters = useSongStore((s) => s.advancedFilters)
   const setAdvancedFilters = useSongStore((s) => s.setAdvancedFilters)
   const resetFilters = useSongStore((s) => s.resetFilters)
+  const bumpStatsEpoch = useSongStore((s) => s.bumpStatsEpoch)
 
   // 版本筛选依赖实装年数据（DX 时代用国服版本名）。
   // 曲库页不会调用 loadStats，必须在这里主动加载，否则会回退到日服版本名。
@@ -61,6 +70,26 @@ export default function SongFilterPanel() {
     // yearReady 变化时重新计算：实装年加载完成后标签会从日服名切到国服名
   }, [songs, yearReady])
 
+  // 按拟合定数筛选要读全服统计（chart_stats）。曲库页平时不加载它 ——
+  // 只在勾选了拟合口径时才拉，拉完递增 statsEpoch 让列表重算。
+  const fitSource = advancedFilters.fitDiffSource
+  const [statsReady, setStatsReady] = useState(isStatsLoaded())
+  useEffect(() => {
+    if (!fitSource || statsReady || songs.length === 0) return
+    const officialLevelMap = new Map<string, number>()
+    for (const s of songs) {
+      for (const d of [...s.difficulties.standard, ...s.difficulties.dx]) {
+        if (d.levelValue > 0) officialLevelMap.set(`${s.id}-${d.levelIndex}`, d.levelValue)
+      }
+    }
+    loadStats(officialLevelMap)
+      .then(() => {
+        setStatsReady(isStatsLoaded())
+        if (isStatsLoaded()) bumpStatsEpoch()
+      })
+      .catch(() => setStatsReady(isStatsLoaded()))
+  }, [fitSource, statsReady, songs, bumpStatsEpoch])
+
   const genres = useMemo(() => {
     const set = new Set(songs.map((s) => s.genre).filter(Boolean))
     return [...set].sort()
@@ -81,10 +110,44 @@ export default function SongFilterPanel() {
 
   return (
     <div className="bg-bg-gray border border-border rounded-lg p-4 mb-6 space-y-3">
+      {/* 拟合定数口径：勾选后下面的等级与定数条件改比对拟合值 */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+        <label className="flex items-center gap-1.5 text-text-secondary cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!fitSource}
+            onChange={(e) => setAdvancedFilters({ fitDiffSource: e.target.checked ? 'sssPlus' : undefined })}
+            className="accent-primary"
+          />
+          按拟合定数筛选
+        </label>
+        {fitSource && (
+          <>
+            <div className="flex items-center gap-3">
+              {FIT_SOURCES.map(({ value, label, hint }) => (
+                <label key={value} className="flex items-center gap-1 text-text-secondary cursor-pointer" title={hint}>
+                  <input
+                    type="radio"
+                    name="fit-diff-source"
+                    checked={fitSource === value}
+                    onChange={() => setAdvancedFilters({ fitDiffSource: value })}
+                    className="accent-primary"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <span className="text-text-tertiary">
+              {statsReady ? '等级与定数改为按拟合值匹配' : '全服统计加载中…'}
+            </span>
+          </>
+        )}
+      </div>
+
       {/* 等级（官标档位） */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <label className="flex flex-col gap-1 text-xs text-text-secondary">
-          等级
+          {fitSource ? '拟合等级' : '等级'}
           <select
             value={advancedFilters.level ?? ''}
             onChange={(e) => setAdvancedFilters({ level: e.target.value || undefined })}
@@ -101,7 +164,7 @@ export default function SongFilterPanel() {
       {/* 定数范围 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <label className="flex flex-col gap-1 text-xs text-text-secondary">
-          最低定数
+          {fitSource ? '拟合最低定数' : '最低定数'}
           <select
             value={advancedFilters.levelValueMin ?? ''}
             onChange={(e) => setAdvancedFilters({ levelValueMin: e.target.value ? parseFloat(e.target.value) : undefined })}
@@ -118,7 +181,7 @@ export default function SongFilterPanel() {
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs text-text-secondary">
-          最高定数
+          {fitSource ? '拟合最高定数' : '最高定数'}
           <select
             value={advancedFilters.levelValueMax ?? ''}
             onChange={(e) => setAdvancedFilters({ levelValueMax: e.target.value ? parseFloat(e.target.value) : undefined })}

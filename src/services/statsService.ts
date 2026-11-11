@@ -7,6 +7,7 @@ import { getCachedStats, setCachedStats } from '@/db/database'
 import { isReliableCount } from '@/utils/sampleReliability'
 import { getInstallYear, loadInstallYear } from './installYearService'
 import { FIT_DIFF_YEAR_CORRECTION, SSS_FIT_YEAR_CORRECTION } from '@/config/algorithms'
+import type { FitDiffSource } from '@/types'
 
 // ---- Precomputed data structures ----
 
@@ -288,6 +289,28 @@ export async function loadStats(officialLevelMap?: Map<string, number>): Promise
 
 export function getChartStats(songId: number, level: string): ChartStatSummary | undefined {
   return _chartStats?.get(`${songId}-${level}`)
+}
+
+/**
+ * 取某谱面在指定口径下的拟合定数。
+ *
+ * - `sssPlus`：水鱼 fit_diff，buildChartStats 时已算入实装年校正
+ * - `sss`：项目自算的 SSS 口径。**不预存在 ChartStatSummary 里**，
+ *   要按官标定数与同档均值实时算 —— 它依赖 officialLevelAvgs，
+ *   而后者只有在 loadStats 收到 officialLevelMap 时才会构建。
+ *
+ * 无统计数据、或该口径不适用（<12 级、同档样本不足）时返回 null。
+ */
+export function getFitDiffValue(
+  songId: number,
+  level: string,
+  levelValue: number,
+  source: FitDiffSource,
+): number | null {
+  const stat = getChartStats(songId, level)
+  if (!stat) return null
+  if (source === 'sssPlus') return stat.fitDiff
+  return computeSssFitDiff(stat, getOfficialLevelAvg(levelValue), levelValue)
 }
 
 export function getLevelAvg(level: string): LevelAvg | undefined {

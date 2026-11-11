@@ -39,6 +39,13 @@ export interface Notes {
 
 // ---- Chart & Song ----
 
+/**
+ * 拟合定数的口径。
+ * - `sssPlus`：水鱼 fit_diff（详情页标 SSS+）
+ * - `sss`：项目自算的 SSS 口径拟合
+ */
+export type FitDiffSource = 'sssPlus' | 'sss'
+
 /** A single chart difficulty within a song */
 export interface ChartDifficulty {
   type: SongType

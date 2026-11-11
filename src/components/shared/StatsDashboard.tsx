@@ -69,6 +69,7 @@ export default function StatsDashboard() {
   const advancedFilters = useSongStore((s) => s.advancedFilters)
   const sortBy = useSongStore((s) => s.sortBy)
   const sortOrder = useSongStore((s) => s.sortOrder)
+  const statsEpoch = useSongStore((s) => s.statsEpoch)
 
   // ---- 常驻 Rating 进度（AP 加成已禁用，扣除历史数据中的加成） ----
   const theoryMax = useMemo(
@@ -155,9 +156,9 @@ export default function StatsDashboard() {
       list = list.filter((s) => scores.some((sc) => sc.songId === s.id && matchRateValue(sc, played)))
     }
     return list
-    // advancedFilters / sortBy / sortOrder 变化时重新计算
+    // advancedFilters / sortBy / sortOrder / statsEpoch 变化时重新计算
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [songs, scores, scoreStats, drill, getFilteredSongs, advancedFilters, sortBy, sortOrder])
+  }, [songs, scores, scoreStats, drill, getFilteredSongs, advancedFilters, sortBy, sortOrder, statsEpoch])
 
   if (!stats) {
     return (

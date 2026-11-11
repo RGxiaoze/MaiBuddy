@@ -129,7 +129,7 @@ export default function SongList() {
     songs, loading, error,
     searchQuery, advancedFilters,
     fetchSongs, setSearchQuery, setAdvancedFilters, getFilteredSongs,
-    sortBy, sortOrder,
+    sortBy, sortOrder, statsEpoch,
   } = useSongStore()
   const importDivingFishScores = usePlayerStore((s) => s.importDivingFishScores)
   const importScoresViaLxns = usePlayerStore((s) => s.importScoresViaLxns)
@@ -251,7 +251,7 @@ export default function SongList() {
         (drillLevel == null || sc.levelIndex === drillLevel)
       ))
     },
-    [songs, deferredSearchQuery, advancedFilters, sortBy, sortOrder, getFilteredSongs, playedFilter, scores, scoreStats]
+    [songs, deferredSearchQuery, advancedFilters, sortBy, sortOrder, getFilteredSongs, playedFilter, scores, scoreStats, statsEpoch]
   )
 
   // 注册本页背景：列表第一首的封面
