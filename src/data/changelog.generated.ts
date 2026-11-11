@@ -19,6 +19,20 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-11",
     "commits": [
       {
+        "hash": "9c607b7",
+        "type": "fix",
+        "message": "版本筛选改用国服口径，修复排序与日服残留",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
+        "hash": "874f7fc",
+        "type": "feat",
+        "message": "拟合定数三色显示 + 详情页折叠布局 + 筛选改用国服版本",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "e32ed27",
         "type": "fix",
         "message": "收回不可信样本的破顶放行，拟合定数展示区分来源",
