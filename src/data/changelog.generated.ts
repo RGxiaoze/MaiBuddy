@@ -19,6 +19,20 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-11",
     "commits": [
       {
+        "hash": "d262dc8",
+        "type": "feat",
+        "message": "暂时隐藏五维分析板块",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "c6c8213",
+        "type": "fix",
+        "message": "旧框移植谱不再套用 2020 年度校正",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "9c607b7",
         "type": "fix",
         "message": "版本筛选改用国服口径，修复排序与日服残留",
