@@ -34,6 +34,10 @@ const typeLabels = {
   fix:  { label: '修复',   color: 'amber' },
 }
 
+// 五维板块暂时下线（见 src/config/features.ts），相关提交不展示在变更日志里。
+// 只影响展示，git 历史本身不动。
+const HIDDEN_KEYWORDS = ['五维']
+
 const entries = []
 const dateMap = new Map()
 
@@ -47,6 +51,7 @@ for (const line of raw.trim().split('\n')) {
   if (!match) continue
 
   const [, type, message] = match
+  if (HIDDEN_KEYWORDS.some((k) => message.includes(k))) continue
 
   if (!dateMap.has(date)) {
     dateMap.set(date, { date, commits: [] })

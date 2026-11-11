@@ -19,13 +19,6 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-11",
     "commits": [
       {
-        "hash": "d262dc8",
-        "type": "feat",
-        "message": "暂时隐藏五维分析板块",
-        "label": "新功能",
-        "color": "green"
-      },
-      {
         "hash": "c6c8213",
         "type": "fix",
         "message": "旧框移植谱不再套用 2020 年度校正",
@@ -218,13 +211,6 @@ export const CHANGELOG: ChangelogEntry[] = [
         "message": "代理不可达时自动展开并聚焦 Import-Token 输入",
         "label": "新功能",
         "color": "green"
-      },
-      {
-        "hash": "5ad5c7d",
-        "type": "fix",
-        "message": "五维特征数据改提交 gzip 版，修复线上加载不到",
-        "label": "修复",
-        "color": "amber"
       },
       {
         "hash": "c0ceffd",
@@ -557,13 +543,6 @@ export const CHANGELOG: ChangelogEntry[] = [
         "message": "个性化推荐 + 成绩管理重构 + 成绩统计页",
         "label": "新功能",
         "color": "green"
-      },
-      {
-        "hash": "8250d2b",
-        "type": "feat",
-        "message": "位移驱动五维特征提取脚本 + 前端数据接入",
-        "label": "新功能",
-        "color": "green"
       }
     ]
   },
@@ -663,47 +642,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         "message": "GitHub Pages 部署 — 修复 workflow 中文关键字 + 生产 API 直连",
         "label": "修复",
         "color": "amber"
-      },
-      {
-        "hash": "ebfd7e4",
-        "type": "feat",
-        "message": "AP +1 Rating加成 + 使用指南五维描述更新",
-        "label": "新功能",
-        "color": "green"
-      },
-      {
-        "hash": "ac6e47d",
-        "type": "fix",
-        "message": "维度说明卡片更新为新的五维描述文案",
-        "label": "修复",
-        "color": "amber"
-      },
-      {
-        "hash": "1a8ab54",
-        "type": "feat",
-        "message": "文案全面优化 — 五维说明/推分路线/适应性分析/定数策略",
-        "label": "新功能",
-        "color": "green"
-      },
-      {
-        "hash": "cdd552e",
-        "type": "feat",
-        "message": "阶段B五维算法 + 阶段C推分优化 + 渲染修复",
-        "label": "新功能",
-        "color": "green"
       }
     ]
   },
   {
     "date": "2026-06-05",
     "commits": [
-      {
-        "hash": "1c41bd4",
-        "type": "feat",
-        "message": "谱面分析知识库研究完成 — 布局建模 + 五维算法定义",
-        "label": "新功能",
-        "color": "green"
-      },
       {
         "hash": "8ca6037",
         "type": "feat",
@@ -787,18 +731,6 @@ export const CHANGELOG: ChangelogEntry[] = [
         "message": "getFitDiffAvg 参数修正",
         "label": "修复",
         "color": "amber"
-      }
-    ]
-  },
-  {
-    "date": "2026-06-04",
-    "commits": [
-      {
-        "hash": "c4cca43",
-        "type": "feat",
-        "message": "舞萌DX伴侣初始版本 — B50算法、五维分析、推分路线、全服达成分布",
-        "label": "新功能",
-        "color": "green"
       }
     ]
   }
