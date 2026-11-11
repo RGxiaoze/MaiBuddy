@@ -19,11 +19,16 @@ export async function loadInstallYear(): Promise<void> {
   if (_loadPromise) return _loadPromise
   _loadPromise = (async () => {
     try {
-      if (typeof DecompressionStream === 'undefined') throw new Error('不支持 DecompressionStream')
       const res = await fetch(DATA_URL)
-      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
-      const stream = res.body.pipeThrough(new DecompressionStream('gzip'))
-      const text = await new Response(stream).text()
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const buf = await res.arrayBuffer()
+      const u8 = new Uint8Array(buf)
+      // 生产环境是原样复制的 .gz；但 Vite dev server 会带 Content-Encoding: gzip
+      // 让浏览器透明解压，此时拿到的是明文 JSON —— 再喂给 DecompressionStream 会抛错。
+      const isGzip = u8[0] === 0x1f && u8[1] === 0x8b
+      const text = isGzip
+        ? await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text()
+        : new TextDecoder().decode(u8)
       _map = JSON.parse(text) as Record<string, number>
     } catch {
       _map = {}
