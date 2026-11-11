@@ -19,6 +19,20 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-11",
     "commits": [
       {
+        "hash": "ddf08e5",
+        "type": "feat",
+        "message": "变更日志过滤已下线板块的提交",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "c1bce50",
+        "type": "feat",
+        "message": "下线板块的页面源码不再进入打包产物",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "c6c8213",
         "type": "fix",
         "message": "旧框移植谱不再套用 2020 年度校正",
