@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "71e72d1",
+        "type": "fix",
+        "message": "目标达成率改用全量成绩，不再只锚 B50",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "0b349d8",
         "type": "fix",
         "message": "导入结果改为顶部 Toast，OAuth 成功提示延长到 2.5 秒",
