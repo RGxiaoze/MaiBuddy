@@ -12,10 +12,8 @@ import { usePlayerStore } from '@/store/playerStore'
 import { usePushSuggestions } from '@/hooks/usePushSuggestions'
 import type { RateType } from '@/types'
 import { loadVoteStats, getAllVoteStats, isVoteStatsLoaded, isVoteStatsFailed } from '@/services/voteService'
-import { buildExplorePool, buildPreferenceProfile, buildStaleKeys, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
+import { buildExplorePool, buildPreferenceProfile, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
 
-/** 「很久没玩」判定阈值（月） */
-const STALE_MONTHS = 3
 import { getBlockedSongIds, blockSong, clearBlockedSongs } from '@/db/database'
 import { getCoverUrl } from '@/data/constants'
 import { useBackgroundStore } from '@/store/backgroundStore'
@@ -100,32 +98,28 @@ export default function Recommend() {
     setSeenKeys(new Set())
   }
 
-  // 难度范围：上限 = B15 最高定数 + 0.5（不推打不动的）
-  //           下限 = B35 中位数 − 1.0（不推太简单的）
+  // 难度范围：上限锚在 B35 众数（舒适区），下限 = B35 中位数 − 1.0。
+  // 此前上限取 B15 最高定数 + 0.5 —— 一条侥幸打出的高分就会把整片探索池
+  // 拉到那个强度，测试玩家反馈「匹配的曲目和自身水平不符」正是这个原因。
   const levelRange = useMemo(() => {
-    const b15 = effectiveB50?.best15 ?? []
     const b35 = effectiveB50?.best35 ?? []
-    if (b15.length === 0 && b35.length === 0) return {}
-    const maxLevel = b15.length > 0
-      ? Math.max(...b15.map(e => e.levelValue)) + 0.5
-      : undefined
+    if (b35.length === 0 && playerLevel == null) return {}
+    const maxLevel = playerLevel != null ? playerLevel + 0.5 : undefined
     let minLevel: number | undefined
     if (b35.length > 0) {
       const sorted = b35.map(e => e.levelValue).sort((a, b) => a - b)
       minLevel = sorted[Math.floor(sorted.length / 2)] - 1.0
     }
     return { minLevel, maxLevel }
-  }, [effectiveB50])
+  }, [effectiveB50, playerLevel])
 
   const preference = useMemo(
     () => buildPreferenceProfile(songs, playedKeys),
     [songs, playedKeys],
   )
 
-  // 「很久没玩」候选：仅当成绩带有足够多的真实游玩日期时才启用
-  // （水鱼导入的 playDate 全是导入当天，会在 buildStaleKeys 内被判定为不可信）
-  const staleKeys = useMemo(() => buildStaleKeys(scores, STALE_MONTHS), [scores])
-
+  // 严格排除已游玩：曾经把「3 个月没玩」的谱面放回池子，但页面上写的是
+  // 「都是你没打过的」，测试玩家据此发现列表里混着自己打过的谱。
   const exploreList = useMemo(() => {
     if (voteState !== 'ready' || songs.length === 0) return []
     const votes = getAllVoteStats()
@@ -136,9 +130,8 @@ export default function Recommend() {
       seenKeys,
       blockedSongIds: blockedIds,
       preference,
-      ...(staleKeys.size > 0 ? { staleKeys } : {}),
     })
-  }, [voteState, songs, playedKeys, exploreWide, levelRange, seenKeys, blockedIds, preference, staleKeys])
+  }, [voteState, songs, playedKeys, exploreWide, levelRange, seenKeys, blockedIds, preference])
 
   const refreshExplore = () => {
     setSeenKeys(prev => {
@@ -189,6 +182,7 @@ export default function Recommend() {
           state={voteState}
           playerLevel={playerLevel}
           wide={exploreWide}
+          range={levelRange}
           onWiden={() => setExploreWide(true)}
           onRefresh={refreshExplore}
           onBlock={handleBlock}
@@ -385,11 +379,13 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
 
 // ---- 探索 ----
 
-function ExploreTab({ items, state, playerLevel, wide, onWiden, onRefresh, onBlock, blockedCount, onRestore }: {
+function ExploreTab({ items, state, playerLevel, wide, range, onWiden, onRefresh, onBlock, blockedCount, onRestore }: {
   items: ExploreItem[]
   state: 'idle' | 'ready' | 'failed'
   playerLevel: number | null
   wide: boolean
+  /** 当前生效的定数范围，用于如实描述筛选依据 */
+  range: { minLevel?: number; maxLevel?: number }
   onWiden: () => void
   onRefresh: () => void
   onBlock: (songId: number) => void
@@ -439,7 +435,12 @@ function ExploreTab({ items, state, playerLevel, wide, onWiden, onRefresh, onBlo
       <div className="flex items-start justify-between gap-2 mb-1">
         <p className="text-xs text-text-secondary flex-1 leading-snug">
           都是你<strong className="text-text">没打过</strong>的谱面，
-          {wide ? '覆盖全部难度' : '难度适合当前水平'}，按社区投票喜好随机挑选。
+          {wide
+            ? '覆盖全部难度'
+            : range.minLevel != null && range.maxLevel != null
+              ? `定数 ${range.minLevel.toFixed(1)}~${range.maxLevel.toFixed(1)}，围绕你的舒适区`
+              : '难度适合当前水平'}
+          ，按社区投票喜好随机挑选。
         </p>
         <button
           onClick={onRefresh}
