@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "ad9bbb2",
+        "type": "feat",
+        "message": "推荐卡显示「你在该档的平均成绩」",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "3ec650b",
         "type": "feat",
         "message": "探索卡补难度标签，推分卡改用「水分」替代「预计评级」",
