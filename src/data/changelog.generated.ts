@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "f93fadd",
+        "type": "fix",
+        "message": "宴会场曲目回落到原曲曲绘",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "9eb0e02",
         "type": "feat",
         "message": "曲绘改用本地 96px 缩略图",
