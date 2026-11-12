@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "751847f",
+        "type": "fix",
+        "message": "探索页不再出现已玩谱面，难度上限改锚舒适区",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "f93fadd",
         "type": "fix",
         "message": "宴会场曲目回落到原曲曲绘",
