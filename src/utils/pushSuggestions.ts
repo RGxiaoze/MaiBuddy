@@ -45,10 +45,11 @@ export interface PushSuggestion {
   pool: 'b35' | 'b15'
   difficulty: 'easy' | 'medium' | 'hard'
   /**
-   * 该谱拟合定数比官标低多少（正 = 实际比标称容易，即「水分」）。
-   * 与"你的当前评级"不同，它描述的是谱面本身，对已 SSS 的谱仍有参考价值。
+   * 拟合定数 − 官标定数。
+   * 负 = 实际比标称容易（水分），正 = 实际更难。
+   * 描述谱面本身，对已 SSS 的谱仍有参考价值。
    */
-  waterLevel?: number
+  fitDelta?: number
   /**
    * 玩家在「该谱实际定数」同档上的平均达成率（窄口径，见 averageAtLevel）。
    * 用拟合定数（若比官标低）来取，回答「以你这一档的平均表现，
@@ -528,10 +529,9 @@ export function computePushSuggestions(
           targetCeiling,
         )
         cand.reliable = stats?.reliable !== false && !isEarlyChart
-        // 水分：拟合法比官标低多少。只对「更低」有意义——拟合更高的谱没有水分可吃
+        // 拟合差值：负 = 水分，正 = 比标称难。两个方向都保留，UI 按正负上色
         if (stats?.fitDiff && stats.fitDiff > 0) {
-          const water = Math.round((lv - stats.fitDiff) * 10) / 10
-          if (water > 0) cand.waterLevel = water
+          cand.fitDelta = Math.round((stats.fitDiff - lv) * 10) / 10
         }
         // 「该档平均」只对**没打过**的谱有意义：它是对这首的预期。
         // 已经打出成绩的谱，卡片上显示的是真实成绩，再挂个全档平均只会让人困惑
@@ -590,8 +590,8 @@ export function computePushSuggestions(
             currentRating,
             pool,
             difficulty: classifyDifficulty({ levelValue: lv, achievements: currentAch } as ScoreRecord, stats, chosenTarget),
-            waterLevel: stats?.fitDiff && stats.fitDiff > 0 && lv - stats.fitDiff > 0
-              ? Math.round((lv - stats.fitDiff) * 10) / 10
+            fitDelta: stats?.fitDiff && stats.fitDiff > 0
+              ? Math.round((stats.fitDiff - lv) * 10) / 10
               : undefined,
             // 池内条目必然已有成绩，不挂「该档平均」（见候选分支的说明）
             sssPlusRate: stats?.sssPlusRate ?? 0,
