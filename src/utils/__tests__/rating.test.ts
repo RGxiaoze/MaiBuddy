@@ -438,8 +438,10 @@ describe('computePushSuggestions', () => {
     expect(setupWithCandidate(14.2).find(s => s.songId === 999)).toBeDefined()
   })
 
-  it('超出硬顶（14.3）且不够简单 → 不推荐', () => {
-    expect(setupWithCandidate(14.3, { fitDiff: 14.2 }).find(s => s.songId === 999)).toBeUndefined()
+  it('官标超上限但拟合落回上限内 → 按实际难度放行（水分谱不该被漏掉）', () => {
+    // 官标 14.3 越过上限 14.3 的边界，但拟合 14.2 实际在上限内 —— 对玩家来说
+    // 这就是一首 14.2 的歌。旧逻辑按官标判破顶会把它漏掉。
+    expect(setupWithCandidate(14.3, { fitDiff: 14.2 }).find(s => s.songId === 999)).toBeDefined()
   })
 
   it('没有 fit_diff 数据时不放行破顶', () => {
@@ -457,8 +459,9 @@ describe('computePushSuggestions', () => {
     expect(isSimpleChart(14.4, 14.0)).toBe(true)
   })
 
-  it('超过 B1+0.4 即使特简单也不推荐', () => {
-    expect(setupWithCandidate(14.5, { fitDiff: 14.0 }).find(s => s.songId === 999)).toBeUndefined()
+  it('拟合后仍高于上限的，目标仍封顶在鸟', () => {
+    // 官标 14.5、拟合 14.4：两道判断都超过上限 14.3，属于真正的越级
+    expect(isSimpleChart(14.5, 14.4)).toBe(false)
   })
 
   it('破顶只认「特简单」，与样本是否可信无关', () => {
@@ -521,9 +524,29 @@ describe('computePushSuggestions', () => {
     const b50 = computeB50(scores, songs)
     const sug = computePushSuggestions(b50, songs, {
       allScores: scores,
-      getStats: () => makeStats(14.0),
+      // 拟合 14.4：比官标只低 0.1，拟合后仍越级 → 不该推荐
+      getStats: () => makeStats(14.4),
     }).suggestions
     expect(sug.find(s => s.songId === 999)).toBeUndefined()
+  })
+
+  it('B15 同样：官标越级但拟合落回上限内 → 推荐', () => {
+    const { songs, scores } = fillPool(1, 36, false, 14.0, 100.5)
+    const { songs: newSongs, scores: newScores } = fillPool(100, 15, true, 14.0, 100.5)
+    for (const [k, v] of newSongs) songs.set(k, v)
+    scores.push(...newScores)
+
+    const cand = makeSong({ id: 999, isNew: true, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.5 })] } })
+    songs.set(999, cand)
+    scores.push(makeScore({ songId: 999, levelIndex: 3, levelValue: 14.5, achievements: 94.0 }))
+
+    const b50 = computeB50(scores, songs)
+    const sug = computePushSuggestions(b50, songs, {
+      allScores: scores,
+      // 拟合 14.0：实际就是一首 14.0 的歌，与 B35 用同一套判断
+      getStats: () => makeStats(14.0),
+    }).suggestions
+    expect(sug.find(s => s.songId === 999)).toBeDefined()
   })
 
   // ---- 定数分档配额 ----

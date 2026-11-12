@@ -462,19 +462,28 @@ export function computePushSuggestions(
 
       const stats = getStats?.(song.id, diff.level)
 
-      // 破顶判定：超过 B1+0.2 的候选只允许「特简单」的谱（拟合定数比官标低 ≥0.3），
-      // 且目标封顶在鸟（100.0%），避免「推上去也打不到」。
+      // 「该谱实际定数」：有拟合用拟合，否则用官标。
+      // 破顶判定、目标计算、标签都必须基于它 —— 否则「官标 13.9、拟合只有 13.5」
+      // 的水分谱会被当成 13.9 处理：既算出「你 13.9 打不动」的低目标，
+      // 又被封顶在鸟，拿不到本该到手的鸟加。
+      const effectiveLevel = stats?.fitDiff && stats.fitDiff > 0 ? stats.fitDiff : lv
+
+      // 破顶判定：**官标**超过上限（众数 + 0.3）的候选，只允许「特简单」的谱
+      // （拟合定数比官标低 ≥0.3）。这道保护按官标判断 —— 玩家看到的是官标，
+      // 官标都超限的谱必须先证明自己确实简单。
       let targetCeiling: number | undefined
       if (!inB50.has(key) && capBase !== null && lv > capBase) {
         // 破顶依赖 fit_diff 判断「是否特简单」。样本不可信时 fit_diff 本身偏斜，
         // 不能据此越级 —— 这类谱仍可进普通候选（由上面的 capSimple 筛选），
         // 只是不参与破顶。此前对不可信样本无条件放行，导致 14.38 的谱被推到鸟。
         if (!isSimpleChart(lv, stats?.fitDiff)) continue
-        targetCeiling = SIMPLE_TARGET_FLOOR
+        // 封顶与否看**实际定数**：拟合后已落回上限内的（如官标 13.9、拟合 13.5），
+        // 对玩家来说就是一首 13.5 的歌，不该被压到鸟、拿不到本该到手的鸟加。
+        if (effectiveLevel > capBase) targetCeiling = SIMPLE_TARGET_FLOOR
       }
 
-      // 目标达成率：优先按玩家全量成绩的同档平均，会话见 achievableTargetFor
-      const achievable = achievableTargetFor(lv, mode, allSamples, b50Samples, key, stretch)
+      // 目标达成率：优先按玩家全量成绩的同档中位数，见 achievableTargetFor
+      const achievable = achievableTargetFor(effectiveLevel, mode, allSamples, b50Samples, key, stretch)
 
       if (!inB50.has(key)) {
         // Chart NOT in B50 — suggest for its version's pool
@@ -506,7 +515,6 @@ export function computePushSuggestions(
         // 「该档平均」只对**没打过**的谱有意义：它是对这首的预期。
         // 已经打出成绩的谱，卡片上显示的是真实成绩，再挂个全档平均只会让人困惑
         // （实测有谱打到 100%+，而同档平均只有 96%，两个数字互相打脸）。
-        const effectiveLevel = stats?.fitDiff && stats.fitDiff > 0 ? stats.fitDiff : lv
         cand.yourBandAvg = precision === 'estimated'
           ? (averageAtLevel(effectiveLevel, allSamples, key) ?? undefined)
           : undefined
