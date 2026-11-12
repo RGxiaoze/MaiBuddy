@@ -12,6 +12,7 @@ import SearchBar from '@/components/shared/SearchBar'
 import SongFilterPanel from '@/components/shared/SongFilterPanel'
 import SongSortBar from '@/components/shared/SongSortBar'
 import SongResultList from '@/components/shared/SongResultList'
+import Toast, { type ToastType } from '@/components/shared/Toast'
 import { getCoverUrl } from '@/data/constants'
 import { loginToProber, generateImportToken } from '@/services/divingFishApi'
 import { buildAuthorizeUrl, hasOAuthProxy, probeOAuthProxy } from '@/services/dfOAuth'
@@ -205,6 +206,8 @@ export default function SongList() {
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
+  // 顶部短时提示：内联结果在面板底部，面板一长就看不见
+  const [toast, setToast] = useState<{ type: ToastType; message: string } | null>(null)
   const [importResult, setImportResult] = useState<{
     total: number; imported: number; updated: number; skipped: number; nickname: string
   } | null>(null)
@@ -293,8 +296,14 @@ export default function SongList() {
         setImportProgress({ current, total })
       })
       setImportResult(stats)
+      setToast({
+        type: 'success',
+        message: `导入完成：新增 ${stats.imported} 条，更新 ${stats.updated} 条`,
+      })
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : '导入失败')
+      const msg = err instanceof Error ? err.message : '导入失败'
+      setImportError(msg)
+      setToast({ type: 'error', message: `导入失败：${msg}` })
     } finally {
       setImporting(false)
     }
@@ -324,8 +333,14 @@ export default function SongList() {
       })
       setImportResult(stats)
       setLxnsKey('')
+      setToast({
+        type: 'success',
+        message: `导入完成：新增 ${stats.imported} 条，更新 ${stats.updated} 条`,
+      })
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : '导入失败')
+      const msg = err instanceof Error ? err.message : '导入失败'
+      setImportError(msg)
+      setToast({ type: 'error', message: `导入失败：${msg}` })
     } finally {
       setImporting(false)
     }
@@ -351,16 +366,24 @@ export default function SongList() {
       const songMap = new Map(useSongStore.getState().songs.map((s) => [s.id, s]))
       const result = await importScoresFromFile(file, songMap)
       if (result.errors && result.errors.length > 0) {
-        setFileImportResult(result.errors.map((e) => e.message).join('\n'))
+        const msg = result.errors.map((e) => e.message).join('\n')
+        setFileImportResult(msg)
+        setToast({ type: 'error', message: `导入失败：${result.errors[0]?.message ?? '格式错误'}` })
       } else {
         setFileImportResult(
           `导入完成：共 ${result.total} 条，新增 ${result.imported} 条，更新 ${result.updated} 条，跳过 ${result.skipped} 条`
         )
+        setToast({
+          type: 'success',
+          message: `导入完成：新增 ${result.imported} 条，更新 ${result.updated} 条`,
+        })
         // Reload scores from DB to update in-memory state
         await fetchAllScores()
       }
     } catch (err) {
-      setFileImportResult(err instanceof Error ? err.message : '导入失败')
+      const msg = err instanceof Error ? err.message : '导入失败'
+      setFileImportResult(msg)
+      setToast({ type: 'error', message: `导入失败：${msg}` })
     } finally {
       setFileImporting(false)
       // Reset file input
@@ -403,6 +426,15 @@ export default function SongList() {
   // ---- Render: Content ----
   return (
     <div className="max-w-5xl">
+
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          duration={toast.type === 'error' ? 6000 : 3500}
+          onClose={() => setToast(null)}
+        />
+      )}
 
       {/* Header + search */}
       <div className="mb-6">

@@ -92,7 +92,7 @@ export default function OAuthCallbackHandler() {
     })()
   }, [navigate])
 
-  /** 成功后收起提示：1 秒自动消失，或用户点任意处立刻收起 */
+  /** 成功后收起提示：2.5 秒自动消失，或用户点任意处立刻收起 */
   const dismissDone = useCallback(() => {
     setStatus('idle')
     navigate('/player')
@@ -100,7 +100,8 @@ export default function OAuthCallbackHandler() {
 
   useEffect(() => {
     if (status !== 'done') return
-    const timer = setTimeout(dismissDone, 1000)
+    // 1 秒太短，玩家来不及看清导入了多少条
+    const timer = setTimeout(dismissDone, 2500)
     return () => clearTimeout(timer)
   }, [status, dismissDone])
 
