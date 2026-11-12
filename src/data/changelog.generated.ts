@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "9e698a9",
+        "type": "fix",
+        "message": "定数比较缺浮点容差，恰好差 0.3 的档位全部失效",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "7b6586d",
         "type": "fix",
         "message": "空池地板按 0 计算，低定数新曲挤满整张列表",
