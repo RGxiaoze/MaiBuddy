@@ -5,7 +5,7 @@
 // 设计原则：宽池随机（不让人气榜固化），质量靠难度约束与偏好加权保证。
 // ============================================================
 
-import type { Song } from '@/types'
+import type { Song, ChartDifficulty } from '@/types'
 import { normalizeDesignerName } from '@/data/designer-aliases'
 import { isChartExcluded } from '@/data/excluded-charts'
 
@@ -70,6 +70,10 @@ export interface ExploreItem {
   smoothRate: number
   /** 最终排序分 = 平滑胜率 + 偏好加成 */
   score: number
+  /** 你在这首的当前达成率（仅热身路线提供，用来说明「你已经打得很稳」） */
+  currentAch?: number
+  /** 该谱拟合定数（仅挑战路线提供，比官标更能代表实际难度） */
+  fitDiff?: number
 }
 
 /** 偏好加成的权重（相对胜率，量级小，只做微调） */
@@ -307,4 +311,242 @@ export function buildExplorePool(
 
   // 已看过的太多时回退到完整池子，避免「换一批」把自己换空
   return sampleRandom(fresh.length >= limit ? fresh : pool, limit, random)
+}
+
+// ============================================================
+// 按目的分路线
+//
+// 「探索」对每个人含义不同：想热身、想听歌、想挑战。用成绩推断必然出错
+// （顶尖玩家几乎全 AP、新手成绩是别人帮选的），所以交给玩家自己选。
+// ============================================================
+
+/** 探索目的 */
+export type ExplorePurpose = 'warmup' | 'listen' | 'challenge' | 'random'
+
+/** 路线共用的最小成绩结构（避免 utils 依赖 db 类型） */
+export interface RouteScore {
+  songId: number
+  levelIndex: number
+  achievements: number
+  fcType?: string | null
+}
+
+export interface RouteOptions {
+  /** B35 定数众数，热身取舒适区、挑战取上探基准 */
+  mode: number
+  /** 当前成绩，用于判断已玩与水平 */
+  scores: readonly RouteScore[]
+  /** 拟合定数查询；缺省时挑战退回官方定数 */
+  getFitDiff?: (songId: number, level: string) => number | undefined
+  blockedSongIds?: Set<number>
+  seenKeys?: Set<string>
+  limit?: number
+  topPercent?: number
+  random?: () => number
+  preference?: PreferenceProfile
+}
+
+/** 一条路线的候选（已算好口碑与个人数据） */
+interface CandidateCtx {
+  song: Song
+  diff: ChartDifficulty
+  key: string
+  smoothRate: number
+  currentAch?: number
+  fitDiff?: number
+}
+
+/** 理论值：达成率到顶或达成 AP，重打没有意义 */
+function isPerfect(score: RouteScore | undefined): boolean {
+  if (!score) return false
+  if (score.achievements >= 100.5) return true
+  return score.fcType === 'ap' || score.fcType === 'app'
+}
+
+/**
+ * 三条路线的共同骨架：遍历候选 → 谓词筛选 → 打分 → 排序取池 → 抽样。
+ * 各路线只需要提供 `accept` 与 `scoreOf`。
+ */
+function buildRoute(
+  songs: Song[],
+  votes: Map<number, VoteStat>,
+  opts: RouteOptions,
+  accept: (ctx: CandidateCtx) => boolean,
+  scoreOf: (ctx: CandidateCtx) => number,
+): ExploreItem[] {
+  const {
+    scores,
+    getFitDiff,
+    blockedSongIds,
+    seenKeys,
+    limit = DEFAULT_LIMIT,
+    topPercent = DEFAULT_TOP_PERCENT,
+    random = Math.random,
+    preference,
+  } = opts
+
+  const byKey = new Map<string, RouteScore>()
+  for (const s of scores) byKey.set(`${s.songId}-${s.levelIndex}`, s)
+
+  const picked = new Map<number, ExploreItem>()
+
+  for (const song of songs) {
+    if (blockedSongIds?.has(song.id)) continue
+
+    const stat = votes.get(song.id)
+    const smoothRate = stat ? smoothWinRate(stat.upVote, stat.totalVote) : PRIOR_RATE
+
+    const diffs = [
+      ...(song.difficulties?.standard ?? []),
+      ...(song.difficulties?.dx ?? []),
+    ]
+
+    for (const diff of diffs) {
+      if (!diff || diff.levelValue <= 0) continue
+      if (isChartExcluded(song.id, diff.levelIndex)) continue
+
+      const key = `${song.id}-${diff.levelIndex}`
+      const score = byKey.get(key)
+      const ctx: CandidateCtx = {
+        song,
+        diff,
+        key,
+        smoothRate,
+        currentAch: score?.achievements,
+        fitDiff: getFitDiff?.(song.id, diff.level),
+      }
+
+      if (!accept(ctx)) continue
+
+      let finalScore = scoreOf(ctx)
+      if (preference) {
+        if (preference.designers.has(normalizeDesignerName(diff.noteDesigner))) finalScore += PREFERENCE_BOOST
+        if (song.genre && preference.rareGenres.has(song.genre)) finalScore += PREFERENCE_BOOST
+      }
+
+      const candidate: ExploreItem = {
+        songId: song.id,
+        title: song.title,
+        levelIndex: diff.levelIndex,
+        level: diff.level,
+        levelValue: diff.levelValue,
+        noteDesigner: diff.noteDesigner,
+        genre: song.genre ?? '',
+        from: song.from ?? '',
+        bpm: song.bpm ?? 0,
+        winRate: stat?.winRate ?? PRIOR_RATE,
+        totalVote: stat?.totalVote ?? 0,
+        smoothRate,
+        score: finalScore,
+        currentAch: ctx.currentAch,
+        fitDiff: ctx.fitDiff,
+      }
+
+      const prev = picked.get(song.id)
+      if (!prev || candidate.levelIndex > prev.levelIndex) picked.set(song.id, candidate)
+    }
+  }
+
+  const ranked = [...picked.values()].sort((a, b) => b.score - a.score)
+  if (ranked.length === 0) return []
+
+  const poolSize = Math.max(limit, Math.ceil(ranked.length * (topPercent / 100)))
+  const pool = ranked.slice(0, poolSize)
+  const fresh = seenKeys ? pool.filter(it => !seenKeys.has(`${it.songId}-${it.levelIndex}`)) : pool
+  return sampleRandom(fresh.length >= limit ? fresh : pool, limit, random)
+}
+
+/** 舒适区下限：与推分页一致，众数 − 1.0 */
+const COMFORT_LOWER = 1.0
+/** 舒适区上限：众数 + 0.3 */
+const COMFORT_UPPER = 0.3
+
+/**
+ * 热身：推你打过且定数在舒适区内的谱，成绩越高越优先。
+ * 目标是「一上手就能找到感觉」，不是涨分。
+ */
+export function buildWarmupPool(
+  songs: Song[],
+  votes: Map<number, VoteStat>,
+  opts: RouteOptions,
+): ExploreItem[] {
+  const lo = opts.mode - COMFORT_LOWER
+  const hi = opts.mode + COMFORT_UPPER
+  return buildRoute(
+    songs, votes, opts,
+    (ctx) => ctx.currentAch !== undefined
+      && ctx.diff.levelValue >= lo
+      && ctx.diff.levelValue <= hi,
+    (ctx) => ctx.currentAch ?? 0,
+  )
+}
+
+/**
+ * 听歌：音乐优先。不限定数、不限是否玩过、不排除 AP —— 好歌就是好歌。
+ * 排序只看社区口碑（新曲无票时回落到先验 0.5）。
+ */
+export function buildListenPool(
+  songs: Song[],
+  votes: Map<number, VoteStat>,
+  opts: RouteOptions,
+): ExploreItem[] {
+  return buildRoute(songs, votes, opts, () => true, (ctx) => ctx.smoothRate)
+}
+
+/** 挑战上探的下限（众数 + 1.0）与上限（众数 + 2.0） */
+const CHALLENGE_MIN_STEP = 1.0
+const CHALLENGE_MAX_STEP = 2.0
+/** 「实际难度也超出水平」的拟合定数门槛 */
+const CHALLENGE_FIT_MARGIN = 0.5
+
+/**
+ * 挑战：官方定数上探，或拟合定数高出当前水平的谱。
+ * 只看官标会推出一堆水谱（标称 14.5 实际 13.8），只看拟合会推出标称很低的谱
+ * —— 玩家一看定数就不想打。两个条件取并集，排序按实际难度（拟合优先）。
+ */
+export function buildChallengePool(
+  songs: Song[],
+  votes: Map<number, VoteStat>,
+  opts: RouteOptions,
+): ExploreItem[] {
+  const { mode, scores } = opts
+  const byKey = new Map<string, RouteScore>()
+  for (const s of scores) byKey.set(`${s.songId}-${s.levelIndex}`, s)
+
+  return buildRoute(
+    songs, votes, opts,
+    (ctx) => {
+      const bigByOfficial = ctx.diff.levelValue >= mode + CHALLENGE_MIN_STEP
+        && ctx.diff.levelValue <= mode + CHALLENGE_MAX_STEP
+      const bigByFit = ctx.fitDiff !== undefined
+        && ctx.fitDiff > mode + CHALLENGE_FIT_MARGIN
+        && ctx.diff.levelValue <= mode + CHALLENGE_MAX_STEP
+      if (!bigByOfficial && !bigByFit) return false
+      // 已经 AP / 理论值的不算挑战
+      if (isPerfect(byKey.get(ctx.key))) return false
+      return true
+    },
+    (ctx) => ctx.fitDiff ?? ctx.diff.levelValue,
+  )
+}
+
+/** 按目的分发。`random` 保持现有行为不变。 */
+export function buildPoolByPurpose(
+  purpose: ExplorePurpose,
+  songs: Song[],
+  playedKeys: Set<string>,
+  votes: Map<number, VoteStat>,
+  opts: RouteOptions & ExploreOptions,
+): ExploreItem[] {
+  switch (purpose) {
+    case 'warmup':
+      return buildWarmupPool(songs, votes, opts)
+    case 'listen':
+      return buildListenPool(songs, votes, opts)
+    case 'challenge':
+      return buildChallengePool(songs, votes, opts)
+    case 'random':
+    default:
+      return buildExplorePool(songs, playedKeys, votes, opts)
+  }
 }

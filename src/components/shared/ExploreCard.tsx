@@ -76,6 +76,15 @@ export default function ExploreCard({ item, onBlock }: ExploreCardProps) {
             {levelValue > 0 && (
               <span className="text-[10px] font-medium text-text-tertiary shrink-0">{level}</span>
             )}
+            {item.fitDiff !== undefined && (
+              // 挑战路线按拟合定数排序，把实际难度也标出来，否则玩家只看到官标会困惑
+              <span
+                className="text-[10px] text-text-tertiary shrink-0 tabular-nums"
+                title="拟合定数：由全服达成率拟合出的实际难度"
+              >
+                实 {item.fitDiff.toFixed(1)}
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-text-tertiary mt-0.5 truncate" title={meta}>{meta}</p>
         </div>

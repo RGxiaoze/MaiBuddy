@@ -5,13 +5,17 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { TrendingUp, Compass, Sparkles } from 'lucide-react'
+import { TrendingUp, Compass, Sparkles, Music, Flame, Shuffle, ArrowLeft } from 'lucide-react'
 import { useSongStore } from '@/store/songStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { usePushSuggestions } from '@/hooks/usePushSuggestions'
 import { loadVoteStats, getAllVoteStats, isVoteStatsLoaded, isVoteStatsFailed } from '@/services/voteService'
-import { buildExplorePool, buildPreferenceProfile, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
+import { getChartStats } from '@/services/statsService'
+import {
+  buildPoolByPurpose, buildPreferenceProfile, DEFAULT_MIN_VOTES, DEFAULT_LIMIT,
+  type ExploreItem, type ExplorePurpose,
+} from '@/utils/explore'
 
 /** 探索梯度：先只看社区投票前 50%，挑不出足够的未玩谱面时放宽到 70% */
 const EXPLORE_TOP_PERCENT = 50
@@ -90,6 +94,8 @@ export default function Recommend() {
   }, [scores, dfBest35, dfBest15])
 
   const [exploreWide, setExploreWide] = useState(false)
+  // 每次进入都重新问目的，不记忆上次选择
+  const [purpose, setPurpose] = useState<ExplorePurpose | null>(null)
   const [seenKeys, setSeenKeys] = useState<Set<string>>(new Set())
   const [blockedIds, setBlockedIds] = useState<Set<number>>(new Set())
 
@@ -128,30 +134,46 @@ export default function Recommend() {
     [songs, playedKeys],
   )
 
-  // 严格排除已游玩：曾经把「3 个月没玩」的谱面放回池子，但页面上写的是
-  // 「都是你没打过的」，测试玩家据此发现列表里混着自己打过的谱。
+  // 按目的走不同路线；random 保持原有「前 50% → 70%」的两段式
   const exploreList = useMemo(() => {
-    if (voteState !== 'ready' || songs.length === 0) return []
+    if (!purpose || voteState !== 'ready' || songs.length === 0) return []
     const votes = getAllVoteStats()
-    const base = {
+    const shared = {
       minVotes: DEFAULT_MIN_VOTES,
       limit: DEFAULT_LIMIT,
-      ...(exploreWide ? {} : levelRange),
       seenKeys,
       blockedSongIds: blockedIds,
       preference,
+      // 热身/挑战需要难度基准；没有 B50 的玩家这两条路线本就没有意义
+      mode: playerLevel ?? 13.0,
+      scores: scores.map(s => ({
+        songId: s.songId,
+        levelIndex: s.levelIndex,
+        achievements: s.achievements,
+        fcType: s.fcType,
+      })),
+      getFitDiff: (songId: number, level: string) => getChartStats(songId, level)?.fitDiff,
     }
-    // 先只看社区投票前 50%；连这一档都挑不出足够的未玩谱面时才放宽到 70%
-    const primary = buildExplorePool(songs, playedKeys, votes, {
-      ...base,
-      topPercent: EXPLORE_TOP_PERCENT,
-    })
-    if (primary.length >= DEFAULT_LIMIT) return primary
-    return buildExplorePool(songs, playedKeys, votes, {
-      ...base,
-      topPercent: EXPLORE_TOP_PERCENT_WIDE,
-    })
-  }, [voteState, songs, playedKeys, exploreWide, levelRange, seenKeys, blockedIds, preference])
+
+    if (purpose === 'random') {
+      const base = { ...shared, ...(exploreWide ? {} : levelRange) }
+      // 先只看社区投票前 50%；连这一档都挑不出足够的未玩谱面时才放宽到 70%
+      const primary = buildPoolByPurpose('random', songs, playedKeys, votes, {
+        ...base,
+        topPercent: EXPLORE_TOP_PERCENT,
+      })
+      if (primary.length >= DEFAULT_LIMIT) return primary
+      return buildPoolByPurpose('random', songs, playedKeys, votes, {
+        ...base,
+        topPercent: EXPLORE_TOP_PERCENT_WIDE,
+      })
+    }
+
+    return buildPoolByPurpose(purpose, songs, playedKeys, votes, shared)
+  }, [
+    purpose, voteState, songs, playedKeys, exploreWide, levelRange, seenKeys,
+    blockedIds, preference, playerLevel, scores,
+  ])
 
   const refreshExplore = () => {
     setSeenKeys(prev => {
@@ -196,6 +218,8 @@ export default function Recommend() {
         </div>
       ) : tab === 'push' ? (
         <PushTab items={pushList} newVersion={newVersionInfo} />
+      ) : purpose == null ? (
+        <PurposePicker onSelect={setPurpose} />
       ) : (
         <ExploreTab
           items={exploreList}
@@ -203,6 +227,8 @@ export default function Recommend() {
           playerLevel={playerLevel}
           wide={exploreWide}
           range={levelRange}
+          purpose={purpose}
+          onChangePurpose={() => setPurpose(null)}
           onWiden={() => setExploreWide(true)}
           onRefresh={refreshExplore}
           onBlock={handleBlock}
@@ -404,13 +430,48 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
 
 // ---- 探索 ----
 
-function ExploreTab({ items, state, playerLevel, wide, range, onWiden, onRefresh, onBlock, blockedCount, onRestore }: {
+const PURPOSES: { value: ExplorePurpose; label: string; Icon: typeof Flame }[] = [
+  { value: 'warmup', label: '热身', Icon: Flame },
+  { value: 'listen', label: '听歌', Icon: Music },
+  { value: 'challenge', label: '挑战', Icon: TrendingUp },
+  { value: 'random', label: '随机', Icon: Shuffle },
+]
+
+/** 探索目的选择：只给词，不写说明 —— 玩家看词就懂 */
+function PurposePicker({ onSelect }: { onSelect: (p: ExplorePurpose) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {PURPOSES.map(({ value, label, Icon }) => (
+        <button
+          key={value}
+          onClick={() => onSelect(value)}
+          className="flex flex-col items-center justify-center gap-2 py-7 rounded-lg bg-surface border border-border
+                     text-text-secondary hover:border-primary hover:text-primary transition-colors cursor-pointer"
+        >
+          <Icon size={22} />
+          <span className="text-sm font-medium">{label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const PURPOSE_LABEL: Record<ExplorePurpose, string> = {
+  warmup: '热身',
+  listen: '听歌',
+  challenge: '挑战',
+  random: '随机',
+}
+
+function ExploreTab({ items, state, playerLevel, wide, range, purpose, onChangePurpose, onWiden, onRefresh, onBlock, blockedCount, onRestore }: {
   items: ExploreItem[]
   state: 'idle' | 'ready' | 'failed'
   playerLevel: number | null
   wide: boolean
   /** 当前生效的定数范围，用于如实描述筛选依据 */
   range: { minLevel?: number; maxLevel?: number }
+  purpose: ExplorePurpose
+  onChangePurpose: () => void
   onWiden: () => void
   onRefresh: () => void
   onBlock: (songId: number) => void
@@ -437,35 +498,45 @@ function ExploreTab({ items, state, playerLevel, wide, range, onWiden, onRefresh
 
   if (items.length === 0) {
     return (
-      <div className="bg-surface border border-border rounded-lg p-5">
-        <p className="text-xs text-text-secondary m-0">
-          {playerLevel != null && !wide
-            ? '这个难度区间里你几乎都打过了。'
-            : '暂无可探索的谱面。'}
-        </p>
-        {playerLevel != null && !wide && (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
           <button
-            onClick={onWiden}
+            onClick={onChangePurpose}
+            className="flex items-center gap-1 text-xs text-text-secondary hover:text-primary transition-colors cursor-pointer"
+          >
+            <ArrowLeft size={12} /> {PURPOSE_LABEL[purpose]}
+          </button>
+        </div>
+        <div className="bg-surface border border-border rounded-lg p-5">
+          <p className="text-xs text-text-secondary m-0">这条路线暂时没有合适的谱。</p>
+          <button
+            onClick={onChangePurpose}
             className="mt-2 px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-white border-none cursor-pointer hover:bg-primary-dark transition-colors"
           >
-            显示全部难度
+            换一个目的
           </button>
-        )}
+          {purpose === 'random' && playerLevel != null && !wide && (
+            <button
+              onClick={onWiden}
+              className="mt-2 ml-2 px-3 py-1.5 rounded-md text-xs font-medium border border-border text-text-secondary bg-surface hover:border-primary hover:text-primary transition-colors cursor-pointer"
+            >
+              显示全部难度
+            </button>
+          )}
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-2">
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <p className="text-xs text-text-secondary flex-1 leading-snug">
-          {wide
-            ? '覆盖全部难度'
-            : range.minLevel != null && range.maxLevel != null
-              ? `定数 ${range.minLevel.toFixed(1)}~${range.maxLevel.toFixed(1)}，围绕你的舒适区`
-              : '难度适合当前水平'}
-          ，根据你的成绩记录与社区投票喜好生成。
-        </p>
+      <div className="flex items-center justify-between gap-2">
+        <button
+          onClick={onChangePurpose}
+          className="flex items-center gap-1 text-xs text-text-secondary hover:text-primary transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={12} /> {PURPOSE_LABEL[purpose]}
+        </button>
         <button
           onClick={onRefresh}
           className="shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium border border-border text-text-secondary bg-surface hover:border-primary hover:text-primary transition-colors cursor-pointer"
@@ -473,6 +544,17 @@ function ExploreTab({ items, state, playerLevel, wide, range, onWiden, onRefresh
           换一批
         </button>
       </div>
+      <p className="text-xs text-text-secondary leading-snug">
+        {purpose === 'warmup' && '你打过、定数在舒适区内的谱，成绩越高越靠前。'}
+        {purpose === 'listen' && '按社区口碑挑选，不限是否打过。'}
+        {purpose === 'challenge' && '定数高于你舒适区的谱，按实际难度排序。'}
+        {purpose === 'random' && (wide
+          ? '覆盖全部难度'
+          : range.minLevel != null && range.maxLevel != null
+            ? `定数 ${range.minLevel.toFixed(1)}~${range.maxLevel.toFixed(1)}，围绕你的舒适区`
+            : '难度适合当前水平')}
+        {purpose === 'random' && '，根据你的成绩记录与社区投票喜好生成。'}
+      </p>
       {items.map(it => (
         <ExploreCard
           key={`${it.songId}-${it.levelIndex}`}

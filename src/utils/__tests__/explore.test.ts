@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { buildExplorePool, smoothWinRate, highestPlayedBySong, buildStaleKeys } from '../explore'
+import {
+  buildExplorePool, smoothWinRate, highestPlayedBySong, buildStaleKeys,
+  buildWarmupPool, buildListenPool, buildChallengePool,
+  type RouteOptions, type RouteScore,
+} from '../explore'
 import type { Song } from '@/types'
 
 function makeDiff(levelIndex: number, levelValue: number, level = '13'): {
@@ -267,5 +271,120 @@ describe('偏好加权', () => {
       minVotes: 30, random: noShuffle, preference,
     })
     expect(pool.map(p => p.songId)).toEqual([1, 2])
+  })
+})
+
+// ============================================================
+// 按目的分路线
+// ============================================================
+
+const sc = (songId: number, levelIndex: number, achievements: number, fcType?: string): RouteScore =>
+  ({ songId, levelIndex, achievements, fcType })
+
+/** 所有路线共用的基础选项：众数 13.5 */
+const baseOpts = (scores: RouteScore[], extra: Partial<RouteOptions> = {}): RouteOptions =>
+  ({ mode: 13.5, scores, random: noShuffle, ...extra })
+
+describe('buildWarmupPool — 热身', () => {
+  const song13_5a = makeSong(1, 'A', [makeDiff(3, 13.5)])
+  const song13_5b = makeSong(2, 'B', [makeDiff(3, 13.5)])
+  const songHigh = makeSong(3, 'C', [makeDiff(3, 14.5)]) // 超出舒适区上限 13.8
+
+  it('只出已玩过的谱', () => {
+    const votes = new Map([[1, vote(0.6, 500)], [2, vote(0.6, 500)]])
+    const pool = buildWarmupPool([song13_5a, song13_5b], votes, baseOpts([sc(1, 3, 99.0)]))
+    expect(pool.map(p => p.songId)).toEqual([1])
+  })
+
+  it('成绩高的排在前面（与重温相反）', () => {
+    const votes = new Map([[1, vote(0.6, 500)], [2, vote(0.6, 500)]])
+    const pool = buildWarmupPool(
+      [song13_5a, song13_5b], votes,
+      baseOpts([sc(1, 3, 98.0), sc(2, 3, 100.2)]),
+    )
+    expect(pool.map(p => p.songId)).toEqual([2, 1])
+  })
+
+  it('定数超出舒适区的已玩谱不参与热身', () => {
+    const votes = new Map([[3, vote(0.6, 500)]])
+    const pool = buildWarmupPool([songHigh], votes, baseOpts([sc(3, 3, 99.0)]))
+    expect(pool).toHaveLength(0)
+  })
+})
+
+describe('buildListenPool — 听歌', () => {
+  it('AP 谱也能出现（听歌与成绩无关）', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(3, 13.0)])]
+    const votes = new Map([[1, vote(0.7, 500)]])
+    const pool = buildListenPool(songs, votes, baseOpts([sc(1, 3, 100.5, 'ap')]))
+    expect(pool.map(p => p.songId)).toEqual([1])
+  })
+
+  it('不限是否玩过', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(3, 13.0)])]
+    const votes = new Map([[1, vote(0.7, 500)]])
+    const pool = buildListenPool(songs, votes, baseOpts([]))
+    expect(pool.map(p => p.songId)).toEqual([1])
+  })
+
+  it('不限定数：15 级也在候选内', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(3, 15.0)])]
+    const votes = new Map([[1, vote(0.7, 500)]])
+    const pool = buildListenPool(songs, votes, baseOpts([]))
+    expect(pool.map(p => p.songId)).toEqual([1])
+  })
+
+  it('新曲无票时不被门槛挡住（用先验 0.5）', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(3, 13.0)])]
+    const pool = buildListenPool(songs, new Map(), baseOpts([]))
+    expect(pool.map(p => p.songId)).toEqual([1])
+    expect(pool[0].totalVote).toBe(0)
+  })
+})
+
+describe('buildChallengePool — 挑战', () => {
+  it('官方定数达到 众数+1.0 的谱入选', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(3, 14.5)])] // 13.5 + 1.0
+    const votes = new Map([[1, vote(0.6, 500)]])
+    const pool = buildChallengePool(songs, votes, baseOpts([]))
+    expect(pool.map(p => p.songId)).toEqual([1])
+  })
+
+  it('官方定数不够、但拟合定数超出水平的谱也入选', () => {
+    // 官标 14.0（未达 众数+1.0），但拟合 14.2 > 13.5+0.5
+    const songs = [makeSong(1, 'A', [makeDiff(3, 14.0)])]
+    const votes = new Map([[1, vote(0.6, 500)]])
+    const pool = buildChallengePool(songs, votes, baseOpts([], {
+      getFitDiff: () => 14.2,
+    }))
+    expect(pool.map(p => p.songId)).toEqual([1])
+  })
+
+  it('已 AP / 理论值的谱不算挑战', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(3, 14.5)])]
+    const votes = new Map([[1, vote(0.6, 500)]])
+    const pool = buildChallengePool(songs, votes, baseOpts([sc(1, 3, 100.5, 'ap')]))
+    expect(pool).toHaveLength(0)
+  })
+
+  it('超过 众数+2.0 的谱不入选（避免推出完全打不动的）', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(3, 16.0)])]
+    const votes = new Map([[1, vote(0.6, 500)]])
+    const pool = buildChallengePool(songs, votes, baseOpts([]))
+    expect(pool).toHaveLength(0)
+  })
+
+  it('排序按拟合定数而非官方定数', () => {
+    // 官标都是 14.5，拟合 14.6 vs 14.0 —— 前者实际更难，应排前
+    const songs = [
+      makeSong(1, 'A', [makeDiff(3, 14.5)]),
+      makeSong(2, 'B', [makeDiff(3, 14.5)]),
+    ]
+    const votes = new Map([[1, vote(0.6, 500)], [2, vote(0.6, 500)]])
+    const fits = new Map([[1, 14.0], [2, 14.6]])
+    const pool = buildChallengePool(songs, votes, baseOpts([], {
+      getFitDiff: (songId: number) => fits.get(songId),
+    }))
+    expect(pool.map(p => p.songId)).toEqual([2, 1])
   })
 })

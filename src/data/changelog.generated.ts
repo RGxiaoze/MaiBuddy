@@ -19,16 +19,16 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
-        "hash": "391be0a",
-        "type": "fix",
-        "message": "探索页说明改为成绩记录与社区投票生成",
-        "label": "修复",
-        "color": "amber"
+        "hash": "608646c",
+        "type": "feat",
+        "message": "探索页改为按目的推荐，新增热身/听歌/挑战三条路线",
+        "label": "新功能",
+        "color": "green"
       },
       {
-        "hash": "6e35acd",
+        "hash": "066dcc9",
         "type": "fix",
-        "message": "探索页文案不再强调是否打过",
+        "message": "探索页说明改为成绩记录与社区投票生成",
         "label": "修复",
         "color": "amber"
       },
