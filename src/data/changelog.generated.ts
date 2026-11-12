@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "d9e0d83",
+        "type": "feat",
+        "message": "推荐分三档拉伸，核心不够时自动放宽补足",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "8a800e4",
         "type": "fix",
         "message": "水分谱不再被漏掉，目标改按实际定数计算",
