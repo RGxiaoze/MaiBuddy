@@ -44,6 +44,11 @@ export interface ExploreOptions {
    * 这些谱面仍属于已游玩，但允许重新进入推荐池 —— 给玩遍全部谱面的玩家用。
    */
   staleKeys?: Set<string>
+  /**
+   * 允许已游玩谱面进入池子（仍保留「禁止降级」）。
+   * 用于「全都打过了」的兜底：此时排除已玩会让池子永远为空。
+   */
+  allowPlayed?: boolean
   /** 随机源，便于测试注入 */
   random?: () => number
   /** 偏好画像：命中偏好谱师 / 冷门曲风时小幅加权 */
@@ -242,6 +247,7 @@ export function buildExplorePool(
     random = Math.random,
     preference,
     staleKeys,
+    allowPlayed,
   } = options
 
   const highestPlayed = highestPlayedBySong(playedKeys)
@@ -262,8 +268,8 @@ export function buildExplorePool(
       if (!diff || diff.levelValue <= 0) continue
       if (isChartExcluded(song.id, diff.levelIndex)) continue
       const key = `${song.id}-${diff.levelIndex}`
-      // 「很久没玩」的谱面允许回到池子（给已经玩遍的玩家）
-      if (playedKeys.has(key) && !staleKeys?.has(key)) continue
+      // 「很久没玩」的谱面允许回到池子；全都打过时由 allowPlayed 整体放开
+      if (!allowPlayed && playedKeys.has(key) && !staleKeys?.has(key)) continue
       // 禁止降级：不推荐低于该曲已游玩最高难度的谱面
       if (highest != null && diff.levelIndex < highest) continue
       if (minLevel != null && diff.levelValue < minLevel) continue

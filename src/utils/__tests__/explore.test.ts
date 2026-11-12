@@ -275,6 +275,38 @@ describe('偏好加权', () => {
 })
 
 // ============================================================
+// allowPlayed：全都打过时的兜底
+// ============================================================
+
+describe('buildExplorePool — allowPlayed 兜底', () => {
+  it('默认排除已游玩谱面', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(3, 13.0)])]
+    const votes = new Map([[1, vote(0.6, 500)]])
+    const pool = buildExplorePool(songs, new Set(['1-3']), votes, { minVotes: 30, random: noShuffle })
+    expect(pool).toHaveLength(0)
+  })
+
+  it('allowPlayed 时已游玩谱面能回到池子（全都打过也不至于空）', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(3, 13.0)])]
+    const votes = new Map([[1, vote(0.6, 500)]])
+    const pool = buildExplorePool(songs, new Set(['1-3']), votes, {
+      minVotes: 30, random: noShuffle, allowPlayed: true,
+    })
+    expect(pool.map(p => p.songId)).toEqual([1])
+  })
+
+  it('allowPlayed 仍禁止降级：打过 MASTER 不会推该曲的 BASIC', () => {
+    const songs = [makeSong(1, 'A', [makeDiff(0, 5), makeDiff(3, 13.0)])]
+    const votes = new Map([[1, vote(0.6, 500)]])
+    const pool = buildExplorePool(songs, new Set(['1-3']), votes, {
+      minVotes: 30, random: noShuffle, allowPlayed: true,
+    })
+    // 只剩 MASTER 可选，BASIC 被「禁止降级」挡掉
+    expect(pool.map(p => p.levelIndex)).toEqual([3])
+  })
+})
+
+// ============================================================
 // 按目的分路线
 // ============================================================
 

@@ -163,9 +163,19 @@ export default function Recommend() {
         topPercent: EXPLORE_TOP_PERCENT,
       })
       if (primary.length >= DEFAULT_LIMIT) return primary
-      return buildPoolByPurpose('random', songs, playedKeys, votes, {
+
+      const wide = buildPoolByPurpose('random', songs, playedKeys, votes, {
         ...base,
         topPercent: EXPLORE_TOP_PERCENT_WIDE,
+      })
+      if (wide.length > 0) return wide
+
+      // 全都打过了 —— 忽略「已玩」这个条件，否则池子永远空。
+      // 用 allowPlayed 而不是传空集，这样「禁止降级」仍然生效。
+      return buildPoolByPurpose('random', songs, playedKeys, votes, {
+        ...base,
+        topPercent: EXPLORE_TOP_PERCENT,
+        allowPlayed: true,
       })
     }
 

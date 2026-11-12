@@ -19,7 +19,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
-        "hash": "608646c",
+        "hash": "cec802b",
+        "type": "fix",
+        "message": "随机路线在全打过时忽略「已玩」条件",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
+        "hash": "86e8360",
         "type": "feat",
         "message": "探索页改为按目的推荐，新增热身/听歌/挑战三条路线",
         "label": "新功能",
