@@ -55,6 +55,11 @@ export interface PushSuggestion {
    * 够不够吃到这首的水分」。无全量成绩或样本不足时不提供。
    */
   yourBandAvg?: number
+  /**
+   * 拉伸档位：1 = 核心推荐（默认拉伸）；2/3 = 核心不够时逐步放宽目标补出来的
+   * 备选，由调用方在列表末尾单独展示，不与核心推荐混排。
+   */
+  tier?: 1 | 2 | 3
   sssPlusRate: number
   /** 全服 AP 率（来自 chart_stats.fc_dist），用于 AP 推分排序 */
   apRate: number
@@ -295,10 +300,17 @@ export function computePushSuggestions(
   options?: {
     allScores?: ScoreRecord[]
     getStats?: (songId: number, level: string) => ChartStatSummary | undefined
+    /**
+     * 拉伸倍率：1 = 默认（B35 0.5 / B15 0.3）。
+     * 核心推荐不够时，调用方会依次用 1.6、2.0 再算一轮补足，
+     * 结果标记为 tier 2 / 3 放在列表末尾。
+     */
+    stretchScale?: number
   },
 ): PushSuggestionsResult {
   const allScores = options?.allScores
   const getStats = options?.getStats
+  const stretchScale = options?.stretchScale ?? 1
 
   if (currentB50.best35.length === 0 && currentB50.best15.length === 0) {
     return { suggestions: [] }
@@ -427,8 +439,10 @@ export function computePushSuggestions(
        * `version === 0` 表示版本未知，按正常处理。
        */
       const isEarlyChart = song.version > 0 && song.version <= EARLY_VERSION_MAX
-      // B15（新版本）池子小、样本偏斜，目标拉伸更保守
-      const stretch = isNew ? TYPICAL_STRETCH_B15 : TYPICAL_STRETCH
+      // B15（新版本）池子小、样本偏斜，目标拉伸更保守。
+      // 乘以 stretchScale 得到分档：1 = 默认（B35 0.5 / B15 0.3），
+      // 调用方在核心推荐不够时会用 1.6、2.0 再各算一轮补足。
+      const stretch = (isNew ? TYPICAL_STRETCH_B15 : TYPICAL_STRETCH) * stretchScale
 
       // Filter: in stretch zone OR already in B50
       // 破顶候选（B1+0.2 ~ B1+0.4）先放行，稍后按拟合定数判定是否「特简单」

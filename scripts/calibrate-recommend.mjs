@@ -24,6 +24,9 @@ const SRC = fileURLToPath(new URL('../src/', import.meta.url))
 const API = 'https://www.diving-fish.com/api/maimaidxprober/music_data'
 const CACHE = resolve(ROOT, '.narrafork/tmp/music_data.cache.json')
 const CACHE_TTL = 60 * 60 * 1000
+/** 核心推荐少于这个条数时依次放宽拉伸补足（与 usePushSuggestions 一致）。
+ *  可用 MIN_CORE=20 之类的环境变量覆盖，便于验证分档补足本身。 */
+const MIN_CORE = Number(process.env.MIN_CORE ?? 8)
 
 const jiti = createJiti(import.meta.url, { alias: { '@': SRC } })
 const { computePushSuggestions, computeRecommendCaps } = await jiti.import('../src/utils/pushSuggestions.ts')
@@ -145,7 +148,22 @@ function analyze(name, scores, songMap) {
     return
   }
   const caps = computeRecommendCaps(b50)
-  const { suggestions } = computePushSuggestions(b50, songMap, { allScores: scores })
+
+  // 模拟 hook 的分档补足：核心档不够 8 条时依次放宽
+  const suggestions = []
+  const seen = new Set()
+  const tierCounts = [0, 0, 0]
+  for (const [i, scale] of [1, 1.6, 2].entries()) {
+    const r = computePushSuggestions(b50, songMap, { allScores: scores, stretchScale: scale })
+    for (const s of r.suggestions) {
+      const k = `${s.songId}-${s.levelIndex}`
+      if (seen.has(k)) continue
+      seen.add(k)
+      suggestions.push({ ...s, tier: i + 1 })
+      tierCounts[i]++
+    }
+    if (i === 0 && suggestions.length >= MIN_CORE) break
+  }
 
   const dist = new Map()
   for (const s of suggestions) {
@@ -167,7 +185,7 @@ function analyze(name, scores, songMap) {
     console.log(`B35 定数 ${Math.min(...levels).toFixed(1)} ~ ${Math.max(...levels).toFixed(1)}`)
   }
   console.log(`上限 capBase ${caps.capBase ?? '—'} · capSimple ${caps.capSimple ?? '—'}`)
-  console.log(`推荐 ${suggestions.length} 条`)
+  console.log(`推荐 ${suggestions.length} 条（核心 ${tierCounts[0]} / 二档 ${tierCounts[1]} / 三档 ${tierCounts[2]}）`)
   console.log(`  定数分布 ${top.map(([k, v]) => `${k}:${v}`).join('  ') || '—'}`)
   console.log(`  水分覆盖 ${waters.length}/${suggestions.length} 条` +
     (waters.length ? `，最大 ${Math.max(...waters).toFixed(1)}` : ''))

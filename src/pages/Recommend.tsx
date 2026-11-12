@@ -16,6 +16,8 @@ import { buildExplorePool, buildPreferenceProfile, DEFAULT_MIN_VOTES, DEFAULT_LI
 /** 探索梯度：先只看社区投票前 50%，挑不出足够的未玩谱面时放宽到 70% */
 const EXPLORE_TOP_PERCENT = 50
 const EXPLORE_TOP_PERCENT_WIDE = 70
+/** 冲分榜最多展示多少条 */
+const PUSH_LIST_LIMIT = 20
 
 import { getBlockedSongIds, blockSong, clearBlockedSongs } from '@/db/database'
 import { getCoverUrl } from '@/data/constants'
@@ -33,7 +35,7 @@ export default function Recommend() {
   const { dfBest35, dfBest15 } = usePlayerStore()
   const { suggestions, effectiveB50 } = usePushSuggestions()
 
-  // ---- 冲分榜：复用推分建议，取收益最高的前 20 ----
+  // ---- 冲分榜：核心档优先，备选档（放宽目标后补出来的）只在后面占位 ----
   const pushList = useMemo(() => {
     if (!suggestions) return []
     const scored = suggestions.map(s => ({
@@ -41,7 +43,12 @@ export default function Recommend() {
       maxGain: Math.max(...s.gains.map(g => g.ratingGain), s.apGain?.ratingGain ?? 0),
     }))
     scored.sort((a, b) => b.maxGain - a.maxGain)
-    return scored.slice(0, 20)
+
+    const core = scored.filter(i => (i.s.tier ?? 1) === 1)
+    const extended = scored.filter(i => (i.s.tier ?? 1) > 1)
+    const head = core.slice(0, PUSH_LIST_LIMIT)
+    if (head.length >= PUSH_LIST_LIMIT) return head
+    return [...head, ...extended.slice(0, PUSH_LIST_LIMIT - head.length)]
   }, [suggestions])
 
   // ---- 玩家当前水平（B35 定数众数）----
@@ -266,8 +273,11 @@ function PushTab({ items, newVersion }: {
     )
   }
 
-  const b15 = items.filter(i => i.s.pool !== 'b35')
-  const b35 = items.filter(i => i.s.pool === 'b35')
+  // 核心档与备选档分开：备选是「目标更激进」的那批，单独放在末尾
+  const core = items.filter(i => (i.s.tier ?? 1) === 1)
+  const extended = items.filter(i => (i.s.tier ?? 1) > 1)
+  const b15 = core.filter(i => i.s.pool !== 'b35')
+  const b35 = core.filter(i => i.s.pool === 'b35')
 
   return (
     <div className="space-y-5">
@@ -297,6 +307,14 @@ function PushTab({ items, newVersion }: {
 
       {poolFilter !== 'b35' && <PushGroup title="B15 池（新版本）" items={b15} tagColor="#B8A0E8" defaultVisible={5} />}
       {poolFilter !== 'b15' && <PushGroup title="B35 池（旧版本）" items={b35} tagColor="#5BA4CF" defaultVisible={10} />}
+      {extended.length > 0 && (
+        <PushGroup
+          title="更多备选（目标更激进）"
+          items={extended}
+          tagColor="#94A3B8"
+          defaultVisible={5}
+        />
+      )}
     </div>
   )
 }

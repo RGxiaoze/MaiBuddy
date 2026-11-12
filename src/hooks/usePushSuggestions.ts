@@ -11,8 +11,15 @@ import { computePushSuggestions, type PushSuggestion } from '@/utils/pushSuggest
 import { computeTheoreticalMaxBoth, type B50Result } from '@/utils/b50'
 import { loadStats, getChartStats, isStatsLoaded } from '@/services/statsService'
 
-export interface PushHookResult {
-  /** Effective B50 (DF data takes priority when player explicitly queried) */
+/** 核心推荐少于这个条数时，依次放宽拉伸补足 */
+const MIN_CORE_SUGGESTIONS = 8
+/**
+ * 三档拉伸倍率：默认（B35 0.5 / B15 0.3）→ 0.8 / 0.48 → 1.0 / 0.6。
+ * B15 按同一倍率缩放，始终比 B35 保守 40%。
+ */
+const STRETCH_TIERS = [1, 1.6, 2] as const
+
+export interface PushHookResult {  /** Effective B50 (DF data takes priority when player explicitly queried) */
   effectiveB50: B50Result | null
   /** Current total rating */
   b50Rating: number
@@ -79,10 +86,37 @@ export function usePushSuggestions(): PushHookResult {
   const result = useMemo(() => {
     if (!effectiveB50 || songs.length === 0) return null
     const songMap = new Map(songs.map(s => [s.id, s]))
-    return computePushSuggestions(effectiveB50, songMap, {
+    const opts = {
       allScores: scores.length > 0 ? scores : undefined,
       getStats: getChartStats,
-    })
+    }
+
+    // 分档补足：核心档（默认拉伸）不够时才逐级放宽目标。
+    // 放宽后的条目 tier 更大，由 UI 单独放在列表末尾，不与核心推荐混排。
+    const merged: PushSuggestion[] = []
+    const seen = new Set<string>()
+    let precisionNote: string | undefined
+
+    for (let i = 0; i < STRETCH_TIERS.length; i++) {
+      const tier = (i + 1) as 1 | 2 | 3
+      const r = computePushSuggestions(effectiveB50, songMap, {
+        ...opts,
+        stretchScale: STRETCH_TIERS[i],
+      })
+      precisionNote ??= r.precisionNote
+
+      for (const s of r.suggestions) {
+        const key = `${s.songId}-${s.levelIndex}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        merged.push({ ...s, tier })
+      }
+
+      // 核心档已经够多，就不用再放宽
+      if (tier === 1 && merged.length >= MIN_CORE_SUGGESTIONS) break
+    }
+
+    return { suggestions: merged, precisionNote }
   }, [effectiveB50, localB50, scores, songs, statsReady, dfPlayerName, dfBest35, dfBest15])
 
   return {
