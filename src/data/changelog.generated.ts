@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "7b23e19",
+        "type": "feat",
+        "message": "缩略图从 96px 提到 192px",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "fa87365",
         "type": "fix",
         "message": "目标达成率不再被压缩，恢复地板上方的推荐",

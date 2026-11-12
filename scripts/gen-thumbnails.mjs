@@ -25,8 +25,9 @@ const TMP_DIR = resolve(ROOT, '.narrafork/tmp/thumbs')
 const MUSIC_API = 'https://www.diving-fish.com/api/maimaidxprober/music_data'
 const SRC = 'https://assets2.lxns.net/maimai/jacket'
 
-const SIZE = 96
-const QUALITY = 75
+// 96px 在移动端 2x 屏和 B50 的大卡片上偏糊，提到 192px 覆盖到 96 CSS px 的 2 倍屏
+const SIZE = 192
+const QUALITY = 85
 const CONCURRENCY = 8
 const RETRIES = 2
 
