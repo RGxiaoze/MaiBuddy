@@ -17,7 +17,7 @@ import {
   SSSP_SORT_WEIGHT, SUGGESTION_SORT_TOLERANCE,
   B15_SIZE, MAX_B15_SUGGESTIONS, MAX_B35_SUGGESTIONS,
   RECOMMEND_CAP_ABOVE_MODE, RECOMMEND_CAP_SIMPLE_ABOVE_MODE, SIMPLE_FIT_DIFF_GAP, SIMPLE_TARGET_FLOOR,
-  EARLY_VERSION_MAX,
+  EARLY_VERSION_MAX, PREDICT_MIN_ACH,
 } from '@/config/algorithms'
 
 // ---- Types ----
@@ -267,8 +267,9 @@ function makeSuggestion(
     currentRating,
     pool,
     difficulty,
-    // 取「当前」与「现实目标」的较高者：模型低估时不该把预期评级也压低
-    expectedRank: rankOfAchievement(Math.max(currentAch, ceiling)),
+    // 用当前成绩（有成绩时是实测，无成绩时是 predictAch 的预测值）。
+    // 不用 ceiling：那是「努力上限」，几乎恒为 100.5，标签会全变成 SSS+ 而失去区分度。
+    expectedRank: rankOfAchievement(currentAch),
     sssPlusRate,
     apRate,
     gains: gains as [PushGain, PushGain, PushGain],
@@ -338,8 +339,11 @@ export function computePushSuggestions(
 
   // 全量成绩样本（含没进 B50 的），用于「同定数中位数」预测。
   // 线性回归只用 50 个高分点，对偏科玩家会系统性高估。
+  // 低于 PREDICT_MIN_ACH 的记录是初见/试玩，不代表能力，不能拉低预测。
   const allSamples: LevelSample[] = allScores
-    ? allScores.map(s => ({ levelValue: s.levelValue, achievements: s.achievements, key: `${s.songId}-${s.levelIndex}` }))
+    ? allScores
+        .filter(s => s.achievements >= PREDICT_MIN_ACH)
+        .map(s => ({ levelValue: s.levelValue, achievements: s.achievements, key: `${s.songId}-${s.levelIndex}` }))
     : []
 
   /**
@@ -390,23 +394,17 @@ export function computePushSuggestions(
   // Unified lower bound: mode - 1.0 (covers both B35 optimization and B15 floor replacement)
   const STRETCH_LOWER = mode > 0 ? Math.max(0, mode - 1.0) : 0
   // Progressive widening: when a pool has few entries, widen its lower bound to capture more candidates.
+  // 但**最多只放宽到 mode − 1.0**：池子是空的，不等于该从 1 级开始找。
+  // 此前空池会把下限设成 0，导致 B15 一条都没有的玩家被推 7 级新曲。
   const b15NotFull = currentB50.best15.length < B15_SIZE
   const b35NotFull = currentB50.best35.length < 35
-  let B15_STRETCH_LOWER: number
-  let B35_STRETCH_LOWER: number
-  if (!b15NotFull) {
-    B15_STRETCH_LOWER = STRETCH_LOWER
-  } else if (currentB50.best15.length >= 5) {
+  let B15_STRETCH_LOWER = STRETCH_LOWER
+  let B35_STRETCH_LOWER = STRETCH_LOWER
+  if (b15NotFull && currentB50.best15.length >= 5) {
     B15_STRETCH_LOWER = Math.max(0, mode - 0.5)
-  } else {
-    B15_STRETCH_LOWER = 0
   }
-  if (!b35NotFull) {
-    B35_STRETCH_LOWER = STRETCH_LOWER
-  } else if (currentB50.best35.length >= 5) {
+  if (b35NotFull && currentB50.best35.length >= 5) {
     B35_STRETCH_LOWER = Math.max(0, mode - 0.5)
-  } else {
-    B35_STRETCH_LOWER = 0
   }
 
   // 6. Scan song DB for candidates
@@ -554,7 +552,7 @@ export function computePushSuggestions(
             currentRating,
             pool,
             difficulty: classifyDifficulty({ levelValue: lv, achievements: currentAch } as ScoreRecord, stats, chosenTarget),
-            expectedRank: rankOfAchievement(Math.max(currentAch, realistic)),
+            expectedRank: rankOfAchievement(currentAch),
             sssPlusRate: stats?.sssPlusRate ?? 0,
             apRate: stats?.apRate ?? 0,
             gains: lifts as [PushGain, PushGain, PushGain],

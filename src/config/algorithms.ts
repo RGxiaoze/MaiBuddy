@@ -186,6 +186,14 @@ export const SIMPLE_FIT_DIFF_GAP = 0.3
 /** 破顶谱的目标达成率封顶（鸟） */
 export const SIMPLE_TARGET_FLOOR = 100.0
 
+/**
+ * 预测玩家水平时的有效成绩下限。
+ *
+ * 低于此值的记录多半是初见、试玩或中途放弃，不代表能力。
+ * 不过滤的话，一位 W64 玩家的「9% 初见」会把他在该定数的预测拉到 SS 以下。
+ */
+export const PREDICT_MIN_ACH = 80
+
 /** diffFromLevelAvg 归一化偏移（diff + offset）/ (offset*2) 映射到 [0,1] */
 export const DIFF_COMMUNITY_NORM_OFFSET = 5
 

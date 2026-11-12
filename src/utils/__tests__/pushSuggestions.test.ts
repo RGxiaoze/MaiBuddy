@@ -133,6 +133,17 @@ describe('加权分档配额', () => {
 })
 
 describe('推荐不越过舒适区上限', () => {
+  it('B15 池为空时，下限也不放开到低定数', () => {
+    // B35 全 13.5、B15 一条没有；7 级新曲不该因为「池子空」就被推荐
+    const b50 = makeB50(13.5)
+    const lowSong = song(6000, 7.0)
+    ;(lowSong as unknown as { isNew: boolean }).isNew = true
+    const songs = new Map([[6000, lowSong]])
+
+    const { suggestions } = computePushSuggestions(b50, songs)
+    expect(suggestions.some((s) => s.songId === 6000)).toBe(false)
+  })
+
   it('B35 全在 13.5 时，不推荐 14.0 的谱', () => {
     const b50 = makeB50(13.5) // 众数 13.5 → 上限 13.8
     const songs = new Map([
