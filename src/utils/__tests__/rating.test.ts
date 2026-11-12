@@ -404,7 +404,7 @@ describe('computePushSuggestions', () => {
       m.set(id, makeSong({ id, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.3 })] } }))
       scores.push(makeScore({ songId: id, levelIndex: 3, levelValue: 13.3, achievements: 97.5 }))
     }
-    const cand = makeSong({ id: 100, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.0 })] } })
+    const cand = makeSong({ id: 100, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.7 })] } })
     m.set(100, cand)
 
     const b50 = computeB50(scores, m)

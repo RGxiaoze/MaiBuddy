@@ -18,6 +18,15 @@ import {
   MIN_MEDIUM_LEVEL,
 } from '@/config/algorithms'
 
+/**
+ * 定数比较的浮点容差。
+ *
+ * 定数是 0.1 精度的小数，减法会产生尾数：13.8 − 13.5 = 0.3000000000000007，
+ * 比窗口 0.3 大一点点。没有容差的话，所有「恰好差 0.3」的档位都会落出窗口
+ * 和档位梯度，表现为上限附近的谱一律搜不到、也拿不到最高目标档。
+ */
+const EPS = 1e-9
+
 /** Clamp value to [0, 1] */
 function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v))
@@ -43,11 +52,11 @@ function clamp01(v: number): number {
  */
 export function realisticTargetAch(levelValue: number, baseLevel: number): number {
   const gap = levelValue - baseLevel
-  if (gap <= TARGET_GAP_WELL_BELOW) return MAX_ACHIEVEMENTS
-  if (gap <= TARGET_GAP_AT_COMFORT) return MAX_ACHIEVEMENTS
-  if (gap <= TARGET_GAP_CLOSE) return MAX_ACHIEVEMENTS
-  if (gap <= TARGET_GAP_MODERATE) return 100.0
-  if (gap <= TARGET_GAP_FAR) return 99.0
+  if (gap <= TARGET_GAP_WELL_BELOW + EPS) return MAX_ACHIEVEMENTS
+  if (gap <= TARGET_GAP_AT_COMFORT + EPS) return MAX_ACHIEVEMENTS
+  if (gap <= TARGET_GAP_CLOSE + EPS) return MAX_ACHIEVEMENTS
+  if (gap <= TARGET_GAP_MODERATE + EPS) return 100.0
+  if (gap <= TARGET_GAP_FAR + EPS) return 99.0
   return TARGET_FALLBACK_ACH
 }
 
@@ -94,7 +103,7 @@ export function averageAtLevel(
 ): number | null {
   const usable = excludeKey ? samples.filter(s => s.key !== excludeKey) : samples
   for (const win of [BAND_WINDOW, BAND_WINDOW * 3, BAND_WINDOW * 5]) {
-    const near = usable.filter(s => Math.abs(s.levelValue - levelValue) <= win)
+    const near = usable.filter(s => Math.abs(s.levelValue - levelValue) <= win + EPS)
     if (near.length >= minSamples) {
       return near.reduce((sum, s) => sum + s.achievements, 0) / near.length
     }
@@ -114,7 +123,7 @@ export function typicalAchievement(
 ): number | null {
   const near = samples
     .filter(s => s.key !== excludeKey)
-    .filter(s => Math.abs(s.levelValue - levelValue) <= TYPICAL_WINDOW)
+    .filter(s => Math.abs(s.levelValue - levelValue) <= TYPICAL_WINDOW + EPS)
     .map(s => s.achievements)
     .sort((a, b) => a - b)
 
