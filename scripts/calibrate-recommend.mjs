@@ -32,6 +32,7 @@ const jiti = createJiti(import.meta.url, { alias: { '@': SRC } })
 const { computePushSuggestions, computeRecommendCaps } = await jiti.import('../src/utils/pushSuggestions.ts')
 const { computeB50 } = await jiti.import('../src/utils/b50.ts')
 const { achievableTargetFor, averageAtLevel } = await jiti.import('../src/utils/difficultyTier.ts')
+const { computeRating } = await jiti.import('../src/utils/rating.ts')
 
 // ---- 曲库 ----
 
@@ -188,6 +189,28 @@ function analyze(name, scores, songMap) {
   const lastB15 = b50.best15[b50.best15.length - 1]
   console.log(`B35 地板 ${lastB35 ? `${lastB35.levelValue}@${lastB35.achievements}% → ${lastB35.dxRating}` : '—'}` +
     ` · B15 地板 ${lastB15 ? `${lastB15.levelValue}@${lastB15.achievements}% → ${lastB15.dxRating}` : '空池'}`)
+
+  // 地板附近逐档诊断：为什么这些档推不动
+  if (lastB35) {
+    const floorRating = lastB35.dxRating
+    const b35Levels = b50.best35.map(e => e.levelValue)
+    const mode = b35Levels.sort((a, b) => a - b)[Math.floor(b35Levels.length / 2)]
+    const allSamples = scores.filter(s => s.achievements >= 80)
+      .map(s => ({ levelValue: s.levelValue, achievements: s.achievements, key: `${s.songId}-${s.levelIndex}` }))
+    const b50Samples = [
+      ...b50.best35.map(e => ({ levelValue: e.levelValue, achievements: e.achievements })),
+      ...b50.best15.map(e => ({ levelValue: e.levelValue, achievements: e.achievements })),
+    ]
+    console.log(`  逐档诊断（中位众数≈${mode.toFixed(1)}，地板 ${floorRating}）：`)
+    for (const lv of [13.6, 13.7, 13.8, 13.9, 14.0, 14.1]) {
+      const ach = achievableTargetFor(lv, mode, allSamples, b50Samples)
+      const r99 = computeRating(lv, 99.0)
+      const r1005 = computeRating(lv, 100.5)
+      const gainAtAch = computeRating(lv, ach) - floorRating
+      console.log(`    ${lv}: 目标 ${ach.toFixed(1)}% → rating ${computeRating(lv, ach)}` +
+        `（99%=${r99}, 100.5%=${r1005}）· 相对地板 ${gainAtAch >= 0 ? '+' : ''}${gainAtAch}`)
+    }
+  }
   console.log(`上限 capBase ${caps.capBase ?? '—'} · capSimple ${caps.capSimple ?? '—'}`)
   console.log(`推荐 ${suggestions.length} 条（核心 ${tierCounts[0]} / 二档 ${tierCounts[1]} / 三档 ${tierCounts[2]}）`)
   const pools = new Map()

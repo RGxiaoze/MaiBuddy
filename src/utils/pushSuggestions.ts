@@ -237,11 +237,14 @@ function makeSuggestion(
   precision: 'precise' | 'estimated',
   floorRating: number,
   targetLevels: readonly number[],
-  /** 可达成的目标达成率，由调用方用 achievableTargetFor 算好 */
-  achievableTarget: number,
   targetCeiling?: number,
 ): PushSuggestion {
-  const ceiling = Math.min(achievableTarget, targetCeiling ?? MAX_ACHIEVEMENTS)
+  // 目标不因「你该档平均只有 99%」而压缩。
+  // 推分本就是突破：实测有玩家地板 308，13.8 推到 100.5% 是 310（能进池），
+  // 但目标被压到 99% 后只有 284，收益归零，整档推荐消失。
+  // 推不动的谱由收益计算（目标 rating − 基准）自然过滤，不需要在目标上做二次限制。
+  // 唯一的硬上限是破顶保护给的 targetCeiling。
+  const ceiling = Math.min(MAX_ACHIEVEMENTS, targetCeiling ?? MAX_ACHIEVEMENTS)
   // 基准取「池子地板」与「当前成绩」的较高者。
   // 只跟地板比会漏掉一种情况：本地成绩已经打上去了，但 B50 还是旧快照
   // （在线查分与本地成绩不同步），于是「推到 100.0%」仍被算成有收益，
@@ -522,7 +525,6 @@ export function computePushSuggestions(
           precision,
           floorRating,
           TARGET_LEVELS,
-          achievable,
           targetCeiling,
         )
         cand.reliable = stats?.reliable !== false && !isEarlyChart
