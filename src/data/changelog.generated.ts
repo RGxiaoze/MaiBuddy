@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "7b6586d",
+        "type": "fix",
+        "message": "空池地板按 0 计算，低定数新曲挤满整张列表",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "d9e0d83",
         "type": "feat",
         "message": "推荐分三档拉伸，核心不够时自动放宽补足",
