@@ -10,6 +10,7 @@ import { useSongStore } from '@/store/songStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { usePushSuggestions } from '@/hooks/usePushSuggestions'
+import type { RateType } from '@/types'
 import { loadVoteStats, getAllVoteStats, isVoteStatsLoaded, isVoteStatsFailed } from '@/services/voteService'
 import { buildExplorePool, buildPreferenceProfile, buildStaleKeys, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
 
@@ -234,15 +235,30 @@ function bestTargetProgress(s: PushSuggestion): { current: number; target: numbe
 
 // ---- 推分 ----
 
-/** 难度排序权重：容易的排前面 */
-const DIFFICULTY_RANK: Record<'easy' | 'medium' | 'hard', number> = {
-  easy: 0, medium: 1, hard: 2,
+/** 预期评级的排序权重：能打到的高评级排前面 */
+const RANK_ORDER: Record<string, number> = {
+  sssp: 0, sss: 1, ssp: 2, ss: 3, sp: 4, s: 5,
+  aaa: 6, aa: 7, a: 8, bbb: 9, bb: 10, b: 11,
 }
+
+const rankOrder = (r: RateType): number => RANK_ORDER[r] ?? 99
+
+/** 预计能到 SSS 及以上，直接展示；其余折叠 */
+const isStrongRank = (r: RateType): boolean => r === 'sssp' || r === 'sss'
+
+const POOL_FILTERS = [
+  { value: 'all', label: '全部' },
+  { value: 'b35', label: '只看 B35' },
+  { value: 'b15', label: '只看 B15' },
+] as const
 
 function PushTab({ items, newVersion }: {
   items: Array<{ s: PushSuggestion; maxGain: number }>
   newVersion: { version: string; count: number } | null
 }) {
+  // 有人只想推旧曲池，不想看新曲；也有人反过来。默认仍两组都给
+  const [poolFilter, setPoolFilter] = useState<'all' | 'b35' | 'b15'>('all')
+
   if (items.length === 0) {
     return (
       <div className="bg-surface border border-border rounded-lg p-5">
@@ -265,8 +281,23 @@ function PushTab({ items, newVersion }: {
         )}
       </p>
 
-      <PushGroup title="B15 池（新版本）" items={b15} tagColor="#B8A0E8" defaultVisible={5} />
-      <PushGroup title="B35 池（旧版本）" items={b35} tagColor="#5BA4CF" defaultVisible={10} />
+      <div className="flex items-center gap-2">
+        {POOL_FILTERS.map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => setPoolFilter(value)}
+            className={`px-3 py-1 rounded-full text-xs border transition-colors cursor-pointer
+              ${poolFilter === value
+                ? 'bg-primary/15 text-primary border-primary/30'
+                : 'bg-surface text-text-secondary border-border hover:border-primary hover:text-primary'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {poolFilter !== 'b35' && <PushGroup title="B15 池（新版本）" items={b15} tagColor="#B8A0E8" defaultVisible={5} />}
+      {poolFilter !== 'b15' && <PushGroup title="B35 池（旧版本）" items={b35} tagColor="#5BA4CF" defaultVisible={10} />}
     </div>
   )
 }
@@ -283,16 +314,17 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
 
   if (items.length === 0) return null
 
-  // 难度优先，其次按收益降序
+  // 预期评级高的排前面，同评级按收益降序
   const sorted = [...items].sort((a, b) => {
-    const byDiff = DIFFICULTY_RANK[a.s.difficulty] - DIFFICULTY_RANK[b.s.difficulty]
-    return byDiff !== 0 ? byDiff : b.maxGain - a.maxGain
+    const byRank = rankOrder(a.s.expectedRank) - rankOrder(b.s.expectedRank)
+    return byRank !== 0 ? byRank : b.maxGain - a.maxGain
   })
 
-  const approachable = sorted.filter(i => i.s.difficulty !== 'hard')
-  const challenging = sorted.filter(i => i.s.difficulty === 'hard')
-  const mainList = approachable.length > 0 ? approachable : challenging
-  const foldedList = approachable.length > 0 ? challenging : []
+  // 预计能到 SSS 及以上的直接展示，其余折叠——玩家一眼看到的是「稳的」
+  const strong = sorted.filter(i => isStrongRank(i.s.expectedRank))
+  const weak = sorted.filter(i => !isStrongRank(i.s.expectedRank))
+  const mainList = strong.length > 0 ? strong : weak
+  const foldedList = strong.length > 0 ? weak : []
 
   const renderCard = ({ s, maxGain }: { s: PushSuggestion; maxGain: number }) => (
     <RecommendCard
@@ -305,7 +337,7 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
       progress={bestTargetProgress(s)}
       tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
       tagColor={tagColor}
-      difficulty={s.difficulty}
+      expectedRank={s.expectedRank}
     />
   )
 
@@ -336,7 +368,7 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
             onClick={() => setShowChallenging(v => !v)}
             className="w-full mt-2 flex items-center justify-center gap-1 py-2 rounded-md text-[11px] font-medium text-text-secondary bg-surface border border-border hover:border-primary hover:text-primary transition-colors cursor-pointer"
           >
-            {showChallenging ? '收起' : `展开 ${foldedList.length} 条更有挑战的推荐`}
+            {showChallenging ? '收起' : `展开 ${foldedList.length} 条预计评级更低的推荐`}
             <span>{showChallenging ? '▾' : '▸'}</span>
           </button>
           {showChallenging && (

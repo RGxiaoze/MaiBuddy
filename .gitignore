@@ -14,7 +14,9 @@ dist-ssr
 *.local.*
 *.png
 Image_*.jpg
-maimai-scores*.csv
+# 玩家成绩导出（含他人隐私，仅本地诊断用）
+*maimai-scores*.csv
+*maimai-scores*.json
 # 测试账号成绩（含个人信息，仅本地诊断用）
 cike.csv
 public/data/kb.json

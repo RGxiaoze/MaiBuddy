@@ -4,11 +4,11 @@
 // ============================================================
 
 import type { ScoreRecord } from '@/db/database'
-import type { Song } from '@/types'
+import type { Song, RateType } from '@/types'
 import type { ChartStatSummary } from '@/services/statsService'
 import { type B50Result } from './b50'
-import { computeRating } from './rating'
-import { classifyDifficulty, realisticTargetAchFor, TYPICAL_STRETCH, TYPICAL_STRETCH_B15, type LevelSample } from './difficultyTier'
+import { computeRating, rankOfAchievement } from './rating'
+import { classifyDifficulty, realisticTargetAchFor, typicalAchievement, TYPICAL_STRETCH, TYPICAL_STRETCH_B15, type LevelSample } from './difficultyTier'
 import { isChartExcluded } from '@/data/excluded-charts'
 import { predictLevelToAch } from './regression'
 import {
@@ -16,7 +16,7 @@ import {
   SKIP_LOW_LEVEL, SKIP_LOW_ACH,
   SSSP_SORT_WEIGHT, SUGGESTION_SORT_TOLERANCE,
   B15_SIZE, MAX_B15_SUGGESTIONS, MAX_B35_SUGGESTIONS,
-  RECOMMEND_CAP_ABOVE_B1, RECOMMEND_CAP_SIMPLE, SIMPLE_FIT_DIFF_GAP, SIMPLE_TARGET_FLOOR,
+  RECOMMEND_CAP_ABOVE_MODE, RECOMMEND_CAP_SIMPLE_ABOVE_MODE, SIMPLE_FIT_DIFF_GAP, SIMPLE_TARGET_FLOOR,
   EARLY_VERSION_MAX,
 } from '@/config/algorithms'
 
@@ -44,6 +44,12 @@ export interface PushSuggestion {
   currentRating: number
   pool: 'b35' | 'b15'
   difficulty: 'easy' | 'medium' | 'hard'
+  /**
+   * 按玩家自己的成绩预测，这首「预计能打到」的评级。
+   * 与目标达成率同源（都是 ceiling / 现实目标），所以卡片上的
+   * 「预计 SSS」和「→ 100.0%」不会互相矛盾。
+   */
+  expectedRank: RateType
   sssPlusRate: number
   /** 全服 AP 率（来自 chart_stats.fc_dist），用于 AP 推分排序 */
   apRate: number
@@ -84,20 +90,35 @@ function computeLevelMode(levels: number[], precision: number = 0.1): number {
 }
 
 /**
- * 推荐定数上限：以 B50 中 Rating 最高的那条（B1）为锚点。
+ * 推荐定数上限：以 B35 众数（稳定水平）为锚点。
+ *
+ * 不用 B1 —— 一条侥幸打出的高分不该把整张推荐表拉到那个强度。
+ * 实测有玩家 B1 在 14+ 而 B35 的 24/35 落在 13+，锚 B1 会满屏 14.5+。
  * 返回 null 表示没有 B50，调用方应退回旧规则。
  */
 export function computeRecommendCaps(b50: B50Result): { capBase: number | null; capSimple: number | null } {
-  const b1 = [...b50.best35, ...b50.best15]
-    .reduce<typeof b50.best35[number] | null>((best, e) => (!best || e.dxRating > best.dxRating ? e : best), null)
-  if (!b1) return { capBase: null, capSimple: null }
+  const levels = b50.best35.length > 0
+    ? b50.best35.map(e => e.levelValue)
+    : b50.best15.map(e => e.levelValue)
+  if (levels.length === 0) return { capBase: null, capSimple: null }
 
-  // 一位小数取整，避免 14.0 + 0.2 = 14.200000000000001 把 14.2 挡掉
+  // 样本偏少时众数不稳定（5 条里 2 条就能成众数），退回中位数
+  const anchor = levels.length >= B35_MODE_MIN_COUNT
+    ? computeLevelMode(levels)
+    : median(levels)
+
+  // 一位小数取整，避免 14.0 + 0.3 = 14.300000000000001 把 14.3 挡掉
   const round1 = (v: number) => Math.round(v * 10) / 10
   return {
-    capBase: round1(b1.levelValue + RECOMMEND_CAP_ABOVE_B1),
-    capSimple: round1(b1.levelValue + RECOMMEND_CAP_SIMPLE),
+    capBase: round1(anchor + RECOMMEND_CAP_ABOVE_MODE),
+    capSimple: round1(anchor + RECOMMEND_CAP_SIMPLE_ABOVE_MODE),
   }
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
 /** 「特简单」：拟合定数比官标低至少 SIMPLE_FIT_DIFF_GAP，且拟合定数已知（>0） */
@@ -133,15 +154,18 @@ function compareSuggestion(a: PushSuggestion, b: PushSuggestion): number {
 }
 
 /**
- * 按定数分档配额取推荐。
+ * 按定数分档的加权配额。
  *
- * 纯收益排序会让高定数谱垄断列表（它们的 ratingGain 天然更大），
- * 把定数较低、但同样能涨分的谱全部挤掉。这里改为：按 0.1 定数分档，
- * 每轮每档各取 1 条（档内仍按收益排序），于是
- *   · 低定数档不会被高定数档挤掉
- *   · 输出天然按定数升序，靠近地板的谱排在前面
+ * 纯收益排序会让高定数谱垄断列表（它们的 ratingGain 天然更大）。
+ * 但只是「每档平均取」也不够 —— 推荐的主流应落在玩家舒适区附近：
+ * B35 里 24/35 是 13+ 的人，该看到 13.3~13.4 的鸟与 13.0 以下的鸟加，
+ * 而不是一堆贴着上限的 13.5。
+ *
+ * 权重以 B35 众数为原点，定数越高名额越少；低于舒适区的不受惩罚
+ * （「低定数 + 更高达成率」同样是有效路线）。每档配额是硬上限，
+ * 候选不够时宁可少给，也不拿上限档凑数。
  */
-export function applyLevelQuota(pool: PushSuggestion[], max: number): PushSuggestion[] {
+export function applyLevelQuota(pool: PushSuggestion[], max: number, mode: number): PushSuggestion[] {
   const byLevel = new Map<number, PushSuggestion[]>()
   for (const s of pool) {
     const key = Math.round(s.levelValue * 10) / 10
@@ -152,24 +176,44 @@ export function applyLevelQuota(pool: PushSuggestion[], max: number): PushSugges
   for (const list of byLevel.values()) list.sort(compareSuggestion)
 
   const levels = [...byLevel.keys()].sort((a, b) => a - b)
-  const counters = new Map(levels.map((lv) => [lv, 0]))
-  const out: PushSuggestion[] = []
-  while (out.length < max) {
-    let progressed = false
-    for (const lv of levels) {
-      if (out.length >= max) break
-      const list = byLevel.get(lv)!
-      const idx = counters.get(lv)!
-      if (idx >= list.length) continue
-      out.push(list[idx])
-      counters.set(lv, idx + 1)
-      progressed = true
-    }
-    if (!progressed) break
+  const weights = new Map<number, number>()
+  let totalWeight = 0
+  for (const lv of levels) {
+    const w = quotaWeight(lv - mode)
+    if (w <= 0) continue
+    weights.set(lv, w)
+    totalWeight += w
   }
-  // 取满配额后按定数升序排列（档内保持收益序），让靠近地板的谱排在前面
+
+  // 全部落在上限之外（候选通常已被 capBase 过滤，这里只是兜底）
+  if (totalWeight === 0) {
+    return pool.slice().sort(compareSuggestion).slice(0, max)
+  }
+
+  const out: PushSuggestion[] = []
+  for (const lv of levels) {
+    const w = weights.get(lv)
+    if (w === undefined) continue
+    // 至少给 1 条，避免整档被四舍五入抹掉
+    const quota = Math.max(1, Math.round(max * w / totalWeight))
+    out.push(...byLevel.get(lv)!.slice(0, quota))
+  }
+
+  // 定数升序：定数更高的自然靠后
   out.sort((a, b) => a.levelValue - b.levelValue || compareSuggestion(a, b))
-  return out
+  return out.slice(0, max)
+}
+
+/**
+ * 分档权重：`offset` = 该档定数 − 舒适区众数。
+ * 0.05 的容差用于吸收 13.3 − 13.2 这类浮点尾数。
+ */
+function quotaWeight(offset: number): number {
+  if (offset <= 0.05) return 1.0
+  if (offset <= 0.15) return 0.8
+  if (offset <= 0.25) return 0.5
+  if (offset <= 0.35) return 0.25
+  return 0
 }
 
 function makeSuggestion(
@@ -193,13 +237,17 @@ function makeSuggestion(
     realisticTargetAchFor(levelValue, mode, samples, excludeKey, stretch),
     targetCeiling ?? MAX_ACHIEVEMENTS,
   )
+  // 基准取「池子地板」与「当前成绩」的较高者。
+  // 只跟地板比会漏掉一种情况：本地成绩已经打上去了，但 B50 还是旧快照
+  // （在线查分与本地成绩不同步），于是「推到 100.0%」仍被算成有收益，
+  // 而玩家当前已经是 100.5%。
+  const baseline = Math.max(floorRating, currentRating)
   const gains: PushGain[] = targetLevels.map((targetAch) => {
     const cappedTarget = Math.min(ceiling, targetAch)
     const targetRating = computeRating(levelValue, Math.min(cappedTarget, MAX_ACHIEVEMENTS))
-    const ratingGain = targetRating - floorRating
     // targetAch 存「实际可达成的目标」（可能被现实目标截断），
     // 否则 UI 会显示「推到 SSS+」却按 SSS 的收益计算，文案与数字对不上
-    return { targetAch: Math.min(cappedTarget, MAX_ACHIEVEMENTS), targetRating, ratingGain: Math.max(0, ratingGain) }
+    return { targetAch: Math.min(cappedTarget, MAX_ACHIEVEMENTS), targetRating, ratingGain: Math.max(0, targetRating - baseline) }
   })
 
   // AP gain: only when SSS+ gain is already 0 (no more rating from achievement)
@@ -207,7 +255,7 @@ function makeSuggestion(
   if (gains[2].ratingGain === 0) {
     const cappedTarget = Math.min(ceiling, MAX_ACHIEVEMENTS)
     const apRating = computeRating(levelValue, cappedTarget, 'ap')
-    const apGainVal = Math.max(0, apRating - floorRating)
+    const apGainVal = Math.max(0, apRating - baseline)
     if (apGainVal > 0) {
       apGain = { targetAch: MAX_ACHIEVEMENTS, targetRating: apRating, ratingGain: apGainVal }
     }
@@ -219,6 +267,8 @@ function makeSuggestion(
     currentRating,
     pool,
     difficulty,
+    // 取「当前」与「现实目标」的较高者：模型低估时不该把预期评级也压低
+    expectedRank: rankOfAchievement(Math.max(currentAch, ceiling)),
     sssPlusRate,
     apRate,
     gains: gains as [PushGain, PushGain, PushGain],
@@ -286,6 +336,27 @@ export function computePushSuggestions(
   ]
   const predictFn = predictLevelToAch(b50Scores)
 
+  // 全量成绩样本（含没进 B50 的），用于「同定数中位数」预测。
+  // 线性回归只用 50 个高分点，对偏科玩家会系统性高估。
+  const allSamples: LevelSample[] = allScores
+    ? allScores.map(s => ({ levelValue: s.levelValue, achievements: s.achievements, key: `${s.songId}-${s.levelIndex}` }))
+    : []
+
+  /**
+   * 预测玩家在某定数能打到的达成率。
+   *
+   * 回退顺序：全量成绩的同定数中位数 → B50 的同定数中位数 → 线性回归。
+   * 前两级要求同一定数 ±0.3 内至少 5 条成绩，样本不够时宁可退回回归，
+   * 也不拿一两条成绩当结论。
+   */
+  const predictAch = (lv: number, excludeKey?: string): number => {
+    const fromAll = typicalAchievement(lv, allSamples, excludeKey)
+    if (fromAll !== null) return fromAll
+    const fromB50 = typicalAchievement(lv, b50Samples, excludeKey)
+    if (fromB50 !== null) return fromB50
+    return predictFn(lv)
+  }
+
   // 4. Build precise layer: B50 entries + all available scores
   const preciseScores = new Map<string, number>() // key → achievements
   for (const e of currentB50.best35) {
@@ -310,8 +381,7 @@ export function computePushSuggestions(
   const mode = b35Levels.length >= B35_MODE_MIN_COUNT
     ? computeLevelMode(b35Levels)
     : (b35Levels.length > 0 ? b35Levels.reduce((s, l) => s + l, 0) / b35Levels.length : B35_FALLBACK_LEVEL)
-  // Upper bound: 以「当前最强一手」B1（Rating 最高的那条，可能来自 B15）为锚点。
-  // 旧规则只看 B50 定数众数：B35 全是 13.8 鸟加的人也会被推 14.4 的谱。
+  // Upper bound: 以 B35 众数（稳定水平）为锚点，见 computeRecommendCaps。
   const { capBase, capSimple } = computeRecommendCaps(currentB50)
 
   // 无 B50 时退回旧规则，保证新用户仍有建议
@@ -385,7 +455,7 @@ export function computePushSuggestions(
         currentAch = preciseAch
         precision = 'precise'
       } else {
-        currentAch = predictFn(lv)
+        currentAch = predictAch(lv, key)
         precision = 'estimated'
       }
 
@@ -484,6 +554,7 @@ export function computePushSuggestions(
             currentRating,
             pool,
             difficulty: classifyDifficulty({ levelValue: lv, achievements: currentAch } as ScoreRecord, stats, chosenTarget),
+            expectedRank: rankOfAchievement(Math.max(currentAch, realistic)),
             sssPlusRate: stats?.sssPlusRate ?? 0,
             apRate: stats?.apRate ?? 0,
             gains: lifts as [PushGain, PushGain, PushGain],
@@ -497,8 +568,8 @@ export function computePushSuggestions(
   }
 
   // 7. 按定数分档配额：低定数（靠近地板）优先，避免高收益的高定数谱垄断列表
-  const b35Pool = applyLevelQuota(suggestions.filter((s) => s.pool === 'b35'), MAX_B35_SUGGESTIONS)
-  const b15Pool = applyLevelQuota(suggestions.filter((s) => s.pool === 'b15'), MAX_B15_SUGGESTIONS)
+  const b35Pool = applyLevelQuota(suggestions.filter((s) => s.pool === 'b35'), MAX_B35_SUGGESTIONS, mode)
+  const b15Pool = applyLevelQuota(suggestions.filter((s) => s.pool === 'b15'), MAX_B15_SUGGESTIONS, mode)
   suggestions.length = 0
   suggestions.push(...b35Pool, ...b15Pool)
 

@@ -4,6 +4,37 @@
 
 import { COEFFICIENT_TABLE } from '@/data/constants'
 import { MAX_ACHIEVEMENTS } from '@/config/algorithms'
+import type { RateType } from '@/types'
+
+/**
+ * 达成率 → 评级。
+ *
+ * 注意这里**不能**复用 COEFFICIENT_TABLE 的 `rate` 字段：那张表按 rating 系数
+ * 分段（如 99.0~99.4999 单独一段），不等于评级分段（99.0 起就是 SS+）。
+ */
+const RANK_THRESHOLDS: ReadonlyArray<{ min: number; rank: RateType }> = [
+  { min: 100.5, rank: 'sssp' },
+  { min: 100.0, rank: 'sss' },
+  { min: 99.0, rank: 'ssp' },
+  { min: 98.0, rank: 'ss' },
+  { min: 97.0, rank: 'sp' },
+  { min: 95.0, rank: 's' },
+  { min: 90.0, rank: 'aaa' },
+  { min: 80.0, rank: 'aa' },
+  { min: 75.0, rank: 'a' },
+  { min: 70.0, rank: 'bbb' },
+  { min: 60.0, rank: 'bb' },
+  { min: 0, rank: 'b' },
+]
+
+/** 达成率 → 评级，用于「预计能打到哪一档」的展示 */
+export function rankOfAchievement(achievements: number): RateType {
+  const cap = Math.min(achievements, MAX_ACHIEVEMENTS)
+  for (const row of RANK_THRESHOLDS) {
+    if (cap >= row.min) return row.rank
+  }
+  return 'b'
+}
 
 // Validate coefficient table ordering at module load (dev-only guard)
 if (import.meta.env.DEV) {

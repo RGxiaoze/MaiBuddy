@@ -14,6 +14,7 @@ import { exportScoresToFile } from '@/utils/exportScores'
 import B50TileCard from '@/components/shared/B50TileCard'
 import StatsDashboard from '@/components/shared/StatsDashboard'
 import { generateStrategy } from '@/utils/strategy'
+import { ENABLE_STRATEGY_PANEL } from '@/config/features'
 import { computeTheoreticalMaxBoth } from '@/utils/b50'
 import type { Song } from '@/types'
 import type { B50Result } from '@/utils/b50'
@@ -232,7 +233,7 @@ export default function PlayerInfo() {
               })()}
             </div>}
           </div>
-          {localB50 && localB50.best35.length + localB50.best15.length > 0 && <StrategyPanel b50={localB50} scores={scores} songs={songs} theoreticalMax={theoreticalMax} />}
+          {ENABLE_STRATEGY_PANEL && localB50 && localB50.best35.length + localB50.best15.length > 0 && <StrategyPanel b50={localB50} scores={scores} songs={songs} theoreticalMax={theoreticalMax} />}
 
           {/* 推分建议统一在推荐页，这里只保留 Top 3 速览 */}
           <NextTargetPanel />

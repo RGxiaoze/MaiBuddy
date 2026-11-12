@@ -10,3 +10,11 @@
  * 的那一节都读取本常量，无需逐处改回。
  */
 export const ENABLE_DIMENSION_ANALYSIS = false
+
+/**
+ * B50 页的「推分路线」面板是否显示。
+ *
+ * 暂时关闭：文案还是按段位写死的模板，「预估周期」也没有数据支撑，
+ * 测试玩家反馈看完更困惑。`src/utils/strategy.ts` 保留不动，恢复时改回 true。
+ */
+export const ENABLE_STRATEGY_PANEL = false

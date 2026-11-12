@@ -288,11 +288,11 @@ describe('computePushSuggestions', () => {
 
   it('把池内非地板条目也纳入建议（提升它同样能加分）', () => {
     const s1 = makeSong({ id: 1, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.0 })] } })
-    const s2 = makeSong({ id: 2, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.0 })] } })
+    const s2 = makeSong({ id: 2, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.8 })] } })
     const map = new Map([[1, s1], [2, s2]])
     const scores = [
       makeScore({ songId: 1, levelIndex: 3, levelValue: 14.0, achievements: 100.0 }), // 池内非地板
-      makeScore({ songId: 2, levelIndex: 3, levelValue: 13.0, achievements: 97.0 }),  // 地板
+      makeScore({ songId: 2, levelIndex: 3, levelValue: 13.8, achievements: 97.0 }),  // 地板
     ]
     const b50 = computeB50(scores, map)
     const sug = computePushSuggestions(b50, map, { allScores: scores }).suggestions
@@ -303,14 +303,14 @@ describe('computePushSuggestions', () => {
   })
 
   it('已有成绩超过「现实目标」时不再向下截断', () => {
-    // 14.0 定数、mode≈13.x，现实目标会被压到 100.0；
+    // 14.0 定数、mode≈13.9，现实目标会被压到 100.0；
     // 但玩家实际已打到 100.4，说明模型低估，应允许以 SSS+ 为目标
     const s1 = makeSong({ id: 1, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 14.0 })] } })
-    const s2 = makeSong({ id: 2, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.0 })] } })
+    const s2 = makeSong({ id: 2, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.8 })] } })
     const map = new Map([[1, s1], [2, s2]])
     const scores = [
       makeScore({ songId: 1, levelIndex: 3, levelValue: 14.0, achievements: 100.4 }), // 已超过 100.0 目标
-      makeScore({ songId: 2, levelIndex: 3, levelValue: 13.0, achievements: 97.0 }),
+      makeScore({ songId: 2, levelIndex: 3, levelValue: 13.8, achievements: 97.0 }),
     ]
     const b50 = computeB50(scores, map)
     const sug = computePushSuggestions(b50, map, { allScores: scores }).suggestions
@@ -404,7 +404,7 @@ describe('computePushSuggestions', () => {
       m.set(id, makeSong({ id, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.3 })] } }))
       scores.push(makeScore({ songId: id, levelIndex: 3, levelValue: 13.3, achievements: 97.5 }))
     }
-    const cand = makeSong({ id: 100, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.7 })] } })
+    const cand = makeSong({ id: 100, isNew: false, difficulties: { standard: [], dx: [makeDiff({ levelValue: 13.0 })] } })
     m.set(100, cand)
 
     const b50 = computeB50(scores, m)
@@ -471,19 +471,30 @@ describe('computePushSuggestions', () => {
 
   // ---- 上限与「特简单」判定（纯函数） ----
 
-  it('computeRecommendCaps：B1 取 Rating 最高的一条', () => {
+  it('computeRecommendCaps：锚在 B35 众数 + 0.3', () => {
     const { songs, scores } = fillPool(1, 36, false, 13.8, 100.5)
     const b50 = computeB50(scores, songs)
-    expect(computeRecommendCaps(b50)).toEqual({ capBase: 14.0, capSimple: 14.2 })
+    expect(computeRecommendCaps(b50)).toEqual({ capBase: 14.1, capSimple: 14.3 })
   })
 
-  it('computeRecommendCaps：B1 来自 B15 时同样生效', () => {
+  it('computeRecommendCaps：B15 的高分不再抬高上限', () => {
+    // B35 全是 13.0，B15 有 3 首 14.6 —— 旧规则锚 B1 会给出 14.8
     const { songs, scores } = fillPool(1, 35, false, 13.0, 100.5)
     const { songs: newSongs, scores: newScores } = fillPool(100, 3, true, 14.6, 100.5)
     for (const [k, v] of newSongs) songs.set(k, v)
     scores.push(...newScores)
     const b50 = computeB50(scores, songs)
-    expect(computeRecommendCaps(b50)).toEqual({ capBase: 14.8, capSimple: 15.0 })
+    expect(computeRecommendCaps(b50)).toEqual({ capBase: 13.3, capSimple: 13.5 })
+  })
+
+  it('computeRecommendCaps：偏科玩家不被单条高分拉高', () => {
+    // 30 条 13.5 + 5 条 14.6，B1 是 14.6 但那只是侥幸一手
+    const { songs, scores } = fillPool(1, 30, false, 13.5, 100.0)
+    const { songs: highSongs, scores: highScores } = fillPool(200, 5, false, 14.6, 99.0)
+    for (const [k, v] of highSongs) songs.set(k, v)
+    scores.push(...highScores)
+    const b50 = computeB50(scores, songs)
+    expect(computeRecommendCaps(b50)).toEqual({ capBase: 13.8, capSimple: 14.0 })
   })
 
   it('computeRecommendCaps：无 B50 时返回 null（调用方退回旧规则）', () => {
@@ -539,29 +550,29 @@ describe('computePushSuggestions', () => {
       reliable: true,
     } as unknown as PushSuggestion)
 
-    it('各定数档都有配额，低定数在前', () => {
+    it('配额向舒适区倾斜，超出上限的定数档被排除', () => {
       const pool = [
         mk(14.2, 10), mk(14.2, 9), mk(14.2, 8),
         mk(13.9, 3), mk(13.9, 2),
         mk(13.8, 2), mk(13.8, 1),
       ]
-      const out = applyLevelQuota(pool, 6)
-      expect(out).toHaveLength(6)
+      // 舒适区众数 13.8：13.8 与 13.9 有配额，14.2（+0.4）超过上限不推荐
+      const out = applyLevelQuota(pool, 6, 13.8)
       expect(out.filter((s) => s.levelValue === 13.8)).toHaveLength(2)
       expect(out.filter((s) => s.levelValue === 13.9)).toHaveLength(2)
-      expect(out.filter((s) => s.levelValue === 14.2)).toHaveLength(2)
+      expect(out.filter((s) => s.levelValue === 14.2)).toHaveLength(0)
       const levels = out.map((s) => s.levelValue)
       expect(levels).toEqual([...levels].sort((a, b) => a - b))
     })
 
     it('高收益的高定数谱不会垄断列表', () => {
       const pool = Array.from({ length: 10 }, (_, i) => mk(14.4, 100 - i)).concat([mk(13.8, 1)])
-      const out = applyLevelQuota(pool, 4)
+      const out = applyLevelQuota(pool, 4, 13.8)
       expect(out.some((s) => s.levelValue === 13.8)).toBe(true)
     })
 
     it('候选不足上限时全部返回', () => {
-      expect(applyLevelQuota([mk(13.8, 1), mk(13.9, 1)], 35)).toHaveLength(2)
+      expect(applyLevelQuota([mk(13.8, 1), mk(13.9, 1)], 35, 13.8)).toHaveLength(2)
     })
   })
 })

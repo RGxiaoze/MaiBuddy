@@ -171,12 +171,16 @@ export const DIFF_GAP_NORM_MAX = 15
 export const DIFF_GAP_MEDIUM = 1.0
 export const DIFF_GAP_HARD = 3.0
 
-// ---- 推分建议的定数上限（以「当前最强一手」B1 为锚点） ----
+// ---- 推分建议的定数上限（以 B35 众数为锚点） ----
+//
+// 锚「当前最强一手」B1 会让一条侥幸打出的高分把整张推荐表拉到那个强度：
+// 实测有玩家 B1 落在 14+ 但 B35 有 24/35 在 13+，结果满屏 14.5+。
+// 改用 B35 众数（稳定水平）后，上限跟着日常水平走，不是跟着最好那一次走。
 
-/** 硬上限：B1 定数 + 0.2（B15/B35 统一） */
-export const RECOMMEND_CAP_ABOVE_B1 = 0.2
-/** 「特简单」谱可放宽到的上限：B1 + 0.4 */
-export const RECOMMEND_CAP_SIMPLE = 0.4
+/** 硬上限：B35 众数 + 0.3 */
+export const RECOMMEND_CAP_ABOVE_MODE = 0.3
+/** 「特简单」谱可放宽到的上限：众数 + 0.5 */
+export const RECOMMEND_CAP_SIMPLE_ABOVE_MODE = 0.5
 /** 拟合定数比官标低多少算「特简单」 */
 export const SIMPLE_FIT_DIFF_GAP = 0.3
 /** 破顶谱的目标达成率封顶（鸟） */
