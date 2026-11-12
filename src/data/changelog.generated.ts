@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "fa87365",
+        "type": "fix",
+        "message": "目标达成率不再被压缩，恢复地板上方的推荐",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "9e698a9",
         "type": "fix",
         "message": "定数比较缺浮点容差，恰好差 0.3 的档位全部失效",
