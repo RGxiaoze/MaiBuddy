@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "3ec650b",
+        "type": "feat",
+        "message": "探索卡补难度标签，推分卡改用「水分」替代「预计评级」",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "cfd0475",
         "type": "feat",
         "message": "探索梯度从投票前 50% 起，难度徽章更醒目",
