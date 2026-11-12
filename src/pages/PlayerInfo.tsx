@@ -8,7 +8,6 @@ import { Target, Download, Upload, Trash2, Plus } from 'lucide-react'
 import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
-import NextTargetPanel from '@/components/shared/NextTargetPanel'
 import QuickScoreEntry from '@/components/shared/QuickScoreEntry'
 import { exportScoresToFile } from '@/utils/exportScores'
 import B50TileCard from '@/components/shared/B50TileCard'
@@ -235,8 +234,7 @@ export default function PlayerInfo() {
           </div>
           {ENABLE_STRATEGY_PANEL && localB50 && localB50.best35.length + localB50.best15.length > 0 && <StrategyPanel b50={localB50} scores={scores} songs={songs} theoreticalMax={theoreticalMax} />}
 
-          {/* 推分建议统一在推荐页，这里只保留 Top 3 速览 */}
-          <NextTargetPanel />
+          {/* 推分建议统一在推荐页 */}
         </>)}
       </>)}
 

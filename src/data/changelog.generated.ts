@@ -19,7 +19,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
-        "hash": "cec802b",
+        "hash": "7f04b6f",
+        "type": "feat",
+        "message": "移除 B50 页的吃分推荐小块",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "374a92e",
         "type": "fix",
         "message": "随机路线在全打过时忽略「已玩」条件",
         "label": "修复",
