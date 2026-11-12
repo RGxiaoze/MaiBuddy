@@ -35,13 +35,38 @@ function baseIdOf(id) {
   return id >= 10000 && id < 100000 ? id % 10000 : id
 }
 
+/**
+ * 宴会场曲目（ID ≥ 100000）没有独立曲绘，回落到原曲的图。
+ *
+ * 标题形如 `[協]Love You`：剥掉方括号前缀就是原曲名。
+ * 少数带后缀（`Oshama Scramble! (Cranky Remix)`），再剥一层末尾括号。
+ * 返回 null 表示确实找不到原曲，跳过。
+ */
+function makeUtageResolver(music) {
+  const byTitle = new Map()
+  for (const s of music) {
+    const id = Number(s.id)
+    if (id >= 100000) continue
+    if (!byTitle.has(s.title)) byTitle.set(s.title, baseIdOf(id))
+  }
+
+  return (song) => {
+    const base = song.title.replace(/^\[[^\]]+\]/, '').trim()
+    const direct = byTitle.get(base)
+    if (direct !== undefined) return direct
+
+    const noSuffix = base.replace(/\s*\([^)]*\)\s*$/, '').trim()
+    return byTitle.get(noSuffix) ?? null
+  }
+}
+
 async function download(url) {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return Buffer.from(await res.arrayBuffer())
 }
 
-async function convertOne(id, force) {
+async function convertOne(id, sourceId, force) {
   const out = resolve(OUT_DIR, `${id}.webp`)
   if (!force && existsSync(out)) return 'skip'
 
@@ -49,7 +74,7 @@ async function convertOne(id, force) {
   let lastErr
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
     try {
-      writeFileSync(png, await download(`${SRC}/${id}.png`))
+      writeFileSync(png, await download(`${SRC}/${sourceId}.png`))
       await execFileAsync('ffmpeg', [
         '-loglevel', 'error', '-y',
         '-i', png,
@@ -69,22 +94,22 @@ async function convertOne(id, force) {
 }
 
 /** 固定并发的任务池 */
-async function runPool(items, limit, fn) {
+async function runPool(jobs, limit, fn) {
   let cursor = 0
   const stats = { ok: 0, skip: 0, fail: [] }
 
   await Promise.all(Array.from({ length: limit }, async () => {
-    while (cursor < items.length) {
-      const id = items[cursor++]
+    while (cursor < jobs.length) {
+      const job = jobs[cursor++]
       try {
-        const r = await fn(id)
+        const r = await fn(job)
         if (r === 'skip') stats.skip++
         else stats.ok++
       } catch {
-        stats.fail.push(id)
+        stats.fail.push(job.id)
       }
       const done = stats.ok + stats.skip + stats.fail.length
-      if (done % 100 === 0) console.log(`  进度 ${done}/${items.length}`)
+      if (done % 100 === 0) console.log(`  进度 ${done}/${jobs.length}`)
     }
   }))
   return stats
@@ -100,10 +125,38 @@ mkdirSync(TMP_DIR, { recursive: true })
 const res = await fetch(MUSIC_API)
 if (!res.ok) throw new Error(`曲库请求失败 HTTP ${res.status}`)
 const music = await res.json()
-const ids = [...new Set(music.map((s) => baseIdOf(Number(s.id))))].slice(0, limit)
 
-console.log(`曲目 ${ids.length} 首 → ${SIZE}px WebP，输出到 ${OUT_DIR}`)
-const stats = await runPool(ids, CONCURRENCY, (id) => convertOne(id, force))
+// 普通曲目：输出名与图源都是自身基础 ID。
+// 宴会场：输出名用自身 ID（前端就按它取图），图源回落到原曲。
+const resolveUtage = makeUtageResolver(music)
+const seen = new Set()
+const allJobs = []
+const unmatched = []
+for (const s of music) {
+  const id = Number(s.id)
+  if (id >= 100000) {
+    const sourceId = resolveUtage(s)
+    if (sourceId === null) {
+      unmatched.push(`${id} ${s.title}`)
+      continue
+    }
+    allJobs.push({ id, sourceId })
+    continue
+  }
+  const base = baseIdOf(id)
+  if (seen.has(base)) continue
+  seen.add(base)
+  allJobs.push({ id: base, sourceId: base })
+}
+
+const jobs = allJobs.slice(0, limit)
+console.log(`曲目 ${jobs.length} 首（含宴会场 ${jobs.filter(j => j.id >= 100000).length} 首）→ ${SIZE}px WebP，输出到 ${OUT_DIR}`)
+if (unmatched.length > 0) {
+  console.log(`跳过 ${unmatched.length} 首找不到原曲的宴会场曲目：`)
+  unmatched.forEach((u) => console.log('  ' + u))
+}
+
+const stats = await runPool(jobs, CONCURRENCY, (job) => convertOne(job.id, job.sourceId, force))
 
 console.log(`\n完成：生成 ${stats.ok}，跳过 ${stats.skip}，失败 ${stats.fail.length}`)
 if (stats.fail.length > 0) {
