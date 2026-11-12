@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { realisticTargetAch, classifyDifficulty, typicalAchievement, realisticTargetAchFor } from '@/utils/difficultyTier'
+import { realisticTargetAch, classifyDifficulty, typicalAchievement, realisticTargetAchFor, averageAtLevel } from '@/utils/difficultyTier'
 import type { ScoreRecord } from '@/db/database'
 import { MAX_ACHIEVEMENTS } from '@/config/algorithms'
 
@@ -234,5 +234,48 @@ describe('realisticTargetAchFor', () => {
 
   it('不传样本时行为与旧规则一致', () => {
     expect(realisticTargetAchFor(15.0, 14.0)).toBe(realisticTargetAch(15.0, 14.0))
+  })
+})
+
+describe('averageAtLevel — 同档平均成绩（窄口径）', () => {
+  it('取平均值而非中位数', () => {
+    const samples = [
+      { levelValue: 14.1, achievements: 96.0, key: 'a' },
+      { levelValue: 14.1, achievements: 98.0, key: 'b' },
+      { levelValue: 14.1, achievements: 100.0, key: 'c' },
+      { levelValue: 14.1, achievements: 100.0, key: 'd' },
+      { levelValue: 14.1, achievements: 100.5, key: 'e' },
+    ]
+    // 平均 98.9；中位数会是 100.0，用这组样本能区分两种口径
+    expect(averageAtLevel(14.1, samples)).toBeCloseTo(98.9, 5)
+  })
+
+  it('只看同一 0.1 档，相邻档的成绩不计入', () => {
+    const samples = [
+      ...Array.from({ length: 5 }, (_, i) => ({ levelValue: 14.1, achievements: 99.0, key: `x${i}` })),
+      ...Array.from({ length: 5 }, (_, i) => ({ levelValue: 14.2, achievements: 80.0, key: `y${i}` })),
+    ]
+    expect(averageAtLevel(14.1, samples)).toBe(99.0)
+  })
+
+  it('同档样本不足时逐级放宽窗口', () => {
+    const samples = [
+      { levelValue: 14.1, achievements: 99.0, key: 'a' },
+      ...Array.from({ length: 5 }, (_, i) => ({ levelValue: 14.0, achievements: 97.0, key: `b${i}` })),
+    ]
+    // 同档仅 1 条 < 5，放宽到 ±0.15 后补进 14.0 的 5 条
+    expect(averageAtLevel(14.1, samples)).toBeCloseTo((99 + 97 * 5) / 6, 5)
+  })
+
+  it('样本始终不足时返回 null', () => {
+    expect(averageAtLevel(14.1, [{ levelValue: 14.1, achievements: 99, key: 'a' }])).toBeNull()
+  })
+
+  it('excludeKey 排除该谱自身，避免用自己的成绩预测自己', () => {
+    const samples = [
+      { levelValue: 14.1, achievements: 70.0, key: 'self' },
+      ...Array.from({ length: 5 }, (_, i) => ({ levelValue: 14.1, achievements: 99.0, key: `o${i}` })),
+    ]
+    expect(averageAtLevel(14.1, samples, 'self')).toBe(99.0)
   })
 })

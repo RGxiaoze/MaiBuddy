@@ -157,8 +157,7 @@ function analyze(name, scores, songMap) {
     s.gains.some((g) => g.ratingGain > 0 && g.targetAch <= s.currentAchievements + 1e-9))
 
   const levels = b50.best35.map((e) => e.levelValue)
-  const ranks = new Map()
-  for (const s of suggestions) ranks.set(s.expectedRank, (ranks.get(s.expectedRank) ?? 0) + 1)
+  const waters = suggestions.map((s) => s.waterLevel).filter((v) => v != null)
 
   const top = [...dist.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
   console.log(`\n===== ${name} =====`)
@@ -169,8 +168,19 @@ function analyze(name, scores, songMap) {
   console.log(`上限 capBase ${caps.capBase ?? '—'} · capSimple ${caps.capSimple ?? '—'}`)
   console.log(`推荐 ${suggestions.length} 条`)
   console.log(`  定数分布 ${top.map(([k, v]) => `${k}:${v}`).join('  ') || '—'}`)
-  console.log(`  预期评级 ${[...ranks.entries()].map(([k, v]) => `${k}:${v}`).join('  ') || '—'}`)
+  console.log(`  水分覆盖 ${waters.length}/${suggestions.length} 条` +
+    (waters.length ? `，最大 ${Math.max(...waters).toFixed(1)}` : ''))
   console.log(`  越过上限 ${overCap.length} 条 · 目标倒退 ${backwards.length} 条`)
+
+  // 「该档平均」覆盖率与取值范围：判断这个窄口径指标在真实数据上是否够用
+  const bands = suggestions.map((s) => s.yourBandAvg).filter((v) => v != null)
+  if (bands.length > 0) {
+    const lo = Math.min(...bands).toFixed(1)
+    const hi = Math.max(...bands).toFixed(1)
+    console.log(`  该档平均覆盖 ${bands.length}/${suggestions.length} 条，取值范围 ${lo}%~${hi}%`)
+  } else {
+    console.log(`  该档平均：无可用样本（需要全量成绩）`)
+  }
 
   if (overCap.length || backwards.length) process.exitCode = 1
 }

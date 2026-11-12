@@ -8,7 +8,7 @@ import type { Song } from '@/types'
 import type { ChartStatSummary } from '@/services/statsService'
 import { type B50Result } from './b50'
 import { computeRating } from './rating'
-import { classifyDifficulty, realisticTargetAchFor, typicalAchievement, TYPICAL_STRETCH, TYPICAL_STRETCH_B15, type LevelSample } from './difficultyTier'
+import { classifyDifficulty, realisticTargetAchFor, typicalAchievement, averageAtLevel, TYPICAL_STRETCH, TYPICAL_STRETCH_B15, type LevelSample } from './difficultyTier'
 import { isChartExcluded } from '@/data/excluded-charts'
 import { predictLevelToAch } from './regression'
 import {
@@ -49,6 +49,12 @@ export interface PushSuggestion {
    * 与"你的当前评级"不同，它描述的是谱面本身，对已 SSS 的谱仍有参考价值。
    */
   waterLevel?: number
+  /**
+   * 玩家在「该谱实际定数」同档上的平均达成率（窄口径，见 averageAtLevel）。
+   * 用拟合定数（若比官标低）来取，回答「以你这一档的平均表现，
+   * 够不够吃到这首的水分」。无全量成绩或样本不足时不提供。
+   */
+  yourBandAvg?: number
   sssPlusRate: number
   /** 全服 AP 率（来自 chart_stats.fc_dist），用于 AP 推分排序 */
   apRate: number
@@ -502,6 +508,9 @@ export function computePushSuggestions(
           const water = Math.round((lv - stats.fitDiff) * 10) / 10
           if (water > 0) cand.waterLevel = water
         }
+        // 你在「该谱实际定数」同档的平均表现，用来判断这份水分吃不吃得到
+        const effectiveLevel = stats?.fitDiff && stats.fitDiff > 0 ? stats.fitDiff : lv
+        cand.yourBandAvg = averageAtLevel(effectiveLevel, allSamples, key) ?? undefined
         // Only add if at least one gain > 0 (or AP gain exists)
         if (cand.gains.some(g => g.ratingGain > 0) || (cand.apGain && cand.apGain.ratingGain > 0)) {
           suggestions.push(cand)
@@ -556,6 +565,11 @@ export function computePushSuggestions(
             waterLevel: stats?.fitDiff && stats.fitDiff > 0 && lv - stats.fitDiff > 0
               ? Math.round((lv - stats.fitDiff) * 10) / 10
               : undefined,
+            yourBandAvg: averageAtLevel(
+              stats?.fitDiff && stats.fitDiff > 0 ? stats.fitDiff : lv,
+              allSamples,
+              key,
+            ) ?? undefined,
             sssPlusRate: stats?.sssPlusRate ?? 0,
             apRate: stats?.apRate ?? 0,
             gains: lifts as [PushGain, PushGain, PushGain],

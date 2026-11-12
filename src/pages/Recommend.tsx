@@ -338,6 +338,7 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
       tagColor={tagColor}
       waterLevel={s.waterLevel}
       sssPlusRate={s.sssPlusRate}
+      yourBandAvg={s.yourBandAvg}
     />
   )
 

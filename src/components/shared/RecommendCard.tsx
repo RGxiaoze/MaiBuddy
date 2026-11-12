@@ -52,11 +52,13 @@ export interface RecommendCardProps {
   waterLevel?: number
   /** 该谱的全服 SSS+ 率，用于说明「推到顶」的普遍难度 */
   sssPlusRate?: number
+  /** 你在该谱实际定数同档（0.1 精度）的平均成绩 */
+  yourBandAvg?: number
 }
 
 export default function RecommendCard({
   songId, title, levelIndex, levelValue, gain, progress, reason, tag, tagColor = '#5BA4CF',
-  configType, showExternalLink = true, onBlock, waterLevel, sssPlusRate,
+  configType, showExternalLink = true, onBlock, waterLevel, sssPlusRate, yourBandAvg,
 }: RecommendCardProps) {
   const [imgError, setImgError] = useState(false)
   // 优先用本地 96px 缩略图（约 3 KB）；缺图（如宴会场）时回退落雪原图
@@ -177,6 +179,11 @@ export default function RecommendCard({
           {progress && (
             <p className="mt-1 text-xs text-text-secondary tabular-nums leading-snug">
               {truncatePercent(progress.current, 1)}% <span className="text-text-tertiary">→</span> {truncatePercent(progress.target, 1)}%
+              {yourBandAvg !== undefined && (
+                <span className="ml-1.5 text-[10px] text-text-tertiary" title="你在该谱实际定数同档（0.1 精度）的平均成绩">
+                  该档均 {yourBandAvg.toFixed(1)}%
+                </span>
+              )}
             </p>
           )}
 

@@ -69,6 +69,39 @@ export const TYPICAL_STRETCH = 0.5
 /** B15（新版本）池子小、样本偏斜，拉伸更保守 */
 export const TYPICAL_STRETCH_B15 = 0.3
 
+/** 同档窗口：±0.05 正好覆盖一个 0.1 定数档 */
+const BAND_WINDOW = 0.05
+/** 同档样本少于这个数时放宽窗口 */
+const BAND_MIN_SAMPLES = 5
+
+/**
+ * 玩家在某个定数**同档**上的平均达成率。
+ *
+ * 与 `typicalAchievement` 的区别：
+ * - 用平均值而非中位数
+ * - 窗口窄得多：优先只看同一 0.1 档（±0.05），样本不足才依次放宽到 ±0.15、±0.25
+ *
+ * 用途是回答「以你在 14.1 这个档的平均表现，够不够吃到这首的水分」，
+ * 所以要窄口径 —— 全服平均覆盖的玩家面太杂，没有参考价值。
+ *
+ * 样本门槛始终不满足时返回 null。
+ */
+export function averageAtLevel(
+  levelValue: number,
+  samples: readonly LevelSample[],
+  excludeKey?: string,
+  minSamples = BAND_MIN_SAMPLES,
+): number | null {
+  const usable = excludeKey ? samples.filter(s => s.key !== excludeKey) : samples
+  for (const win of [BAND_WINDOW, BAND_WINDOW * 3, BAND_WINDOW * 5]) {
+    const near = usable.filter(s => Math.abs(s.levelValue - levelValue) <= win)
+    if (near.length >= minSamples) {
+      return near.reduce((sum, s) => sum + s.achievements, 0) / near.length
+    }
+  }
+  return null
+}
+
 /**
  * 玩家在某个定数附近的**典型达成率**（中位数）。
  *
