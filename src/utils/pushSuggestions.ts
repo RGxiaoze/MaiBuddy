@@ -319,8 +319,13 @@ export function computePushSuggestions(
   // 1. B50 floors
   const floor35 = currentB50.best35.length > 0
     ? currentB50.best35[currentB50.best35.length - 1].dxRating : 0
+  // 空池不能把地板当 0：那样任何新曲的收益都等于「目标 rating − 0」，
+  // 于是 12.8 的低定数新曲收益虚高，把整张列表占满、B35 一条都出不来。
+  // 实测 dzarm 的 B15 是空池，13 条推荐里 12 条是 12.8~13.4 的新曲，
+  // 而他真正该推的 B35 只剩 1 条。空池时借用另一池地板作基准。
   const floor15 = currentB50.best15.length > 0
-    ? currentB50.best15[currentB50.best15.length - 1].dxRating : 0
+    ? currentB50.best15[currentB50.best15.length - 1].dxRating
+    : floor35
 
   // 2. Build inB50 + floorKeys
   const inB50 = new Set<string>()

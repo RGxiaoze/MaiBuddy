@@ -184,8 +184,16 @@ function analyze(name, scores, songMap) {
   if (levels.length) {
     console.log(`B35 定数 ${Math.min(...levels).toFixed(1)} ~ ${Math.max(...levels).toFixed(1)}`)
   }
+  const lastB35 = b50.best35[b50.best35.length - 1]
+  const lastB15 = b50.best15[b50.best15.length - 1]
+  console.log(`B35 地板 ${lastB35 ? `${lastB35.levelValue}@${lastB35.achievements}% → ${lastB35.dxRating}` : '—'}` +
+    ` · B15 地板 ${lastB15 ? `${lastB15.levelValue}@${lastB15.achievements}% → ${lastB15.dxRating}` : '空池'}`)
   console.log(`上限 capBase ${caps.capBase ?? '—'} · capSimple ${caps.capSimple ?? '—'}`)
   console.log(`推荐 ${suggestions.length} 条（核心 ${tierCounts[0]} / 二档 ${tierCounts[1]} / 三档 ${tierCounts[2]}）`)
+  const pools = new Map()
+  for (const s of suggestions) pools.set(s.pool, (pools.get(s.pool) ?? 0) + 1)
+  console.log(`  池分布 ${[...pools.entries()].map(([k, v]) => `${k}:${v}`).join('  ') || '—'}` +
+    `（B35 ${b50.best35.length} 条 / B15 ${b50.best15.length} 条）`)
   console.log(`  定数分布 ${top.map(([k, v]) => `${k}:${v}`).join('  ') || '—'}`)
   console.log(`  水分覆盖 ${waters.length}/${suggestions.length} 条` +
     (waters.length ? `，最大 ${Math.max(...waters).toFixed(1)}` : ''))

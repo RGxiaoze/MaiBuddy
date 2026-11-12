@@ -132,6 +132,66 @@ describe('加权分档配额', () => {
   })
 })
 
+describe('水分谱不该被漏掉', () => {
+  const stats = (fitDiff: number) => () => ({
+    avg: 99, stdDev: 1, sssRate: 0.2, sssPlusRate: 0.3, cumSssRate: 0.5,
+    apRate: 0.05, diffFromLevelAvg: 0.5, fitDiff,
+    sampleCount: 500, reliable: true,
+  })
+
+  it('官标 13.9、拟合 13.5：按实际定数算目标，能拿到鸟加', () => {
+    const b50 = makeB50(13.5) // 众数 13.5 → 上限 13.8
+    const songs = new Map([[7000, song(7000, 13.9)]])
+    // 玩家在 13.5 档普遍 100%，在 13.9 档从没打过
+    const scores = Array.from({ length: 8 }, (_, i) => score(8000 + i, 13.5, 100.0))
+
+    const { suggestions } = computePushSuggestions(b50, songs, {
+      allScores: scores,
+      getStats: stats(13.5),
+    })
+    const hit = suggestions.find((s) => s.songId === 7000)
+
+    expect(hit).toBeDefined()
+    // 目标按 13.5 的能力算 = 100.5，且没有因为官标 13.9 超上限而被封顶在鸟
+    expect(Math.max(...hit!.gains.map((g) => g.targetAch))).toBe(100.5)
+    expect(hit!.waterLevel).toBe(0.4) // 13.9 − 13.5
+  })
+
+  it('官标超上限但拟合也超上限时，仍按破顶处理（封顶在鸟）', () => {
+    const b50 = makeB50(13.5) // 上限 13.8
+    const songs = new Map([[7001, song(7001, 14.3)]])
+    const scores = Array.from({ length: 8 }, (_, i) => score(8100 + i, 13.5, 100.0))
+
+    const { suggestions } = computePushSuggestions(b50, songs, {
+      allScores: scores,
+      getStats: stats(13.9), // 拟合 13.9 仍高于上限 13.8
+    })
+    const hit = suggestions.find((s) => s.songId === 7001)
+
+    if (hit) {
+      expect(Math.max(...hit.gains.map((g) => g.targetAch))).toBeLessThanOrEqual(100.0)
+    }
+  })
+})
+
+describe('空池不产生虚高收益', () => {
+  it('B15 为空时，低定数新曲不该因为「地板是 0」被推荐', () => {
+    // B35 全是 14.0@100% → 地板 rating 约 302；B15 空
+    const b50 = makeB50(14.0)
+    expect(b50.best15).toHaveLength(0)
+
+    // 12.8 的新曲推到顶也只有约 286，超不过 B35 地板
+    const lowNew = song(7010, 12.8)
+    ;(lowNew as unknown as { isNew: boolean }).isNew = true
+    const songs = new Map([[7010, lowNew]])
+
+    const { suggestions } = computePushSuggestions(b50, songs)
+
+    // 修复前 floor15 = 0，这条收益 = 目标 rating − 0，会把整张列表占满
+    expect(suggestions.some((s) => s.songId === 7010)).toBe(false)
+  })
+})
+
 describe('水分标签', () => {
   it('拟合定数低于官标时给出水量', () => {
     const b50 = makeB50(13.5)
