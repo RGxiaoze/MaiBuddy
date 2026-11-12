@@ -459,13 +459,12 @@ function ExploreTab({ items, state, playerLevel, wide, range, onWiden, onRefresh
     <div className="space-y-2">
       <div className="flex items-start justify-between gap-2 mb-1">
         <p className="text-xs text-text-secondary flex-1 leading-snug">
-          都是你<strong className="text-text">没打过</strong>的谱面，
           {wide
             ? '覆盖全部难度'
             : range.minLevel != null && range.maxLevel != null
               ? `定数 ${range.minLevel.toFixed(1)}~${range.maxLevel.toFixed(1)}，围绕你的舒适区`
               : '难度适合当前水平'}
-          ，按社区投票喜好随机挑选。
+          ，根据你的成绩记录与社区投票喜好生成。
         </p>
         <button
           onClick={onRefresh}

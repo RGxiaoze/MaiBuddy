@@ -19,7 +19,21 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
-        "hash": "7b23e19",
+        "hash": "391be0a",
+        "type": "fix",
+        "message": "探索页说明改为成绩记录与社区投票生成",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
+        "hash": "6e35acd",
+        "type": "fix",
+        "message": "探索页文案不再强调是否打过",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
+        "hash": "92813ba",
         "type": "feat",
         "message": "缩略图从 96px 提到 192px",
         "label": "新功能",
