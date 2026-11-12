@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "8a800e4",
+        "type": "fix",
+        "message": "水分谱不再被漏掉，目标改按实际定数计算",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
         "hash": "71e72d1",
         "type": "fix",
         "message": "目标达成率改用全量成绩，不再只锚 B50",
