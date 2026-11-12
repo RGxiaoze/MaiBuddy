@@ -104,8 +104,14 @@ export default function RecommendCard({
                 {title}
               </Link>
               {levelMeta && (
-                <span className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0" style={{ backgroundColor: levelMeta.badgeBg, color: levelMeta.badgeFg }}>
-                  {LEVEL_LABELS[levelIndex as LevelIndex]}
+                // 全大写 + 加粗：玩家看到高难曲名容易误以为要打 Master，
+                // 实际推荐的可能只是 Expert，需要一眼看清是哪一档
+                <span
+                  className="px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 tracking-wide"
+                  style={{ backgroundColor: levelMeta.badgeBg, color: levelMeta.badgeFg }}
+                  title={`推荐难度：${LEVEL_LABELS[levelIndex as LevelIndex]}`}
+                >
+                  {levelMeta.label}
                 </span>
               )}
               {configTag && (

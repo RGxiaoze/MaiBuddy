@@ -14,6 +14,10 @@ import type { RateType } from '@/types'
 import { loadVoteStats, getAllVoteStats, isVoteStatsLoaded, isVoteStatsFailed } from '@/services/voteService'
 import { buildExplorePool, buildPreferenceProfile, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
 
+/** 探索梯度：先只看社区投票前 50%，挑不出足够的未玩谱面时放宽到 70% */
+const EXPLORE_TOP_PERCENT = 50
+const EXPLORE_TOP_PERCENT_WIDE = 70
+
 import { getBlockedSongIds, blockSong, clearBlockedSongs } from '@/db/database'
 import { getCoverUrl } from '@/data/constants'
 import { useBackgroundStore } from '@/store/backgroundStore'
@@ -123,13 +127,23 @@ export default function Recommend() {
   const exploreList = useMemo(() => {
     if (voteState !== 'ready' || songs.length === 0) return []
     const votes = getAllVoteStats()
-    return buildExplorePool(songs, playedKeys, votes, {
+    const base = {
       minVotes: DEFAULT_MIN_VOTES,
       limit: DEFAULT_LIMIT,
       ...(exploreWide ? {} : levelRange),
       seenKeys,
       blockedSongIds: blockedIds,
       preference,
+    }
+    // 先只看社区投票前 50%；连这一档都挑不出足够的未玩谱面时才放宽到 70%
+    const primary = buildExplorePool(songs, playedKeys, votes, {
+      ...base,
+      topPercent: EXPLORE_TOP_PERCENT,
+    })
+    if (primary.length >= DEFAULT_LIMIT) return primary
+    return buildExplorePool(songs, playedKeys, votes, {
+      ...base,
+      topPercent: EXPLORE_TOP_PERCENT_WIDE,
     })
   }, [voteState, songs, playedKeys, exploreWide, levelRange, seenKeys, blockedIds, preference])
 
