@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "cfd0475",
+        "type": "feat",
+        "message": "探索梯度从投票前 50% 起，难度徽章更醒目",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "751847f",
         "type": "fix",
         "message": "探索页不再出现已玩谱面，难度上限改锚舒适区",
