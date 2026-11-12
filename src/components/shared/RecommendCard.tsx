@@ -63,6 +63,8 @@ export default function RecommendCard({
   configType, showExternalLink = true, onBlock, expectedRank,
 }: RecommendCardProps) {
   const [imgError, setImgError] = useState(false)
+  // 优先用本地 96px 缩略图（约 3 KB）；缺图（如宴会场）时回退落雪原图
+  const [imgSrc, setImgSrc] = useState(() => getCoverUrl(songId, 'thumb'))
   const levelMeta = LEVEL_INDEX_MAP[levelIndex as LevelIndex]
   const configTag = getConfigTag(configType)
 
@@ -79,12 +81,16 @@ export default function RecommendCard({
               <span className="text-lg font-bold" style={{ color: levelMeta.color }}>{title.charAt(0)}</span>
             ) : (
               <img
-                src={getCoverUrl(songId)}
+                src={imgSrc}
                 alt=""
                 loading="lazy"
                 decoding="async"
                 className="w-full h-full object-cover"
-                onError={() => setImgError(true)}
+                onError={() => {
+                  const full = getCoverUrl(songId, 'full')
+                  if (imgSrc !== full) setImgSrc(full)
+                  else setImgError(true)
+                }}
               />
             )}
           </div>

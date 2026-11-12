@@ -26,4 +26,10 @@ describe('getCoverUrl', () => {
   it('接受字符串 ID', () => {
     expect(getCoverUrl('11820')).toBe(`${host}/1820.png`)
   })
+
+  it('thumb 变体指向本地缩略图，DX 条目同样换算', () => {
+    const base = import.meta.env.BASE_URL
+    expect(getCoverUrl(1736, 'thumb')).toBe(`${base}covers/1736.webp`)
+    expect(getCoverUrl(11736, 'thumb')).toBe(`${base}covers/1736.webp`)
+  })
 })

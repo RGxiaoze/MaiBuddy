@@ -71,12 +71,23 @@ export const FS_LABELS: Record<string, string> = {
 
 // ---- Cover image URL ----
 
-export function getCoverUrl(songId: number | string): string {
+const COVER_CDN = 'https://assets2.lxns.net/maimai/jacket'
+
+/**
+ * 曲绘地址。
+ *
+ * @param songId 曲目 ID。落雪按「基础 ID」存曲绘，而本项目曲库来自水鱼，
+ *   DX 谱面是独立条目（ID = 基础 + 10000），需取余回基础 ID；
+ *   100000 以上是宴会场，不参与换算。
+ * @param variant `'thumb'` 取本地 96px WebP 缩略图（约 3 KB，列表与卡片用），
+ *   `'full'` 取落雪 400×400 原图（约 367 KB，详情页用）。
+ *   缩略图由 `scripts/gen-thumbnails.mjs` 生成。
+ */
+export function getCoverUrl(songId: number | string, variant: 'thumb' | 'full' = 'full'): string {
   const id = typeof songId === 'string' ? parseInt(songId, 10) : songId
-  // 落雪按「基础 ID」存曲绘。本项目曲库来自水鱼，DX 谱面是独立条目
-  // （ID = 基础 + 10000），需取余回基础 ID；100000 以上是宴会场，不参与换算。
   const baseId = id >= 10000 && id < 100000 ? id % 10000 : id
-  return `https://assets2.lxns.net/maimai/jacket/${baseId}.png`
+  if (variant === 'thumb') return `${import.meta.env.BASE_URL}covers/${baseId}.webp`
+  return `${COVER_CDN}/${baseId}.png`
 }
 
 // ---- Coefficient table for Rating calculation (24 thresholds) ----

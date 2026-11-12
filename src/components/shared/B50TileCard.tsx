@@ -38,7 +38,8 @@ export default function B50TileCard({
   const [imgError, setImgError] = useState(false)
   const levelColors = LEVEL_INDEX_MAP[levelIndex as LevelIndex]
   const dxStar = dxScore != null && totalNotes && totalNotes > 0 ? computeDxStar(dxScore, totalNotes) : null
-  const src = getCoverUrl(songId)
+  // 本地 96px 缩略图优先，缺图时回退落雪原图
+  const [imgSrc, setImgSrc] = useState(() => getCoverUrl(songId, 'thumb'))
 
   return (
     <Link
@@ -51,12 +52,16 @@ export default function B50TileCard({
           <span className="text-lg font-bold" style={{ color: levelColors.color }}>{title.charAt(0)}</span>
         ) : (
           <img
-            src={src}
+            src={imgSrc}
             alt=""
             loading="lazy"
             decoding="async"
             className="w-full h-full object-cover"
-            onError={() => setImgError(true)}
+            onError={() => {
+              const full = getCoverUrl(songId, 'full')
+              if (imgSrc !== full) setImgSrc(full)
+              else setImgError(true)
+            }}
           />
         )}
       </div>

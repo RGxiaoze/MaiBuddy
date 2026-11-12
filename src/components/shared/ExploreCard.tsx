@@ -19,6 +19,8 @@ interface ExploreCardProps {
 
 export default function ExploreCard({ item, onBlock }: ExploreCardProps) {
   const [imgError, setImgError] = useState(false)
+  // 本地 96px 缩略图优先，缺图时回退落雪原图
+  const [imgSrc, setImgSrc] = useState(() => getCoverUrl(item.songId, 'thumb'))
   const { songId, title, levelValue, genre, from, bpm } = item
 
   const version = (from || '').replace('maimai でらっくす ', '')
@@ -35,12 +37,16 @@ export default function ExploreCard({ item, onBlock }: ExploreCardProps) {
               <span className="text-base font-bold text-text-tertiary">{title.charAt(0)}</span>
             ) : (
               <img
-                src={getCoverUrl(songId)}
+                src={imgSrc}
                 alt=""
                 loading="lazy"
                 decoding="async"
                 className="w-full h-full object-cover"
-                onError={() => setImgError(true)}
+                onError={() => {
+                  const full = getCoverUrl(songId, 'full')
+                  if (imgSrc !== full) setImgSrc(full)
+                  else setImgError(true)
+                }}
               />
             )}
           </div>

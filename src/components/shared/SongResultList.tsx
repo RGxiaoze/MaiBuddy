@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router'
 import { Music } from 'lucide-react'
 import Pagination from './Pagination'
 import { useSongStore } from '@/store/songStore'
-import { LEVEL_INDEX_MAP, LEVEL_BADGE_CLASS } from '@/data/constants'
+import { LEVEL_INDEX_MAP, LEVEL_BADGE_CLASS, getCoverUrl } from '@/data/constants'
 import { getVersionDisplay } from '@/data/versions'
 import type { LevelIndex, Song } from '@/types'
 
@@ -99,12 +99,20 @@ export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, em
               >
                 <div className="flex items-center gap-3 sm:gap-4">
                   <img
-                    src={song.imageUrl}
+                    src={getCoverUrl(song.id, 'thumb')}
                     alt={song.title}
                     className="w-12 h-12 rounded object-cover shrink-0 bg-bg-gray"
                     loading="lazy"
+                    decoding="async"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect fill="%23EBEEF3" width="48" height="48"/><text x="24" y="28" text-anchor="middle" fill="%23999" font-size="14">♪</text></svg>'
+                      // 缩略图缺失（宴会场等无曲绘的曲目）先回退原图，再失败才用占位符
+                      const img = e.target as HTMLImageElement
+                      if (img.dataset.fallback !== '1') {
+                        img.dataset.fallback = '1'
+                        img.src = getCoverUrl(song.id, 'full')
+                        return
+                      }
+                      img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect fill="%23EBEEF3" width="48" height="48"/><text x="24" y="28" text-anchor="middle" fill="%23999" font-size="14">♪</text></svg>'
                     }}
                   />
                   <div className="sm:hidden flex-1 min-w-0">
