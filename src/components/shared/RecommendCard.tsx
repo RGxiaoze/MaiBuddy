@@ -15,22 +15,16 @@ import { bilibiliSearchUrl } from '@/utils/bilibiliSearch'
 import { LEVEL_LABELS, LEVEL_INDEX_MAP, getCoverUrl } from '@/data/constants'
 import { getConfigTag, type ConfigType } from '@/data/chartConfig'
 import { formatGain, truncatePercent } from '@/utils/format'
-import type { LevelIndex, RateType } from '@/types'
+import type { LevelIndex } from '@/types'
 
-/** 预期评级的展示文案：只陈述预测结果，不作「轻松/挑战」之类评价 */
-const RANK_META: Record<string, { label: string; color: string }> = {
-  sssp: { label: 'SSS+', color: '#8B5CF6' },
-  sss: { label: 'SSS', color: '#D97706' },
-  ssp: { label: 'SS+', color: '#6B7280' },
-  ss: { label: 'SS', color: '#6B7280' },
-  sp: { label: 'S+', color: '#6B7280' },
-  s: { label: 'S', color: '#6B7280' },
-  aaa: { label: 'AAA', color: '#9CA3AF' },
-  aa: { label: 'AA', color: '#9CA3AF' },
-  a: { label: 'A', color: '#9CA3AF' },
-  bbb: { label: 'BBB', color: '#9CA3AF' },
-  bb: { label: 'BB', color: '#9CA3AF' },
-  b: { label: 'B', color: '#9CA3AF' },
+/**
+ * 水分标签配色：拟合定数比官标低得越多，越值得优先打。
+ * 不用评价词，只给出「低多少」这个事实。
+ */
+function waterColor(water: number): string {
+  if (water >= 0.5) return '#16A34A'
+  if (water >= 0.3) return '#65A30D'
+  return '#64748B'
 }
 
 export interface RecommendCardProps {
@@ -54,13 +48,15 @@ export interface RecommendCardProps {
   /** 加入「不感兴趣」，不传则不显示该按钮 */
   onBlock?: () => void
   /** 推分难度评估 */
-  /** 按你的成绩预测，这首预计能打到的评级 */
-  expectedRank?: RateType
+  /** 该谱拟合定数比官标低多少（水分）；无数据或拟合更高时不传 */
+  waterLevel?: number
+  /** 该谱的全服 SSS+ 率，用于说明「推到顶」的普遍难度 */
+  sssPlusRate?: number
 }
 
 export default function RecommendCard({
   songId, title, levelIndex, levelValue, gain, progress, reason, tag, tagColor = '#5BA4CF',
-  configType, showExternalLink = true, onBlock, expectedRank,
+  configType, showExternalLink = true, onBlock, waterLevel, sssPlusRate,
 }: RecommendCardProps) {
   const [imgError, setImgError] = useState(false)
   // 优先用本地 96px 缩略图（约 3 KB）；缺图（如宴会场）时回退落雪原图
@@ -161,15 +157,18 @@ export default function RecommendCard({
                 {tag}
               </span>
             )}
-            {expectedRank && RANK_META[expectedRank] && (
+            {waterLevel !== undefined && waterLevel > 0 && (
+              // 「低 0.4」= 拟合定数比官标低 0.4，实际比标称容易
+              // 已 SSS 的谱也能看懂：这首还有多少水分可吃
               <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
-                style={{
-                  backgroundColor: RANK_META[expectedRank].color + '20',
-                  color: RANK_META[expectedRank].color,
-                }}
+                className="px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 tabular-nums"
+                style={{ backgroundColor: waterColor(waterLevel) + '1F', color: waterColor(waterLevel) }}
+                title={
+                  `拟合定数比官标低 ${waterLevel.toFixed(1)}`
+                  + (sssPlusRate ? `；全服 ${(sssPlusRate * 100).toFixed(0)}% 已 SSS+` : '')
+                }
               >
-                预计 {RANK_META[expectedRank].label}
+                低 {waterLevel.toFixed(1)}
               </span>
             )}
           </div>

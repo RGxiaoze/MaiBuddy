@@ -10,7 +10,6 @@ import { useSongStore } from '@/store/songStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { usePushSuggestions } from '@/hooks/usePushSuggestions'
-import type { RateType } from '@/types'
 import { loadVoteStats, getAllVoteStats, isVoteStatsLoaded, isVoteStatsFailed } from '@/services/voteService'
 import { buildExplorePool, buildPreferenceProfile, DEFAULT_MIN_VOTES, DEFAULT_LIMIT, type ExploreItem } from '@/utils/explore'
 
@@ -243,16 +242,8 @@ function bestTargetProgress(s: PushSuggestion): { current: number; target: numbe
 
 // ---- 推分 ----
 
-/** 预期评级的排序权重：能打到的高评级排前面 */
-const RANK_ORDER: Record<string, number> = {
-  sssp: 0, sss: 1, ssp: 2, ss: 3, sp: 4, s: 5,
-  aaa: 6, aa: 7, a: 8, bbb: 9, bb: 10, b: 11,
-}
-
-const rankOrder = (r: RateType): number => RANK_ORDER[r] ?? 99
-
-/** 预计能到 SSS 及以上，直接展示；其余折叠 */
-const isStrongRank = (r: RateType): boolean => r === 'sssp' || r === 'sss'
+/** 水分达到这个幅度才算「值得优先打」，低于它的折叠 */
+const WATER_TAG_MIN = 0.3
 
 const POOL_FILTERS = [
   { value: 'all', label: '全部' },
@@ -322,15 +313,15 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
 
   if (items.length === 0) return null
 
-  // 预期评级高的排前面，同评级按收益降序
+  // 水分大的排前面（实际比标称容易 = 更好吃），同水分按收益降序
   const sorted = [...items].sort((a, b) => {
-    const byRank = rankOrder(a.s.expectedRank) - rankOrder(b.s.expectedRank)
-    return byRank !== 0 ? byRank : b.maxGain - a.maxGain
+    const byWater = (b.s.waterLevel ?? 0) - (a.s.waterLevel ?? 0)
+    return byWater !== 0 ? byWater : b.maxGain - a.maxGain
   })
 
-  // 预计能到 SSS 及以上的直接展示，其余折叠——玩家一眼看到的是「稳的」
-  const strong = sorted.filter(i => isStrongRank(i.s.expectedRank))
-  const weak = sorted.filter(i => !isStrongRank(i.s.expectedRank))
+  // 有明显水分的直接展示，没水分的折叠——玩家一眼看到的是「好啃的」
+  const strong = sorted.filter(i => (i.s.waterLevel ?? 0) >= WATER_TAG_MIN)
+  const weak = sorted.filter(i => (i.s.waterLevel ?? 0) < WATER_TAG_MIN)
   const mainList = strong.length > 0 ? strong : weak
   const foldedList = strong.length > 0 ? weak : []
 
@@ -345,7 +336,8 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
       progress={bestTargetProgress(s)}
       tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
       tagColor={tagColor}
-      expectedRank={s.expectedRank}
+      waterLevel={s.waterLevel}
+      sssPlusRate={s.sssPlusRate}
     />
   )
 
@@ -376,7 +368,7 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
             onClick={() => setShowChallenging(v => !v)}
             className="w-full mt-2 flex items-center justify-center gap-1 py-2 rounded-md text-[11px] font-medium text-text-secondary bg-surface border border-border hover:border-primary hover:text-primary transition-colors cursor-pointer"
           >
-            {showChallenging ? '收起' : `展开 ${foldedList.length} 条预计评级更低的推荐`}
+            {showChallenging ? '收起' : `展开 ${foldedList.length} 条水分更少的推荐`}
             <span>{showChallenging ? '▾' : '▸'}</span>
           </button>
           {showChallenging && (

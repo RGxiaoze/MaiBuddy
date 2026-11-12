@@ -4,10 +4,10 @@
 // ============================================================
 
 import type { ScoreRecord } from '@/db/database'
-import type { Song, RateType } from '@/types'
+import type { Song } from '@/types'
 import type { ChartStatSummary } from '@/services/statsService'
 import { type B50Result } from './b50'
-import { computeRating, rankOfAchievement } from './rating'
+import { computeRating } from './rating'
 import { classifyDifficulty, realisticTargetAchFor, typicalAchievement, TYPICAL_STRETCH, TYPICAL_STRETCH_B15, type LevelSample } from './difficultyTier'
 import { isChartExcluded } from '@/data/excluded-charts'
 import { predictLevelToAch } from './regression'
@@ -45,11 +45,10 @@ export interface PushSuggestion {
   pool: 'b35' | 'b15'
   difficulty: 'easy' | 'medium' | 'hard'
   /**
-   * 按玩家自己的成绩预测，这首「预计能打到」的评级。
-   * 与目标达成率同源（都是 ceiling / 现实目标），所以卡片上的
-   * 「预计 SSS」和「→ 100.0%」不会互相矛盾。
+   * 该谱拟合定数比官标低多少（正 = 实际比标称容易，即「水分」）。
+   * 与"你的当前评级"不同，它描述的是谱面本身，对已 SSS 的谱仍有参考价值。
    */
-  expectedRank: RateType
+  waterLevel?: number
   sssPlusRate: number
   /** 全服 AP 率（来自 chart_stats.fc_dist），用于 AP 推分排序 */
   apRate: number
@@ -267,9 +266,6 @@ function makeSuggestion(
     currentRating,
     pool,
     difficulty,
-    // 用当前成绩（有成绩时是实测，无成绩时是 predictAch 的预测值）。
-    // 不用 ceiling：那是「努力上限」，几乎恒为 100.5，标签会全变成 SSS+ 而失去区分度。
-    expectedRank: rankOfAchievement(currentAch),
     sssPlusRate,
     apRate,
     gains: gains as [PushGain, PushGain, PushGain],
@@ -501,6 +497,11 @@ export function computePushSuggestions(
           stretch,
         )
         cand.reliable = stats?.reliable !== false && !isEarlyChart
+        // 水分：拟合法比官标低多少。只对「更低」有意义——拟合更高的谱没有水分可吃
+        if (stats?.fitDiff && stats.fitDiff > 0) {
+          const water = Math.round((lv - stats.fitDiff) * 10) / 10
+          if (water > 0) cand.waterLevel = water
+        }
         // Only add if at least one gain > 0 (or AP gain exists)
         if (cand.gains.some(g => g.ratingGain > 0) || (cand.apGain && cand.apGain.ratingGain > 0)) {
           suggestions.push(cand)
@@ -552,7 +553,9 @@ export function computePushSuggestions(
             currentRating,
             pool,
             difficulty: classifyDifficulty({ levelValue: lv, achievements: currentAch } as ScoreRecord, stats, chosenTarget),
-            expectedRank: rankOfAchievement(currentAch),
+            waterLevel: stats?.fitDiff && stats.fitDiff > 0 && lv - stats.fitDiff > 0
+              ? Math.round((lv - stats.fitDiff) * 10) / 10
+              : undefined,
             sssPlusRate: stats?.sssPlusRate ?? 0,
             apRate: stats?.apRate ?? 0,
             gains: lifts as [PushGain, PushGain, PushGain],

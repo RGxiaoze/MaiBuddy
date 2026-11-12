@@ -132,6 +132,40 @@ describe('加权分档配额', () => {
   })
 })
 
+describe('水分标签', () => {
+  it('拟合定数低于官标时给出水量', () => {
+    const b50 = makeB50(13.5)
+    const songs = new Map([[5004, song(5004, 13.7)]])
+    const getStats = () => ({
+      avg: 99, stdDev: 1, sssRate: 0.2, sssPlusRate: 0.3, cumSssRate: 0.5,
+      apRate: 0.05, diffFromLevelAvg: 0.5, fitDiff: 13.2,
+      sampleCount: 500, reliable: true,
+    })
+
+    const { suggestions } = computePushSuggestions(b50, songs, { getStats })
+    const hit = suggestions.find((s) => s.songId === 5004)
+
+    expect(hit).toBeDefined()
+    expect(hit!.waterLevel).toBe(0.5) // 13.7 − 13.2
+  })
+
+  it('拟合定数高于官标（无水可吃）时不打标签', () => {
+    const b50 = makeB50(13.5)
+    const songs = new Map([[5005, song(5005, 13.7)]])
+    const getStats = () => ({
+      avg: 98, stdDev: 1, sssRate: 0.1, sssPlusRate: 0.05, cumSssRate: 0.15,
+      apRate: 0.01, diffFromLevelAvg: -0.5, fitDiff: 14.0,
+      sampleCount: 500, reliable: true,
+    })
+
+    const { suggestions } = computePushSuggestions(b50, songs, { getStats })
+    const hit = suggestions.find((s) => s.songId === 5005)
+
+    // 13.7 − 14.0 < 0，没有水分
+    expect(hit?.waterLevel ?? 0).toBe(0)
+  })
+})
+
 describe('推荐不越过舒适区上限', () => {
   it('B15 池为空时，下限也不放开到低定数', () => {
     // B35 全 13.5、B15 一条没有；7 级新曲不该因为「池子空」就被推荐
