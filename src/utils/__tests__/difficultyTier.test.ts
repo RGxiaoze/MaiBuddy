@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { realisticTargetAch, classifyDifficulty, typicalAchievement, realisticTargetAchFor, averageAtLevel } from '@/utils/difficultyTier'
+import { realisticTargetAch, classifyDifficulty, typicalAchievement, realisticTargetAchFor, averageAtLevel, achievableTargetFor } from '@/utils/difficultyTier'
 import type { ScoreRecord } from '@/db/database'
 import { MAX_ACHIEVEMENTS } from '@/config/algorithms'
 
@@ -234,6 +234,30 @@ describe('realisticTargetAchFor', () => {
 
   it('不传样本时行为与旧规则一致', () => {
     expect(realisticTargetAchFor(15.0, 14.0)).toBe(realisticTargetAch(15.0, 14.0))
+  })
+})
+
+describe('achievableTargetFor — 目标口径优先用全量成绩', () => {
+  const make = (ach: number, n: number, prefix: string) =>
+    Array.from({ length: n }, (_, i) => ({ levelValue: 14.0, achievements: ach, key: `${prefix}${i}` }))
+
+  it('全量成绩存在时，用它而不是 B50（B50 只含最好的一批）', () => {
+    const all = make(96.0, 10, 'a')
+    const b50 = make(100.0, 10, 'b')
+    // 全量中位 96 + 拉伸 0.5 = 96.5，而不是 B50 的 100 + 0.5
+    expect(achievableTargetFor(14.0, 14.0, all, b50)).toBeCloseTo(96.5, 5)
+  })
+
+  it('全量成绩不足时退回 B50 口径', () => {
+    const b50 = make(99.0, 10, 'b')
+    expect(achievableTargetFor(14.0, 14.0, [], b50)).toBeCloseTo(99.5, 5)
+  })
+
+  it('不突破档位天花板', () => {
+    // gap 很大时档位规则会压低天花板，全量成绩再高也不能超过它
+    const all = make(100.5, 10, 'a')
+    const target = achievableTargetFor(15.0, 13.0, all, [])
+    expect(target).toBeLessThanOrEqual(realisticTargetAch(15.0, 13.0))
   })
 })
 

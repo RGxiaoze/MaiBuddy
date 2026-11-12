@@ -8,7 +8,7 @@ import type { Song } from '@/types'
 import type { ChartStatSummary } from '@/services/statsService'
 import { type B50Result } from './b50'
 import { computeRating } from './rating'
-import { classifyDifficulty, realisticTargetAchFor, typicalAchievement, averageAtLevel, TYPICAL_STRETCH, TYPICAL_STRETCH_B15, type LevelSample } from './difficultyTier'
+import { classifyDifficulty, achievableTargetFor, typicalAchievement, averageAtLevel, TYPICAL_STRETCH, TYPICAL_STRETCH_B15, type LevelSample } from './difficultyTier'
 import { isChartExcluded } from '@/data/excluded-charts'
 import { predictLevelToAch } from './regression'
 import {
@@ -232,16 +232,11 @@ function makeSuggestion(
   precision: 'precise' | 'estimated',
   floorRating: number,
   targetLevels: readonly number[],
-  mode: number,
-  samples: readonly LevelSample[],
-  excludeKey?: string,
+  /** 可达成的目标达成率，由调用方用 achievableTargetFor 算好 */
+  achievableTarget: number,
   targetCeiling?: number,
-  stretch = TYPICAL_STRETCH,
 ): PushSuggestion {
-  const ceiling = Math.min(
-    realisticTargetAchFor(levelValue, mode, samples, excludeKey, stretch),
-    targetCeiling ?? MAX_ACHIEVEMENTS,
-  )
+  const ceiling = Math.min(achievableTarget, targetCeiling ?? MAX_ACHIEVEMENTS)
   // 基准取「池子地板」与「当前成绩」的较高者。
   // 只跟地板比会漏掉一种情况：本地成绩已经打上去了，但 B50 还是旧快照
   // （在线查分与本地成绩不同步），于是「推到 100.0%」仍被算成有收益，
@@ -478,6 +473,9 @@ export function computePushSuggestions(
         targetCeiling = SIMPLE_TARGET_FLOOR
       }
 
+      // 目标达成率：优先按玩家全量成绩的同档平均，会话见 achievableTargetFor
+      const achievable = achievableTargetFor(lv, mode, allSamples, b50Samples, key, stretch)
+
       if (!inB50.has(key)) {
         // Chart NOT in B50 — suggest for its version's pool
         const pool = isNew ? 'b15' as const : 'b35' as const
@@ -489,18 +487,15 @@ export function computePushSuggestions(
           classifyDifficulty(
             { levelValue: lv, achievements: currentAch } as ScoreRecord,
             stats,
-            realisticTargetAchFor(lv, mode, b50Samples, key, stretch),
+            achievable,
           ),
           stats?.sssPlusRate ?? 0,
           stats?.apRate ?? 0,
           precision,
           floorRating,
           TARGET_LEVELS,
-          mode,
-          b50Samples,
-          key,
+          achievable,
           targetCeiling,
-          stretch,
         )
         cand.reliable = stats?.reliable !== false && !isEarlyChart
         // 水分：拟合法比官标低多少。只对「更低」有意义——拟合更高的谱没有水分可吃
@@ -508,9 +503,13 @@ export function computePushSuggestions(
           const water = Math.round((lv - stats.fitDiff) * 10) / 10
           if (water > 0) cand.waterLevel = water
         }
-        // 你在「该谱实际定数」同档的平均表现，用来判断这份水分吃不吃得到
+        // 「该档平均」只对**没打过**的谱有意义：它是对这首的预期。
+        // 已经打出成绩的谱，卡片上显示的是真实成绩，再挂个全档平均只会让人困惑
+        // （实测有谱打到 100%+，而同档平均只有 96%，两个数字互相打脸）。
         const effectiveLevel = stats?.fitDiff && stats.fitDiff > 0 ? stats.fitDiff : lv
-        cand.yourBandAvg = averageAtLevel(effectiveLevel, allSamples, key) ?? undefined
+        cand.yourBandAvg = precision === 'estimated'
+          ? (averageAtLevel(effectiveLevel, allSamples, key) ?? undefined)
+          : undefined
         // Only add if at least one gain > 0 (or AP gain exists)
         if (cand.gains.some(g => g.ratingGain > 0) || (cand.apGain && cand.apGain.ratingGain > 0)) {
           suggestions.push(cand)
@@ -522,7 +521,7 @@ export function computePushSuggestions(
         const pool = currentB50.best35.some(e => `${e.songId}-${e.levelIndex}` === key) ? 'b35' as const : 'b15' as const
 
         // Calculate gains against current rating (improving this score)
-        const realistic = realisticTargetAchFor(lv, mode, b50Samples, key, stretch)
+        const realistic = achievable
         // 已有成绩已超过「现实目标」时，说明模型低估了玩家在此定数的水平，
         // 不再把目标向下截断——否则「100.24% 打到 100.0 目标」会被判为无提升空间。
         const capFor = (targetAch: number) =>
@@ -538,7 +537,7 @@ export function computePushSuggestions(
         // AP gain for floor entry — compute before filter check
         let floorApGain: PushGain | undefined
         if (lifts[2].ratingGain === 0) {
-          const cappedTarget = Math.min(realisticTargetAchFor(lv, mode, b50Samples, key, stretch), MAX_ACHIEVEMENTS)
+          const cappedTarget = Math.min(achievable, MAX_ACHIEVEMENTS)
           const apRatingFloor = computeRating(lv, cappedTarget, 'ap')
           const apGainFloor = Math.max(0, apRatingFloor - currentRating)
           if (apGainFloor > 0) {
@@ -565,11 +564,7 @@ export function computePushSuggestions(
             waterLevel: stats?.fitDiff && stats.fitDiff > 0 && lv - stats.fitDiff > 0
               ? Math.round((lv - stats.fitDiff) * 10) / 10
               : undefined,
-            yourBandAvg: averageAtLevel(
-              stats?.fitDiff && stats.fitDiff > 0 ? stats.fitDiff : lv,
-              allSamples,
-              key,
-            ) ?? undefined,
+            // 池内条目必然已有成绩，不挂「该档平均」（见候选分支的说明）
             sssPlusRate: stats?.sssPlusRate ?? 0,
             apRate: stats?.apRate ?? 0,
             gains: lifts as [PushGain, PushGain, PushGain],

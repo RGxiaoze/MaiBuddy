@@ -28,6 +28,7 @@ const CACHE_TTL = 60 * 60 * 1000
 const jiti = createJiti(import.meta.url, { alias: { '@': SRC } })
 const { computePushSuggestions, computeRecommendCaps } = await jiti.import('../src/utils/pushSuggestions.ts')
 const { computeB50 } = await jiti.import('../src/utils/b50.ts')
+const { achievableTargetFor, averageAtLevel } = await jiti.import('../src/utils/difficultyTier.ts')
 
 // ---- 曲库 ----
 
@@ -180,6 +181,39 @@ function analyze(name, scores, songMap) {
     console.log(`  该档平均覆盖 ${bands.length}/${suggestions.length} 条，取值范围 ${lo}%~${hi}%`)
   } else {
     console.log(`  该档平均：无可用样本（需要全量成绩）`)
+  }
+
+  // 推荐目标落在哪一档：直接判断「目标是否超出玩家能力」
+  if (suggestions.length > 0) {
+    const best = suggestions.map((s) => {
+      const g = s.gains.reduce((a, b) => (b.ratingGain > a.ratingGain ? b : a))
+      return g.targetAch
+    })
+    const buckets = new Map()
+    for (const t of best) buckets.set(t, (buckets.get(t) ?? 0) + 1)
+    console.log(`  收益最大档的目标 ${[...buckets.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([t, n]) => `${t}%:${n}`).join('  ')}`)
+
+    // 目标 vs 该档平均的落差
+    const gaps = suggestions
+      .filter((s) => s.yourBandAvg != null)
+      .map((s) => {
+        const g = s.gains.reduce((a, b) => (b.ratingGain > a.ratingGain ? b : a))
+        return g.targetAch - s.yourBandAvg
+      })
+    if (gaps.length > 0) {
+      const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length
+      console.log(`  目标 − 该档平均：中位 ${gaps.sort((a, b) => a - b)[Math.floor(gaps.length / 2)].toFixed(2)}` +
+        `，均值 ${avg.toFixed(2)}（正 = 目标高于现有水平）`)
+    }
+
+    // 抽查首条：目标档位与各档收益，确认 ceiling 是否真的压下来了
+    const s0 = suggestions[0]
+    console.log(`  示例 ${s0.songTitle?.slice(0, 14)} 定数 ${s0.levelValue}` +
+      ` 该档均 ${s0.yourBandAvg?.toFixed(1) ?? '—（已有成绩，不显示）'}` +
+      ` 目标 ${s0.gains.map((g) => `${g.targetAch}`).join('/')}` +
+      ` 收益 ${s0.gains.map((g) => g.ratingGain).join('/')}`)
   }
 
   if (overCap.length || backwards.length) process.exitCode = 1

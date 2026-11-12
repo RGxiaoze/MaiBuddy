@@ -146,6 +146,40 @@ export function realisticTargetAchFor(
 }
 
 /**
+ * 目标达成率：用玩家**全量成绩**的同定数中位数 + 拉伸。
+ *
+ * 此前只用 B50 的中位数 —— 那是玩家最好的一批，系统性高估。实测有玩家
+ * B50 中位约 100%、全量同档平均只有 97.5%，于是 49 条推荐的目标全部顶到
+ * 100.5%，比他的实际水平高出 3 个百分点。
+ *
+ * 为什么用中位数而不是平均值：成绩分布强烈左偏（大量初见/试玩记录），
+ * 平均值会被拉低到中位数以下。实测若用平均值，木叶狐的目标会压到 96.7%，
+ * 低于他的预测成绩，于是未玩过的谱收益全为 0，推荐从 49 条掉到 11 条。
+ * 中位数抗异常值，既压低了 B50 造成的虚高，又不会把推荐池清空。
+ *
+ * 回退链：全量同定数中位数 → B50 同定数中位数（原逻辑）→ 档位规则。
+ */
+export function achievableTargetFor(
+  levelValue: number,
+  baseLevel: number,
+  allSamples?: readonly LevelSample[],
+  b50Samples?: readonly LevelSample[],
+  excludeKey?: string,
+  stretch = TYPICAL_STRETCH,
+): number {
+  const tierCeiling = realisticTargetAch(levelValue, baseLevel)
+
+  if (allSamples && allSamples.length > 0) {
+    const fromAll = typicalAchievement(levelValue, allSamples, excludeKey)
+    if (fromAll !== null) {
+      return Math.min(tierCeiling, Math.min(fromAll + stretch, MAX_ACHIEVEMENTS))
+    }
+  }
+
+  return realisticTargetAchFor(levelValue, baseLevel, b50Samples, excludeKey, stretch)
+}
+
+/**
  * Classify push difficulty for a score, with optional target achievement for gap-based adjustment.
  *
  * ### 有 chart_stats + targetAchievements（综合加权模式）
