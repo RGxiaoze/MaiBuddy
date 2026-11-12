@@ -19,6 +19,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
+        "hash": "9eb0e02",
+        "type": "feat",
+        "message": "曲绘改用本地 96px 缩略图",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
         "hash": "2b6e2a5",
         "type": "fix",
         "message": "空池不再放开推荐下限，预期评级改用实测成绩",
