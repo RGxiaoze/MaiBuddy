@@ -16,6 +16,32 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    "date": "2026-11-12",
+    "commits": [
+      {
+        "hash": "2b6e2a5",
+        "type": "fix",
+        "message": "空池不再放开推荐下限，预期评级改用实测成绩",
+        "label": "修复",
+        "color": "amber"
+      },
+      {
+        "hash": "1539289",
+        "type": "feat",
+        "message": "新增推荐算法校准脚本",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "bf3ce74",
+        "type": "feat",
+        "message": "按测试反馈重构推荐算法",
+        "label": "新功能",
+        "color": "green"
+      }
+    ]
+  },
+  {
     "date": "2026-11-11",
     "commits": [
       {
