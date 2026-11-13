@@ -75,7 +75,7 @@ export default function PlayerInfo() {
 
   const handleClearScoresWithConfirm = () => {
     if (scores.length === 0) { alert('暂无本地成绩可清除'); return }
-    if (!window.confirm(`确定清除全部 ${scores.length} 条本地成绩？此操作不可撤销。`)) return
+    if (!window.confirm(`确定清除全部 ${scores.length} 条本地成绩？此操作不可撤销。\n\n在线查询结果不受影响。`)) return
     handleClearScores()
   }
 
