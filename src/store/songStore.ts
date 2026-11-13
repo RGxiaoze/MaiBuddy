@@ -22,6 +22,7 @@ export function songVersionLabel(song: { id: number; from: string; version: numb
 }
 import { forceRefreshStats, getFitDiffValue } from '@/services/statsService'
 import { UTAGE_ID_THRESHOLD } from '@/config/algorithms'
+import { isLevelValueRangeValid } from '@/utils/levelRange'
 import { sortSongs, type SongScoreStat } from '@/utils/songSort'
 import { fetchLxnsReleaseDates, withLxnsReleaseDates } from '@/services/lxnsSongs'
 
@@ -278,13 +279,18 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
             getFitDiffValue(song.id, d.level, d.levelValue, fitSource)
         : null
 
-      if (advancedFilters.levelValueMin != null) {
+      // 区间填反时不应用这两个条件：让无效区间把结果清空，用户只会以为
+      // 「没有符合条件的谱面」，反而看不出是自己填反了。面板上已经标红提示，
+      // 这里既不修改用户填的值，也不静默交换两端。
+      const rangeValid = isLevelValueRangeValid(advancedFilters.levelValueMin, advancedFilters.levelValueMax)
+
+      if (rangeValid && advancedFilters.levelValueMin != null) {
         const min = advancedFilters.levelValueMin
         chartPredicates.push(fitOf
           ? d => { const v = fitOf(d); return v !== null && v >= min - FIT_EPS }
           : d => d.levelValue >= min)
       }
-      if (advancedFilters.levelValueMax != null) {
+      if (rangeValid && advancedFilters.levelValueMax != null) {
         const max = advancedFilters.levelValueMax
         chartPredicates.push(fitOf
           ? d => { const v = fitOf(d); return v !== null && v <= max + FIT_EPS }

@@ -322,6 +322,22 @@ export function getFitDiffAvg(fitDiff: number): FitDiffAvg | undefined {
   return _fitDiffAvgs?.get(key)
 }
 
+/**
+ * 当前全库最大拟合定数（一位小数）。
+ *
+ * `_fitDiffAvgs` 的键就是「拟合定数一位小数」，取最大键即得上限，无需写死数字 ——
+ * 新版本谱面入池后自动跟着变（原先筛选面板把上限硬编码成 15，拟合定数超 15 就选不到）。
+ * 统计未加载时返回 null，调用方应退回官方定数上限。
+ */
+export function getMaxFitDiffValue(): number | null {
+  if (!_fitDiffAvgs || _fitDiffAvgs.size === 0) return null
+  let max = -Infinity
+  for (const key of _fitDiffAvgs.keys()) {
+    if (key > max) max = key
+  }
+  return Number.isFinite(max) ? max : null
+}
+
 /** 按官方定数（一位小数）查询同定数全服平均率 */
 export function getOfficialLevelAvg(levelValue: number): FitDiffAvg | undefined {
   const key = Math.round(levelValue * 10) / 10
