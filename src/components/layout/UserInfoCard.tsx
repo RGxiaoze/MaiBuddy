@@ -20,21 +20,27 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  const playerName = usePlayerStore((s) => s.importedPlayerName)
-  const playerRating = usePlayerStore((s) => s.importedRating)
+  const importedPlayerName = usePlayerStore((s) => s.importedPlayerName)
+  const importedRating = usePlayerStore((s) => s.importedRating)
+  const onlinePlayerName = usePlayerStore((s) => s.onlinePlayerName)
+  const onlineRatingRaw = usePlayerStore((s) => s.onlineRating)
+  const onlineBest35 = usePlayerStore((s) => s.onlineBest35)
+  const onlineBest15 = usePlayerStore((s) => s.onlineBest15)
   const localB50 = usePlayerStore((s) => s.localB50)
   const scores = useScoreStore((s) => s.scores)
   const clearAllScores = useScoreStore((s) => s.clearAllScores)
 
-  // 本地成绩与在线查询是两份互相独立的数据，不能揉成同一个数字。
-  // dfPlayerName / dfRating 是「导入或在线查询时缓存」的，清空本地成绩时
-  // 不应该连带抹掉 —— 用户清的是本地，不是在线。
-  const localRating = localB50 && localB50.totalRating > 0 ? localB50.totalRating : null
-  const onlineRating = playerRating > 0 ? playerRating : null
+  // 两套数据各有来源与生命周期，互不顶替。
+  // 本地：localB50 算出来之前，先用导入时缓存的 importedRating 顶上，避免导入后闪一下空。
+  const localRating = localB50 && localB50.totalRating > 0
+    ? localB50.totalRating
+    : (importedRating > 0 ? importedRating : null)
+  // 在线：必须有 B50 明细才算数 —— 只有评分、没有明细的「孤儿数字」不能冒充在线数据
+  const onlineReady = onlineBest35.length + onlineBest15.length > 0
+  const onlineRating = onlineReady && onlineRatingRaw > 0 ? onlineRatingRaw : null
   const hasLocalData = localRating !== null
-  const hasOnlineData = !!playerName
-  const isLoggedIn = hasLocalData || hasOnlineData
-  const displayName = playerName || (hasLocalData ? '本地玩家' : '')
+  const isLoggedIn = hasLocalData || onlineRating !== null
+  const displayName = importedPlayerName || onlinePlayerName || (hasLocalData ? '本地玩家' : '')
 
   // 折叠态只有一个数字的位置：优先本地，其次在线，title 里把两者都写清楚
   const compactRating = localRating ?? onlineRating
@@ -76,7 +82,7 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
     setMenuOpen(false)
     if (!window.confirm(`确定清除全部 ${scores.length} 条本地成绩？此操作不可撤销。\n\n在线查询结果不受影响。`)) return
     await clearAllScores()
-    usePlayerStore.setState({ localB50: null })
+    usePlayerStore.getState().clearLocalPlayer()
   }
 
   const [oauthLinked, setOauthLinked] = useState(() => hasOAuthToken())
