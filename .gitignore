@@ -21,6 +21,8 @@ Image_*.jpg
 cike.csv
 # 对话 / 复盘记录（含玩家昵称与实际水平评价，不入库）
 对话记录-*.md
+# 本地资料与一次性分析产物（审计任务书、对话记录、AWMC 抓取数据、测试成绩等）
+项目资料/
 public/data/kb.json
 public/changelog.json
 public/docs-index.json

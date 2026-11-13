@@ -13,7 +13,9 @@ const path = require('path')
 const https = require('https')
 
 const ROOT = path.resolve(__dirname, '..')
-const OUT = path.join(ROOT, 'awmc-review.local.html')
+const DATA_DIR = path.join(ROOT, '项目资料')
+fs.mkdirSync(DATA_DIR, { recursive: true })
+const OUT = path.join(DATA_DIR, 'awmc-review.local.html')
 
 function get(url) {
   return new Promise((resolve, reject) => {
@@ -32,7 +34,7 @@ function get(url) {
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
 async function main() {
-  const tags = JSON.parse(fs.readFileSync(path.join(ROOT, 'awmc-tags.local.json'), 'utf8'))
+  const tags = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'awmc-tags.local.json'), 'utf8'))
   const music = await get('https://www.diving-fish.com/api/maimaidxprober/music_data')
   const stats = (await get('https://www.diving-fish.com/api/maimaidxprober/chart_stats')).charts
   const byId = new Map(music.map((s) => [Number(s.id), s]))

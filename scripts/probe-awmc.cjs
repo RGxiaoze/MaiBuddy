@@ -55,8 +55,10 @@ async function main() {
     process.stdout.write(`\r  ${all.length}/${total} `)
   }
   process.stdout.write('\n')
-  fs.writeFileSync(path.resolve(__dirname, '..', 'awmc-charts.local.json'), JSON.stringify(all), 'utf8')
-  console.log(`共 ${all.length} 个谱面，已存 awmc-charts.local.json`)
+  const dataDir = path.resolve(__dirname, '..', '项目资料')
+  fs.mkdirSync(dataDir, { recursive: true })
+  fs.writeFileSync(path.join(dataDir, 'awmc-charts.local.json'), JSON.stringify(all), 'utf8')
+  console.log(`共 ${all.length} 个谱面，已存 项目资料/awmc-charts.local.json`)
 
   console.log('拉取水鱼曲库做 ID 映射...')
   const dfRes = await get('https://www.diving-fish.com/api/maimaidxprober/music_data')

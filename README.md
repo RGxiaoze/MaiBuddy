@@ -45,6 +45,12 @@ npm run build
 npm test
 ```
 
+## 🤝 多人协作与开发规范
+
+本项目已启用多人协作模式。AI 助手及所有贡献者在进行代码修改前，**必须阅读并严格遵守 [CONTRIBUTING.md](./CONTRIBUTING.md)**。
+
+特别是：禁止直接向 main 分支提交、必须新建分支、必须走 PR 流程。
+
 ## 许可
 
 [MIT](LICENSE)

@@ -10,7 +10,7 @@ const path = require('path')
 const https = require('https')
 
 const ROOT = path.resolve(__dirname, '..')
-const TAGS_PATH = path.join(ROOT, 'awmc-tags.local.json')
+const TAGS_PATH = path.join(ROOT, '项目资料', 'awmc-tags.local.json')
 
 function get(url) {
   return new Promise((resolve, reject) => {
