@@ -220,10 +220,11 @@ export default function Recommend() {
 
       {tab === 'push' && !hasB50 ? (
         <div className="bg-surface border border-border rounded-lg p-5">
-          <h3 className="text-sm font-semibold text-text m-0">暂无成绩数据</h3>
+          <h3 className="text-sm font-semibold text-text m-0">推荐需要 B50 明细</h3>
           <p className="text-xs text-text-secondary mt-1">
-            导入成绩或查询 Diving-Fish 后自动生成推荐。
-            前往<Link to="/songs" className="text-primary hover:underline font-medium">曲目检索页</Link>导入完整成绩。
+            推荐要用的是每条谱面的 B50 明细，只有一个总分是不够的。
+            请前往<Link to="/songs" className="text-primary hover:underline font-medium">曲目检索页</Link>导入成绩，
+            或在<Link to="/player" className="text-primary hover:underline font-medium">成绩统计 → 在线查分</Link>查一次自己的 B50。
           </p>
         </div>
       ) : tab === 'push' ? (

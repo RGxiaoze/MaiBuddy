@@ -4,6 +4,7 @@
 
 import type { ScoreRecord } from '@/db/database'
 import type { Song } from '@/types'
+import type { DfScore } from '@/services/adapter'
 import { computeRating } from './rating'
 import { MAX_ACHIEVEMENTS, UTAGE_ID_THRESHOLD, B35_SIZE, B15_SIZE } from '@/config/algorithms'
 
@@ -31,6 +32,45 @@ export interface B50Result {
   best35Total: number
   best15Total: number
   totalRating: number
+}
+
+/**
+ * 由「在线查分」结果构造 B50。
+ *
+ * 在线查分拿到的是逐条 DfScore，本地拿到的是 IndexedDB 里的成绩；两者归约成
+ * 同一个 `B50Result`，推荐、路线图与统计面板才能共用同一套消费代码。
+ *
+ * 这里**不做排序或截断** —— 接口返回的就是该玩家的 B35 / B15，顺序与条数以它为定。
+ */
+export function buildB50FromOnline(best35: DfScore[], best15: DfScore[]): B50Result {
+  const toEntry = (s: DfScore, isNew: boolean): B50Entry => ({
+    songId: s.songId,
+    songTitle: s.title,
+    levelIndex: s.levelIndex,
+    level: s.level,
+    levelValue: s.levelValue,
+    songType: s.songType,
+    achievements: s.achievements,
+    rate: s.rate,
+    dxRating: s.dxRating,
+    dxScore: s.dxScore,
+    fcType: s.fcType,
+    fsType: s.fsType,
+    isNew,
+  })
+
+  const entries35 = best35.map((s) => toEntry(s, false))
+  const entries15 = best15.map((s) => toEntry(s, true))
+  const best35Total = entries35.reduce((sum, e) => sum + e.dxRating, 0)
+  const best15Total = entries15.reduce((sum, e) => sum + e.dxRating, 0)
+
+  return {
+    best35: entries35,
+    best15: entries15,
+    best35Total,
+    best15Total,
+    totalRating: best35Total + best15Total,
+  }
 }
 
 /** Theoretical maximum rating result — both SSS+ ceiling and AP ceiling */
