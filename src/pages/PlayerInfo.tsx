@@ -43,8 +43,8 @@ export default function PlayerInfo() {
 
   const { scores, loaded: scoresLoaded, fetchAllScores, clearAllScores } = useScoreStore()
   const { songs, fetchSongs } = useSongStore()
-  const { dfBest35, dfBest15, dfRating, dfLoading, dfError, dfPlayerName, queryPlayer, clearQuery, localB50, computeLocalB50, recomputeFlag } = usePlayerStore()
-  const [username, setUsername] = useState(dfPlayerName)
+  const { onlineBest35, onlineBest15, onlineRating, onlineLoading, onlineError, onlinePlayerName, queryPlayer, clearQuery, localB50, computeLocalB50, recomputeFlag } = usePlayerStore()
+  const [username, setUsername] = useState(onlinePlayerName)
   const [showQuickEntry, setShowQuickEntry] = useState(false)
   const navigate = useNavigate()
 
@@ -71,7 +71,7 @@ export default function PlayerInfo() {
 
   const handleQuery = () => { if (username.trim()) queryPlayer(username.trim()) }
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleQuery() }
-  const handleClearScores = async () => { await clearAllScores(); usePlayerStore.setState({ localB50: null }) }
+  const handleClearScores = async () => { await clearAllScores(); usePlayerStore.getState().clearLocalPlayer() }
 
   const handleClearScoresWithConfirm = () => {
     if (scores.length === 0) { alert('暂无本地成绩可清除'); return }
@@ -136,58 +136,58 @@ export default function PlayerInfo() {
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} onKeyDown={handleKeyDown} placeholder="输入水鱼用户名或好友代码" className="flex-1 px-3 py-2 rounded-md border border-border text-sm focus:outline-none focus:border-primary bg-surface" />
-            <button onClick={handleQuery} disabled={dfLoading || !username.trim()} className="px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{dfLoading ? '查询中...' : <><span className="sm:hidden">查询</span><span className="hidden sm:inline">查询 B50</span></>}</button>
-            {dfPlayerName && <button onClick={clearQuery} className="px-3 py-2 rounded-md border border-border text-sm text-text-secondary hover:bg-bg-gray transition-colors cursor-pointer"><span className="sm:hidden">✕</span><span className="hidden sm:inline">清除</span></button>}
+            <button onClick={handleQuery} disabled={onlineLoading || !username.trim()} className="px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{onlineLoading ? '查询中...' : <><span className="sm:hidden">查询</span><span className="hidden sm:inline">查询 B50</span></>}</button>
+            {onlinePlayerName && <button onClick={clearQuery} className="px-3 py-2 rounded-md border border-border text-sm text-text-secondary hover:bg-bg-gray transition-colors cursor-pointer"><span className="sm:hidden">✕</span><span className="hidden sm:inline">清除</span></button>}
           </div>
         </div>
-        {dfError && <div className="bg-error/10 border border-error/30 rounded-lg p-4 mb-4 text-sm text-error">{dfError}</div>}
-        {dfLoading && <div className="bg-surface border border-border rounded-lg p-8 text-center"><div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" /><p className="text-sm text-text-secondary mt-3">正在查询 B50 数据...</p></div>}
-        {!dfLoading && !dfError && dfPlayerName && (<>
+        {onlineError && <div className="bg-error/10 border border-error/30 rounded-lg p-4 mb-4 text-sm text-error">{onlineError}</div>}
+        {onlineLoading && <div className="bg-surface border border-border rounded-lg p-8 text-center"><div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" /><p className="text-sm text-text-secondary mt-3">正在查询 B50 数据...</p></div>}
+        {!onlineLoading && !onlineError && onlinePlayerName && (<>
           <div className="bg-surface border border-border rounded-lg p-5 mb-4">
-            <div className="flex items-baseline gap-4"><div><span className="text-sm text-text-secondary">玩家：</span><span className="text-base font-semibold text-text ml-1">{dfPlayerName}</span></div><div><span className="text-sm text-text-secondary">总 DX Rating：</span><span className="text-2xl font-bold text-primary ml-1">{dfRating}</span></div></div>
-            <div className="flex gap-6 mt-3 text-xs text-text-secondary"><span>旧版本 Best 35：<strong className="text-text">{dfBest35.reduce((s, e) => s + e.dxRating, 0)}</strong></span><span>新版本 Best 15：<strong className="text-text">{dfBest15.reduce((s, e) => s + e.dxRating, 0)}</strong></span></div>
+            <div className="flex items-baseline gap-4"><div><span className="text-sm text-text-secondary">玩家：</span><span className="text-base font-semibold text-text ml-1">{onlinePlayerName}</span></div><div><span className="text-sm text-text-secondary">总 DX Rating：</span><span className="text-2xl font-bold text-primary ml-1">{onlineRating}</span></div></div>
+            <div className="flex gap-6 mt-3 text-xs text-text-secondary"><span>旧版本 Best 35：<strong className="text-text">{onlineBest35.reduce((s, e) => s + e.dxRating, 0)}</strong></span><span>新版本 Best 15：<strong className="text-text">{onlineBest15.reduce((s, e) => s + e.dxRating, 0)}</strong></span></div>
             <p className="text-[11px] text-text-tertiary mt-2">以上为 Diving-Fish 在线数据，与本页「B50」标签下的本地成绩互不影响</p>
           </div>
-          {dfBest35.length + dfBest15.length === 0 ? <div className="bg-surface border border-border rounded-lg p-8 text-center text-text-secondary text-sm">该玩家暂无 B50 数据</div> : <div className="flex flex-col gap-4">
-            {dfBest15.length > 0 && <div className="bg-surface border border-border rounded-lg p-4">
-              <button onClick={() => setDfB15Collapsed(!dfB15Collapsed)} className="w-full flex items-center justify-between cursor-pointer border-none bg-transparent p-0 mb-2"><h3 className="text-sm font-semibold text-text m-0">新版本 Best {dfBest15.length}</h3><span className="text-xs text-text-tertiary shrink-0">{dfB15Collapsed ? `展开全部 ${dfBest15.length} 条 ▶` : '收起 ▲'}</span></button>
-              {dfBest15.length < 15 && <p className="text-xs text-warning mb-2 bg-warning/5 rounded px-3 py-2">新版本还差 <strong>{15 - dfBest15.length}</strong> 首填满 B15，继续加油！</p>}
+          {onlineBest35.length + onlineBest15.length === 0 ? <div className="bg-surface border border-border rounded-lg p-8 text-center text-text-secondary text-sm">该玩家暂无 B50 数据</div> : <div className="flex flex-col gap-4">
+            {onlineBest15.length > 0 && <div className="bg-surface border border-border rounded-lg p-4">
+              <button onClick={() => setDfB15Collapsed(!dfB15Collapsed)} className="w-full flex items-center justify-between cursor-pointer border-none bg-transparent p-0 mb-2"><h3 className="text-sm font-semibold text-text m-0">新版本 Best {onlineBest15.length}</h3><span className="text-xs text-text-tertiary shrink-0">{dfB15Collapsed ? `展开全部 ${onlineBest15.length} 条 ▶` : '收起 ▲'}</span></button>
+              {onlineBest15.length < 15 && <p className="text-xs text-warning mb-2 bg-warning/5 rounded px-3 py-2">新版本还差 <strong>{15 - onlineBest15.length}</strong> 首填满 B15，继续加油！</p>}
               {(() => {
-                const displayed = dfB15Collapsed ? dfBest15.slice(0, 5) : dfBest15
-                const hasMore = dfB15Collapsed && dfBest15.length > 5
+                const displayed = dfB15Collapsed ? onlineBest15.slice(0, 5) : onlineBest15
+                const hasMore = dfB15Collapsed && onlineBest15.length > 5
                 return <>
                   <div className="relative">
                     <div className="grid grid-cols-3 md:grid-cols-5 gap-2">{displayed.map((entry, i) => <B50TileCard key={`new-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} levelValue={entry.levelValue} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
                     {hasMore && (
                       <button onClick={() => setDfB15Collapsed(false)} className="absolute bottom-0 left-0 right-0 flex items-end justify-center pb-2 pt-12 cursor-pointer border-none bg-transparent w-full" style={{ background: 'linear-gradient(to top, var(--color-bg-surface, #fff) 20%, transparent 100%)' }}>
-                        <span className="text-xs text-primary font-medium hover:underline">展开全部 {dfBest15.length} 条 ▾</span>
+                        <span className="text-xs text-primary font-medium hover:underline">展开全部 {onlineBest15.length} 条 ▾</span>
                       </button>
                     )}
                   </div>
                 </>
               })()}
             </div>}
-            {dfBest35.length > 0 && <div className="bg-surface border border-border rounded-lg p-4">
-              <button onClick={() => setDfB35Collapsed(!dfB35Collapsed)} className="w-full flex items-center justify-between cursor-pointer border-none bg-transparent p-0 mb-2"><h3 className="text-sm font-semibold text-text m-0">旧版本 Best {dfBest35.length}</h3><span className="text-xs text-text-tertiary shrink-0">{dfB35Collapsed ? `展开全部 ${dfBest35.length} 条 ▶` : '收起 ▲'}</span></button>
+            {onlineBest35.length > 0 && <div className="bg-surface border border-border rounded-lg p-4">
+              <button onClick={() => setDfB35Collapsed(!dfB35Collapsed)} className="w-full flex items-center justify-between cursor-pointer border-none bg-transparent p-0 mb-2"><h3 className="text-sm font-semibold text-text m-0">旧版本 Best {onlineBest35.length}</h3><span className="text-xs text-text-tertiary shrink-0">{dfB35Collapsed ? `展开全部 ${onlineBest35.length} 条 ▶` : '收起 ▲'}</span></button>
               {(() => {
-                const displayed = dfB35Collapsed ? dfBest35.slice(0, 5) : dfBest35
-                const hasMore = dfB35Collapsed && dfBest35.length > 5
+                const displayed = dfB35Collapsed ? onlineBest35.slice(0, 5) : onlineBest35
+                const hasMore = dfB35Collapsed && onlineBest35.length > 5
                 return <>
                   <div className="relative">
                     <div className="grid grid-cols-3 md:grid-cols-5 gap-2">{displayed.map((entry, i) => <B50TileCard key={`old-${entry.songId}-${entry.levelIndex}-${i}`} songId={entry.songId} levelIndex={entry.levelIndex} level={entry.level} levelValue={entry.levelValue} title={entry.title} achievements={entry.achievements} rate={entry.rate} dxRating={entry.dxRating} fcType={entry.fcType} fsType={entry.fsType} dxScore={entry.dxScore} totalNotes={getTotalNotes(entry.songId, entry.levelIndex)} />)}</div>
                     {hasMore && (
                       <button onClick={() => setDfB35Collapsed(false)} className="absolute bottom-0 left-0 right-0 flex items-end justify-center pb-2 pt-12 cursor-pointer border-none bg-transparent w-full" style={{ background: 'linear-gradient(to top, var(--color-bg-surface, #fff) 20%, transparent 100%)' }}>
-                        <span className="text-xs text-primary font-medium hover:underline">展开全部 {dfBest35.length} 条 ▾</span>
+                        <span className="text-xs text-primary font-medium hover:underline">展开全部 {onlineBest35.length} 条 ▾</span>
                       </button>
                     )}
                   </div>
                 </>
               })()}
             </div>}
-            {dfBest15.length === 0 && dfBest35.length > 0 && <div className="bg-surface border border-border rounded-lg p-4"><h3 className="text-sm font-semibold text-text mb-2">新版本 Best 0</h3><p className="text-xs text-warning bg-warning/5 rounded px-3 py-2">新版本暂无成绩，还差 <strong>15</strong> 首填满 B15。去推分建议看看哪些曲目值得练习吧！</p></div>}
+            {onlineBest15.length === 0 && onlineBest35.length > 0 && <div className="bg-surface border border-border rounded-lg p-4"><h3 className="text-sm font-semibold text-text mb-2">新版本 Best 0</h3><p className="text-xs text-warning bg-warning/5 rounded px-3 py-2">新版本暂无成绩，还差 <strong>15</strong> 首填满 B15。去推分建议看看哪些曲目值得练习吧！</p></div>}
           </div>}
         </>)}
-        {!dfLoading && !dfError && !dfPlayerName && <div className="bg-surface border border-border rounded-lg px-4 py-3 text-center text-sm text-text-secondary">输入玩家名称查询 B50 — 或 <Link to="/songs?import=1" className="text-primary hover:underline font-medium">请登录导入完整成绩</Link></div>}
+        {!onlineLoading && !onlineError && !onlinePlayerName && <div className="bg-surface border border-border rounded-lg px-4 py-3 text-center text-sm text-text-secondary">输入玩家名称查询 B50 — 或 <Link to="/songs?import=1" className="text-primary hover:underline font-medium">请登录导入完整成绩</Link></div>}
       </>)}
 
       {activeTab === 'b50' && (<>

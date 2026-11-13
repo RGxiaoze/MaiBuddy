@@ -36,7 +36,7 @@ export default function Recommend() {
   const [tab, setTab] = useState<TabKey>('push')
   const { songs } = useSongStore()
   const { scores } = useScoreStore()
-  const { dfBest35, dfBest15 } = usePlayerStore()
+  const { onlineBest35, onlineBest15 } = usePlayerStore()
   const { suggestions, effectiveB50 } = usePushSuggestions()
 
   // ---- 冲分榜：核心档优先，备选档（放宽目标后补出来的）只在后面占位 ----
@@ -88,10 +88,10 @@ export default function Recommend() {
   const playedKeys = useMemo(() => {
     const set = new Set<string>()
     for (const s of scores) set.add(`${s.songId}-${s.levelIndex}`)
-    for (const s of dfBest35) set.add(`${s.songId}-${s.levelIndex}`)
-    for (const s of dfBest15) set.add(`${s.songId}-${s.levelIndex}`)
+    for (const s of onlineBest35) set.add(`${s.songId}-${s.levelIndex}`)
+    for (const s of onlineBest15) set.add(`${s.songId}-${s.levelIndex}`)
     return set
-  }, [scores, dfBest35, dfBest15])
+  }, [scores, onlineBest35, onlineBest15])
 
   const [exploreWide, setExploreWide] = useState(false)
   // 每次进入都重新问目的，不记忆上次选择
