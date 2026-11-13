@@ -12,6 +12,7 @@ import GradeBadge from '@/components/shared/GradeBadge'
 import type { ChartDifficulty, LevelIndex, Score } from '@/types'
 import type { ScoreRecord } from '@/db/database'
 import { computeRating } from '@/utils/rating'
+import { sortScoresByLevel } from '@/utils/scoreSort'
 import { EARLY_VERSION_MAX } from '@/config/algorithms'
 import { computeDxStar, renderStars } from '@/utils/dxStar'
 import { getAliasesForSong, loadAliasData } from '@/data/aliases'
@@ -99,7 +100,7 @@ export default function SongDetail() {
 
   // Scores for this song — memoized to avoid O(n) scan + new array ref on every render
   const songScores = useMemo(
-    () => song ? scores.filter((s) => s.songId === song.id) : [],
+    () => (song ? sortScoresByLevel(scores.filter((s) => s.songId === song.id)) : []),
     [scores, song?.id]
   )
 
