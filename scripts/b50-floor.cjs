@@ -4,7 +4,7 @@
 // 用途：推荐列表天然只含「定数 × 22.4 > 地板」的谱面，
 // 这个脚本把地板和临界定数量化出来。
 //
-// 用法: node scripts/b50-floor.cjs cike.csv
+// 用法: node scripts/b50-floor.cjs 项目资料/cike.csv
 // ============================================================
 
 const fs = require('fs')
@@ -57,7 +57,7 @@ function parseCsv(text) {
 }
 
 async function main() {
-  const csvPath = process.argv[2] || 'cike.csv'
+  const csvPath = process.argv[2] || '项目资料/cike.csv'
   const text = fs.readFileSync(path.resolve(csvPath), 'utf8')
   const rows = parseCsv(text)
   const header = rows[0].map((h) => h.trim())

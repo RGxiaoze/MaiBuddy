@@ -172,7 +172,7 @@ function analyze(name, scores, songMap) {
     dist.set(k, (dist.get(k) ?? 0) + 1)
   }
   const overCap = suggestions.filter((s) => caps.capBase !== null && s.levelValue > caps.capBase)
-  // 目标达成率不高于当前成绩却仍带正收益 —— 木叶狐反馈的那类 bug
+  // 目标达成率不高于当前成绩却仍带正收益 —— 测试玩家反馈的那类 bug
   const backwards = suggestions.filter((s) =>
     s.gains.some((g) => g.ratingGain > 0 && g.targetAch <= s.currentAchievements + 1e-9))
 

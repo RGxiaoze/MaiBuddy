@@ -22,9 +22,12 @@ function readKey() {
 
 const KEY = readKey()
 const ROOT = path.resolve(__dirname, '..')
-const LIST_PATH = path.join(ROOT, 'awmc-charts.local.json')
-const TAGS_PATH = path.join(ROOT, 'awmc-tags.local.json')
-const CSV_PATH = path.join(ROOT, 'awmc-calibration.local.csv')
+/** 本地分析产物统一存放；该目录被 .gitignore 忽略，克隆后不存在，写入前需自建 */
+const DATA_DIR = path.join(ROOT, '项目资料')
+fs.mkdirSync(DATA_DIR, { recursive: true })
+const LIST_PATH = path.join(DATA_DIR, 'awmc-charts.local.json')
+const TAGS_PATH = path.join(DATA_DIR, 'awmc-tags.local.json')
+const CSV_PATH = path.join(DATA_DIR, 'awmc-calibration.local.csv')
 
 const LEVEL_MIN = 12.0
 const LEVEL_MAX = 14.5

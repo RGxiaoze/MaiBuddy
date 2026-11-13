@@ -17,13 +17,18 @@ import { getConfigTag, type ConfigType } from '@/data/chartConfig'
 import { formatGain, truncatePercent } from '@/utils/format'
 import type { LevelIndex } from '@/types'
 
+/** 拟合差值达到这个幅度才显示标签（差 0.2 就标，不等到 0.3） */
+const FIT_DELTA_MIN = 0.2
+
 /**
- * 水分标签配色：拟合定数比官标低得越多，越值得优先打。
- * 不用评价词，只给出「低多少」这个事实。
+ * 拟合差值配色：负值 = 实际比标称容易（水分）→ 绿，正值 = 更难 → 红。
+ * 差 0.2 就上色，不等到 0.3。
  */
-function waterColor(water: number): string {
-  if (water >= 0.5) return '#16A34A'
-  if (water >= 0.3) return '#65A30D'
+function fitDeltaColor(delta: number): string {
+  if (delta <= -0.5) return '#16A34A'
+  if (delta <= -0.2) return '#65A30D'
+  if (delta >= 0.5) return '#DC2626'
+  if (delta >= 0.2) return '#EA580C'
   return '#64748B'
 }
 
@@ -48,8 +53,8 @@ export interface RecommendCardProps {
   /** 加入「不感兴趣」，不传则不显示该按钮 */
   onBlock?: () => void
   /** 推分难度评估 */
-  /** 该谱拟合定数比官标低多少（水分）；无数据或拟合更高时不传 */
-  waterLevel?: number
+  /** 拟合定数 − 官标定数：负 = 水分，正 = 更难 */
+  fitDelta?: number
   /** 该谱的全服 SSS+ 率，用于说明「推到顶」的普遍难度 */
   sssPlusRate?: number
   /** 你在该谱实际定数同档（0.1 精度）的平均成绩 */
@@ -58,7 +63,7 @@ export interface RecommendCardProps {
 
 export default function RecommendCard({
   songId, title, levelIndex, levelValue, gain, progress, reason, tag, tagColor = '#5BA4CF',
-  configType, showExternalLink = true, onBlock, waterLevel, sssPlusRate, yourBandAvg,
+  configType, showExternalLink = true, onBlock, fitDelta, sssPlusRate, yourBandAvg,
 }: RecommendCardProps) {
   const [imgError, setImgError] = useState(false)
   // 优先用本地 96px 缩略图（约 3 KB）；缺图（如宴会场）时回退落雪原图
@@ -159,18 +164,20 @@ export default function RecommendCard({
                 {tag}
               </span>
             )}
-            {waterLevel !== undefined && waterLevel > 0 && (
-              // 「低 0.4」= 拟合定数比官标低 0.4，实际比标称容易
-              // 已 SSS 的谱也能看懂：这首还有多少水分可吃
+            {fitDelta !== undefined && Math.abs(fitDelta) >= FIT_DELTA_MIN && (
+              // 带符号：-0.4 = 实际比标称容易（水分），+0.3 = 实际更难
               <span
                 className="px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 tabular-nums"
-                style={{ backgroundColor: waterColor(waterLevel) + '1F', color: waterColor(waterLevel) }}
+                style={{
+                  backgroundColor: fitDeltaColor(fitDelta) + '1F',
+                  color: fitDeltaColor(fitDelta),
+                }}
                 title={
-                  `拟合定数比官标低 ${waterLevel.toFixed(1)}`
+                  `拟合定数比官标${fitDelta < 0 ? '低' : '高'} ${Math.abs(fitDelta).toFixed(1)}`
                   + (sssPlusRate ? `；全服 ${(sssPlusRate * 100).toFixed(0)}% 已 SSS+` : '')
                 }
               >
-                低 {waterLevel.toFixed(1)}
+                {fitDelta > 0 ? '+' : ''}{fitDelta.toFixed(1)}
               </span>
             )}
           </div>

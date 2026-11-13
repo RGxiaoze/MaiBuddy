@@ -154,7 +154,7 @@ describe('水分谱不该被漏掉', () => {
     expect(hit).toBeDefined()
     // 目标按 13.5 的能力算 = 100.5，且没有因为官标 13.9 超上限而被封顶在鸟
     expect(Math.max(...hit!.gains.map((g) => g.targetAch))).toBe(100.5)
-    expect(hit!.waterLevel).toBe(0.4) // 13.9 − 13.5
+    expect(hit!.fitDelta).toBe(-0.4) // 拟合 13.5 − 官标 13.9
   })
 
   it('官标超上限但拟合也超上限时，仍按破顶处理（封顶在鸟）', () => {
@@ -206,10 +206,10 @@ describe('水分标签', () => {
     const hit = suggestions.find((s) => s.songId === 5004)
 
     expect(hit).toBeDefined()
-    expect(hit!.waterLevel).toBe(0.5) // 13.7 − 13.2
+    expect(hit!.fitDelta).toBe(-0.5) // 拟合 13.2 − 官标 13.7
   })
 
-  it('拟合定数高于官标（无水可吃）时不打标签', () => {
+  it('拟合定数高于官标（更难）时给正值，供 UI 标红', () => {
     const b50 = makeB50(13.5)
     const songs = new Map([[5005, song(5005, 13.7)]])
     const getStats = () => ({
@@ -221,8 +221,8 @@ describe('水分标签', () => {
     const { suggestions } = computePushSuggestions(b50, songs, { getStats })
     const hit = suggestions.find((s) => s.songId === 5005)
 
-    // 13.7 − 14.0 < 0，没有水分
-    expect(hit?.waterLevel ?? 0).toBe(0)
+    // 拟合 14.0 − 官标 13.7 = +0.3，实际比标称难
+    expect(hit?.fitDelta).toBe(0.3)
   })
 })
 

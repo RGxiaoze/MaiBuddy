@@ -22,10 +22,12 @@ export default function MainLayout() {
   // 全局数据初始化（曲库 / 本地成绩 / 本地 B50）。
   // 之前各页面各自加载，直接打开某个页面（刷新、分享钻取链接）时
   // 未被该页面加载的数据会让侧边栏显示「请登录」、推荐页显示「暂无成绩」。
-  const songs = useSongStore((s) => s.songs)
+  // 只订阅长度而不是整份数组：数组作为订阅目标时，任何一次成绩导入/删除
+  // 都会让整个页面外壳（侧边栏、移动底栏、页脚、背景层）跟着重渲染。
+  const songCount = useSongStore((s) => s.songs.length)
   const songsLoading = useSongStore((s) => s.loading)
   const fetchSongs = useSongStore((s) => s.fetchSongs)
-  const scores = useScoreStore((s) => s.scores)
+  const scoreCount = useScoreStore((s) => s.scores.length)
   const scoresLoaded = useScoreStore((s) => s.loaded)
   const fetchAllScores = useScoreStore((s) => s.fetchAllScores)
   const localB50 = usePlayerStore((s) => s.localB50)
@@ -48,14 +50,14 @@ export default function MainLayout() {
   }, [bgCover, bgFront, bgSlots])
 
   useEffect(() => {
-    if (songs.length === 0 && !songsLoading) fetchSongs()
+    if (songCount === 0 && !songsLoading) fetchSongs()
     if (!scoresLoaded) fetchAllScores()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
-    if (!localB50 && scores.length > 0 && songs.length > 0) computeLocalB50()
-  }, [localB50, scores.length, songs.length, computeLocalB50])
+    if (!localB50 && scoreCount > 0 && songCount > 0) computeLocalB50()
+  }, [localB50, scoreCount, songCount, computeLocalB50])
 
   const toggleCollapsed = useCallback(() => setCollapsed((v) => !v), [])
   const openMobile = useCallback(() => setMobileOpen(true), [])

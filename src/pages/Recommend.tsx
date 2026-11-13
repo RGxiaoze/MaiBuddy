@@ -285,8 +285,9 @@ function bestTargetProgress(s: PushSuggestion): { current: number; target: numbe
 
 // ---- 推分 ----
 
-/** 水分达到这个幅度才算「值得优先打」，低于它的折叠 */
-const WATER_TAG_MIN = 0.3
+/** 拟合差值达到这个幅度才算「值得优先打」，低于它的折叠。
+ *  注意方向：fitDelta 负值代表水分，所以比较用 ≤ −WATER_TAG_MIN。 */
+const WATER_TAG_MIN = 0.2
 
 const POOL_FILTERS = [
   { value: 'all', label: '全部' },
@@ -367,15 +368,15 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
 
   if (items.length === 0) return null
 
-  // 水分大的排前面（实际比标称容易 = 更好吃），同水分按收益降序
+  // 水分大的排前面（fitDelta 越小 = 越容易），同水分按收益降序
   const sorted = [...items].sort((a, b) => {
-    const byWater = (b.s.waterLevel ?? 0) - (a.s.waterLevel ?? 0)
+    const byWater = (a.s.fitDelta ?? 0) - (b.s.fitDelta ?? 0)
     return byWater !== 0 ? byWater : b.maxGain - a.maxGain
   })
 
   // 有明显水分的直接展示，没水分的折叠——玩家一眼看到的是「好啃的」
-  const strong = sorted.filter(i => (i.s.waterLevel ?? 0) >= WATER_TAG_MIN)
-  const weak = sorted.filter(i => (i.s.waterLevel ?? 0) < WATER_TAG_MIN)
+  const strong = sorted.filter(i => (i.s.fitDelta ?? 0) <= -WATER_TAG_MIN)
+  const weak = sorted.filter(i => (i.s.fitDelta ?? 0) > -WATER_TAG_MIN)
   const mainList = strong.length > 0 ? strong : weak
   const foldedList = strong.length > 0 ? weak : []
 
@@ -390,7 +391,7 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
       progress={bestTargetProgress(s)}
       tag={s.pool === 'b35' ? 'B35 池' : 'B15 池'}
       tagColor={tagColor}
-      waterLevel={s.waterLevel}
+      fitDelta={s.fitDelta}
       sssPlusRate={s.sssPlusRate}
       yourBandAvg={s.yourBandAvg}
     />

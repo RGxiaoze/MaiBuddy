@@ -19,7 +19,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     "date": "2026-11-12",
     "commits": [
       {
-        "hash": "7f04b6f",
+        "hash": "b21e6c5",
+        "type": "feat",
+        "message": "推荐标签改为带符号的拟合差值，阈值收到 0.2",
+        "label": "新功能",
+        "color": "green"
+      },
+      {
+        "hash": "7fe0193",
         "type": "feat",
         "message": "移除 B50 页的吃分推荐小块",
         "label": "新功能",

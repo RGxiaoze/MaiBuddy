@@ -6,6 +6,12 @@ import { useEffect, useState, useMemo } from 'react'
 import { marked } from 'marked'
 import { BookOpen, ExternalLink, FileText, ChevronDown, ChevronRight } from 'lucide-react'
 
+// 渲染前先关掉 marked 的原始 HTML 通道。
+// 文档来自本仓库 docs/，但 marked 默认放行 <img onerror> 这类标签，
+// 配合下方的 dangerouslySetInnerHTML 就是一条可执行脚本的路径。
+// 文档不需要嵌入 HTML，因此直接丢弃所有原始标签（块级与行内都走 renderer.html）。
+marked.use({ renderer: { html: () => '' } })
+
 interface DocEntry {
   path: string
   title: string
