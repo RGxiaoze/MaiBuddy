@@ -131,8 +131,11 @@ export default function PlayerInfo() {
 
       {activeTab === 'online' && (<>
         <div className="bg-surface border border-border rounded-lg p-4 mb-4">
+          <p className="text-xs text-text-secondary mb-2">
+            在线查分（水鱼）—— 数据来自 Diving-Fish，与本地成绩相互独立
+          </p>
           <div className="flex flex-col sm:flex-row gap-2">
-            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} onKeyDown={handleKeyDown} placeholder="输入玩家名称（查 B50）" className="flex-1 px-3 py-2 rounded-md border border-border text-sm focus:outline-none focus:border-primary bg-surface" />
+            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} onKeyDown={handleKeyDown} placeholder="输入水鱼用户名或好友代码" className="flex-1 px-3 py-2 rounded-md border border-border text-sm focus:outline-none focus:border-primary bg-surface" />
             <button onClick={handleQuery} disabled={dfLoading || !username.trim()} className="px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{dfLoading ? '查询中...' : <><span className="sm:hidden">查询</span><span className="hidden sm:inline">查询 B50</span></>}</button>
             {dfPlayerName && <button onClick={clearQuery} className="px-3 py-2 rounded-md border border-border text-sm text-text-secondary hover:bg-bg-gray transition-colors cursor-pointer"><span className="sm:hidden">✕</span><span className="hidden sm:inline">清除</span></button>}
           </div>
@@ -143,6 +146,7 @@ export default function PlayerInfo() {
           <div className="bg-surface border border-border rounded-lg p-5 mb-4">
             <div className="flex items-baseline gap-4"><div><span className="text-sm text-text-secondary">玩家：</span><span className="text-base font-semibold text-text ml-1">{dfPlayerName}</span></div><div><span className="text-sm text-text-secondary">总 DX Rating：</span><span className="text-2xl font-bold text-primary ml-1">{dfRating}</span></div></div>
             <div className="flex gap-6 mt-3 text-xs text-text-secondary"><span>旧版本 Best 35：<strong className="text-text">{dfBest35.reduce((s, e) => s + e.dxRating, 0)}</strong></span><span>新版本 Best 15：<strong className="text-text">{dfBest15.reduce((s, e) => s + e.dxRating, 0)}</strong></span></div>
+            <p className="text-[11px] text-text-tertiary mt-2">以上为 Diving-Fish 在线数据，与本页「B50」标签下的本地成绩互不影响</p>
           </div>
           {dfBest35.length + dfBest15.length === 0 ? <div className="bg-surface border border-border rounded-lg p-8 text-center text-text-secondary text-sm">该玩家暂无 B50 数据</div> : <div className="flex flex-col gap-4">
             {dfBest15.length > 0 && <div className="bg-surface border border-border rounded-lg p-4">
