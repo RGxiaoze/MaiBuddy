@@ -20,9 +20,15 @@ interface SongResultListProps {
   pageSize?: number
   /** 列表为空时的提示文案 */
   emptyText?: string
+  /**
+   * 是否在难度徽章旁显示实际定数。
+   * 默认关闭：每首歌最多 5 个难度，常显定数会让行内信息过密；
+   * 由调用方按「当前是否在用定数相关筛选」决定。
+   */
+  showLevelValue?: boolean
 }
 
-export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, emptyText = '未找到匹配曲目' }: SongResultListProps) {
+export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, emptyText = '未找到匹配曲目', showLevelValue = false }: SongResultListProps) {
   const navigate = useNavigate()
   const allSongs = useSongStore((s) => s.songs)
   const [page, setPage] = useState(0)
@@ -57,11 +63,11 @@ export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, em
       const pair = pairMap.get(key)
       const hasPair = pair && pair.standard && pair.dx
 
-      const levelLabels: { idx: LevelIndex; label: string; badgeBg: string; badgeFg: string }[] = []
+      const levelLabels: { idx: LevelIndex; label: string; levelValue: number; badgeBg: string; badgeFg: string }[] = []
       for (const d of [...song.difficulties.standard, ...song.difficulties.dx]) {
         if (d.level && d.level !== '0') {
           const colors = LEVEL_INDEX_MAP[d.levelIndex]
-          if (colors) levelLabels.push({ idx: d.levelIndex, label: d.level, badgeBg: colors.badgeBg, badgeFg: colors.badgeFg })
+          if (colors) levelLabels.push({ idx: d.levelIndex, label: d.level, levelValue: d.levelValue, badgeBg: colors.badgeBg, badgeFg: colors.badgeFg })
         }
       }
       levelLabels.sort((a, b) => a.idx - b.idx)
@@ -118,13 +124,17 @@ export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, em
                   <div className="sm:hidden flex-1 min-w-0">
                     <div className="font-medium text-sm text-text truncate">{song.title}</div>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {levelLabels.map(({ idx, label, badgeBg, badgeFg }) => (
-                        <span
-                          key={idx}
-                          className={`${LEVEL_BADGE_CLASS} py-0.5 rounded text-[10px] font-medium leading-tight`}
-                          style={{ backgroundColor: badgeBg, color: badgeFg }}
-                        >
-                          {label}
+                      {levelLabels.map(({ idx, label, levelValue, badgeBg, badgeFg }) => (
+                        <span key={idx} className="inline-flex items-center gap-0.5">
+                          <span
+                            className={`${LEVEL_BADGE_CLASS} py-0.5 rounded text-[10px] font-medium leading-tight`}
+                            style={{ backgroundColor: badgeBg, color: badgeFg }}
+                          >
+                            {label}
+                          </span>
+                          {showLevelValue && levelValue > 0 && (
+                            <span className="text-[10px] text-text-tertiary tabular-nums">{levelValue.toFixed(1)}</span>
+                          )}
                         </span>
                       ))}
                       {song.difficulties.standard.length > 0 && (
@@ -176,13 +186,17 @@ export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, em
 
                 <div className="hidden sm:flex items-center gap-2 shrink-0 flex-wrap justify-end">
                   <div className="flex gap-1">
-                    {levelLabels.map(({ idx, label, badgeBg, badgeFg }) => (
-                      <span
-                        key={idx}
-                        className={`${LEVEL_BADGE_CLASS} py-0.5 rounded text-[11px] font-medium leading-tight`}
-                        style={{ backgroundColor: badgeBg, color: badgeFg }}
-                      >
-                        {label}
+                    {levelLabels.map(({ idx, label, levelValue, badgeBg, badgeFg }) => (
+                      <span key={idx} className="inline-flex items-center gap-0.5">
+                        <span
+                          className={`${LEVEL_BADGE_CLASS} py-0.5 rounded text-[11px] font-medium leading-tight`}
+                          style={{ backgroundColor: badgeBg, color: badgeFg }}
+                        >
+                          {label}
+                        </span>
+                        {showLevelValue && levelValue > 0 && (
+                          <span className="text-[10px] text-text-tertiary tabular-nums">{levelValue.toFixed(1)}</span>
+                        )}
                       </span>
                     ))}
                   </div>

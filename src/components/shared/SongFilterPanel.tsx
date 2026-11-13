@@ -11,7 +11,8 @@ import MultiSelect from './MultiSelect'
 import { LEVEL_INDEX_MAP } from '@/data/constants'
 import { VERSION_ORDER } from '@/data/versions'
 import { isInstallYearLoaded, loadInstallYear } from '@/services/installYearService'
-import { isStatsLoaded, loadStats } from '@/services/statsService'
+import { isStatsLoaded, loadStats, getMaxFitDiffValue } from '@/services/statsService'
+import { buildLevelValueGroups, isLevelValueRangeValid } from '@/utils/levelRange'
 import type { FitDiffSource } from '@/types'
 
 /** 拟合定数的两个口径，标注与详情页一致 */
@@ -19,21 +20,6 @@ const FIT_SOURCES: { value: FitDiffSource; label: string; hint: string }[] = [
   { value: 'sssPlus', label: 'SSS+', hint: '水鱼 fit_diff：全服达成率拟合出的理论定数' },
   { value: 'sss', label: 'SSS', hint: '项目自算：以 SSS 达成率为锚点拟合' },
 ]
-
-/** 定数下拉选项：1.0 ~ 15.0，按整数分组 */
-const LEVEL_VALUE_GROUPS: { label: string; values: number[] }[] = (() => {
-  const groups: { label: string; values: number[] }[] = []
-  for (let int = 1; int <= 15; int++) {
-    const values: number[] = []
-    for (let d = 0; d <= 9; d++) {
-      const v = Math.round((int + d * 0.1) * 10) / 10
-      if (v > 15) break
-      values.push(v)
-    }
-    groups.push({ label: String(int), values })
-  }
-  return groups
-})()
 
 /** 等级标签排序权重："13" → 13，"13+" → 13.5 */
 const levelWeight = (level: string) => parseFloat(level) + (level.endsWith('+') ? 0.5 : 0)
@@ -108,6 +94,32 @@ export default function SongFilterPanel() {
     return [...set].sort((a, b) => levelWeight(a) - levelWeight(b))
   }, [songs])
 
+  // 定数下拉的上限由数据决定，不写死：
+  // 官方口径取曲库实际最大定数；拟合口径取 chart_stats 里的最大拟合值
+  // （getMaxFitDiffValue 读的就是 _fitDiffAvgs 的最大键），未就绪时退回官方上限。
+  const maxOfficialLevelValue = useMemo(() => {
+    let max = 0
+    for (const s of songs) {
+      for (const d of [...s.difficulties.standard, ...s.difficulties.dx]) {
+        if (d.levelValue > max) max = d.levelValue
+      }
+    }
+    return max
+  }, [songs])
+
+  const levelValueMax = useMemo(
+    () => (fitSource ? (getMaxFitDiffValue() ?? maxOfficialLevelValue) : maxOfficialLevelValue),
+    [fitSource, maxOfficialLevelValue, statsReady],
+  )
+
+  const levelValueGroups = useMemo(() => buildLevelValueGroups(levelValueMax), [levelValueMax])
+
+  // 只判断、不纠正：填反了由用户自己改，界面负责标红与说明
+  const rangeValid = isLevelValueRangeValid(
+    advancedFilters.levelValueMin,
+    advancedFilters.levelValueMax,
+  )
+
   return (
     <div className="bg-bg-gray border border-border rounded-lg p-4 mb-6 space-y-3">
       {/* 拟合定数口径：勾选后下面的等级与定数条件改比对拟合值 */}
@@ -168,10 +180,10 @@ export default function SongFilterPanel() {
           <select
             value={advancedFilters.levelValueMin ?? ''}
             onChange={(e) => setAdvancedFilters({ levelValueMin: e.target.value ? parseFloat(e.target.value) : undefined })}
-            className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
+            className={`px-2 py-1.5 rounded border text-sm bg-surface focus:outline-none ${rangeValid ? 'border-border focus:border-primary' : 'border-error'}`}
           >
             <option value="">不限</option>
-            {LEVEL_VALUE_GROUPS.map((group) => (
+            {levelValueGroups.map((group) => (
               <optgroup key={group.label} label={group.label}>
                 {group.values.map((v) => (
                   <option key={v} value={v}>{v.toFixed(1)}</option>
@@ -185,10 +197,10 @@ export default function SongFilterPanel() {
           <select
             value={advancedFilters.levelValueMax ?? ''}
             onChange={(e) => setAdvancedFilters({ levelValueMax: e.target.value ? parseFloat(e.target.value) : undefined })}
-            className="px-2 py-1.5 rounded border border-border text-sm bg-surface focus:outline-none focus:border-primary"
+            className={`px-2 py-1.5 rounded border text-sm bg-surface focus:outline-none ${rangeValid ? 'border-border focus:border-primary' : 'border-error'}`}
           >
             <option value="">不限</option>
-            {LEVEL_VALUE_GROUPS.map((group) => (
+            {levelValueGroups.map((group) => (
               <optgroup key={group.label} label={group.label}>
                 {group.values.map((v) => (
                   <option key={v} value={v}>{v.toFixed(1)}</option>
@@ -196,6 +208,9 @@ export default function SongFilterPanel() {
               </optgroup>
             ))}
           </select>
+          {!rangeValid && (
+            <span className="text-[11px] text-error">最低定数高于最高定数，区间未生效，请修正</span>
+          )}
         </label>
 
         <label className="flex flex-col gap-1 text-xs text-text-secondary">

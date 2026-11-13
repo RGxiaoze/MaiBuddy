@@ -12,15 +12,43 @@ const API_BASE = import.meta.env.DEV
   : 'https://www.diving-fish.com/api/maimaidxprober'
 const TIMEOUT_MS = 10_000
 
+/**
+ * 把水鱼返回的 HTTP 状态码翻译成玩家看得懂的话。
+ *
+ * 多数错误水鱼用「200 + 业务字段」表示，但玩家不存在、关闭查询、限流等
+ * 仍会走真实状态码。直接抛「请求失败：HTTP 400」对用户没有任何信息量。
+ */
+export function describeDfHttpError(status: number): string {
+  if (status === 400) return '查不到这个玩家，请检查用户名或好友代码是否正确'
+  if (status === 401) return '登录凭据无效或已过期，请重新登录后再试'
+  if (status === 403) return '该玩家关闭了成绩查询，无法查询'
+  if (status === 404) return '玩家不存在，请检查用户名或好友代码'
+  if (status === 429) return '查询过于频繁，请稍后再试'
+  if (status >= 500) return '水鱼服务器暂时不可用，请稍后重试'
+  return `Diving-Fish 返回了意外状态码 ${status}，请稍后重试`
+}
+
 // ---- Internal helpers ----
 
-async function fetchWithTimeout(url: string, options?: RequestInit): Promise<Response> {
+interface FetchOptions {
+  /**
+   * 非 2xx 时是否直接抛错，默认 true。
+   * 需要按状态码给出不同文案的调用方传 false，自行翻译。
+   */
+  throwOnHttpError?: boolean
+}
+
+async function fetchWithTimeout(
+  url: string,
+  options?: RequestInit,
+  opts?: FetchOptions,
+): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
     const res = await fetch(url, { signal: controller.signal, ...options })
-    if (!res.ok) {
+    if (!res.ok && (opts?.throwOnHttpError ?? true)) {
       throw new Error(`Diving-Fish API 请求失败：HTTP ${res.status}`)
     }
     return res
@@ -59,7 +87,9 @@ export async function fetchPlayerScores(username: string): Promise<{ best35: DfS
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, b50: true }),
-  })
+  }, { throwOnHttpError: false })
+
+  if (!res.ok) throw new Error(describeDfHttpError(res.status))
 
   const data = await res.json()
 
@@ -122,7 +152,12 @@ export async function fetchPlayerRecords(importToken: string): Promise<{
   const res = await fetchWithTimeout(`${API_BASE}/player/records`, {
     method: 'GET',
     headers: { 'Import-Token': importToken },
-  })
+  }, { throwOnHttpError: false })
+
+  if (res.status === 401 || res.status === 403) {
+    throw new Error('Import-Token 无效或已过期，请到水鱼个人页面重新获取')
+  }
+  if (!res.ok) throw new Error(describeDfHttpError(res.status))
 
   const data = await res.json()
 
@@ -156,11 +191,12 @@ export async function fetchPlayerRecordsOAuth(accessToken: string): Promise<{
   const res = await fetchWithTimeout(`${API_BASE}/player/records`, {
     method: 'GET',
     headers: { Authorization: `Bearer ${accessToken}` },
-  })
+  }, { throwOnHttpError: false })
 
   if (res.status === 401 || res.status === 403) {
     throw new Error('授权已失效或未获得成绩读取权限，请重新授权')
   }
+  if (!res.ok) throw new Error(describeDfHttpError(res.status))
 
   const data = await res.json()
   if (!data.records || !Array.isArray(data.records)) {

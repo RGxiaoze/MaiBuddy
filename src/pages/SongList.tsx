@@ -26,6 +26,7 @@ import { Settings, FolderOpen, X } from 'lucide-react'
 import { importScoresFromFile } from '@/utils/importScores'
 import { matchRateValue } from '@/utils/stats'
 import { buildScoreStats } from '@/utils/songSort'
+import { shouldShowLevelValue } from '@/utils/levelRange'
 
 // ---- Inline: login-to-token form ----
 
@@ -261,7 +262,7 @@ export default function SongList() {
   const setBgCover = useBackgroundStore((s) => s.setCover)
   const firstSongId = filteredSongs[0]?.id
   useEffect(() => {
-    if (firstSongId != null) setBgCover(getCoverUrl(firstSongId))
+    if (firstSongId != null) setBgCover(getCoverUrl(firstSongId, 'thumb'))
   }, [firstSongId, setBgCover])
 
   // ---- Import handler ----
@@ -485,7 +486,7 @@ export default function SongList() {
       {showAdvanced && <SongFilterPanel />}
 
       {/* Song list */}
-      <SongResultList songs={filteredSongs} />
+      <SongResultList songs={filteredSongs} showLevelValue={shouldShowLevelValue(advancedFilters)} />
 
       {/* ============================================================
           Import modal (inline — migrated from PlayerInfo)
