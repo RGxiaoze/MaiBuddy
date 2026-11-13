@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildLevelValueGroups, isLevelValueRangeValid } from '../levelRange'
+import { buildLevelValueGroups, isLevelValueRangeValid, shouldShowLevelValue } from '../levelRange'
 
 describe('buildLevelValueGroups', () => {
   it('上限 15 时最大值正好是 15.0', () => {
@@ -38,5 +38,32 @@ describe('isLevelValueRangeValid', () => {
 
   it('min > max 无效', () => {
     expect(isLevelValueRangeValid(14.5, 13)).toBe(false)
+  })
+})
+
+describe('shouldShowLevelValue', () => {
+  it('没有任何筛选时不显示定数', () => {
+    expect(shouldShowLevelValue({})).toBe(false)
+  })
+
+  it('只勾难度时不显示（难度徽章已表达该信息）', () => {
+    expect(shouldShowLevelValue({ difficultyLevels: [3] })).toBe(false)
+  })
+
+  it('用了定数区间时显示', () => {
+    expect(shouldShowLevelValue({ levelValueMin: 14 })).toBe(true)
+    expect(shouldShowLevelValue({ levelValueMax: 14.5 })).toBe(true)
+  })
+
+  it('用了等级标签时显示', () => {
+    expect(shouldShowLevelValue({ level: '14+' })).toBe(true)
+  })
+
+  it('用了拟合定数口径时显示', () => {
+    expect(shouldShowLevelValue({ fitDiffSource: 'sssPlus' })).toBe(true)
+  })
+
+  it('值为 undefined 与缺失等价', () => {
+    expect(shouldShowLevelValue({ levelValueMin: undefined, level: undefined })).toBe(false)
   })
 })

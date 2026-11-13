@@ -20,9 +20,15 @@ interface SongResultListProps {
   pageSize?: number
   /** 列表为空时的提示文案 */
   emptyText?: string
+  /**
+   * 是否在难度徽章旁显示实际定数。
+   * 默认关闭：每首歌最多 5 个难度，常显定数会让行内信息过密；
+   * 由调用方按「当前是否在用定数相关筛选」决定。
+   */
+  showLevelValue?: boolean
 }
 
-export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, emptyText = '未找到匹配曲目' }: SongResultListProps) {
+export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, emptyText = '未找到匹配曲目', showLevelValue = false }: SongResultListProps) {
   const navigate = useNavigate()
   const allSongs = useSongStore((s) => s.songs)
   const [page, setPage] = useState(0)
@@ -126,7 +132,7 @@ export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, em
                           >
                             {label}
                           </span>
-                          {levelValue > 0 && (
+                          {showLevelValue && levelValue > 0 && (
                             <span className="text-[10px] text-text-tertiary tabular-nums">{levelValue.toFixed(1)}</span>
                           )}
                         </span>
@@ -188,7 +194,7 @@ export default function SongResultList({ songs, pageSize = DEFAULT_PAGE_SIZE, em
                         >
                           {label}
                         </span>
-                        {levelValue > 0 && (
+                        {showLevelValue && levelValue > 0 && (
                           <span className="text-[10px] text-text-tertiary tabular-nums">{levelValue.toFixed(1)}</span>
                         )}
                       </span>

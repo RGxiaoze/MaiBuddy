@@ -40,3 +40,33 @@ export function isLevelValueRangeValid(min?: number, max?: number): boolean {
   if (min == null || max == null) return true
   return min <= max
 }
+
+/** 判断「列表是否需要显示实际定数」所需的最小筛选结构 */
+export interface LevelValueVisibilityFilters {
+  levelValueMin?: number
+  levelValueMax?: number
+  /** 等级标签，如 `"14+"` */
+  level?: string
+  /** 拟合定数口径；有值即表示按拟合值筛选 */
+  fitDiffSource?: unknown
+  /** 难度多选（仅勾它不算需要显示定数） */
+  difficultyLevels?: number[]
+}
+
+/**
+ * 列表行是否需要显示实际定数。
+ *
+ * 默认**不显示** —— 每首歌最多 5 个难度，每个难度再挂一个定数会让行内信息过密。
+ * 只在用户确实要按定数核对时才补上：
+ *   - 用了定数区间（`levelValueMin` / `levelValueMax`）
+ *   - 用了等级标签（`level`，如 `"14+"`）
+ *   - 用了拟合定数口径（`fitDiffSource`）
+ *
+ * 仅勾难度（`difficultyLevels`）时不显示：难度徽章本身已经说明了这件事。
+ */
+export function shouldShowLevelValue(f: LevelValueVisibilityFilters): boolean {
+  return f.levelValueMin != null
+    || f.levelValueMax != null
+    || f.level != null
+    || f.fitDiffSource != null
+}

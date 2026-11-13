@@ -21,6 +21,7 @@ import SelectMenu, { type SelectOption } from './SelectMenu'
 import { buildScoreStats } from '@/utils/songSort'
 import { matchRateValue } from '@/utils/stats'
 import { computeTheoreticalMaxBoth } from '@/utils/b50'
+import { shouldShowLevelValue } from '@/utils/levelRange'
 import {
   computeStats, getLevelTabs, getGenreTabs,
   DIFFICULTY_TABS, RATE_TABS, FC_TABS, FS_TABS,
@@ -319,7 +320,7 @@ export default function StatsDashboard() {
 
         {showFilters && <SongFilterPanel />}
 
-        <SongResultList songs={drilledSongs} pageSize={20} />
+        <SongResultList songs={drilledSongs} pageSize={20} showLevelValue={shouldShowLevelValue(advancedFilters)} />
       </div>
     </div>
   )

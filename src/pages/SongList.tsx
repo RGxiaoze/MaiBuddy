@@ -26,6 +26,7 @@ import { Settings, FolderOpen, X } from 'lucide-react'
 import { importScoresFromFile } from '@/utils/importScores'
 import { matchRateValue } from '@/utils/stats'
 import { buildScoreStats } from '@/utils/songSort'
+import { shouldShowLevelValue } from '@/utils/levelRange'
 
 // ---- Inline: login-to-token form ----
 
@@ -485,7 +486,7 @@ export default function SongList() {
       {showAdvanced && <SongFilterPanel />}
 
       {/* Song list */}
-      <SongResultList songs={filteredSongs} />
+      <SongResultList songs={filteredSongs} showLevelValue={shouldShowLevelValue(advancedFilters)} />
 
       {/* ============================================================
           Import modal (inline — migrated from PlayerInfo)
