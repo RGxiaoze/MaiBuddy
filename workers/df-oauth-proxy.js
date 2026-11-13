@@ -29,11 +29,22 @@ const ALLOWED_ORIGINS = [
 /** 只转发这两个端点 */
 const ALLOWED_PATHS = new Set(['/oauth/token', '/oauth/revoke'])
 
-function corsHeaders(request) {
+/**
+ * 白名单校验：不在名单里的来源一律拒绝。
+ *
+ * 只「反射」一个合法的 ACAO 头是不够的 —— 非白名单来源虽然读不到响应，
+ * 请求仍会被原样转发到上游，等于对外提供了免费的令牌转发服务
+ * （可用来抹掉来源 IP、绕过上游的额度限制）。
+ */
+function isAllowedOrigin(request) {
   const origin = request.headers.get('Origin') || ''
-  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return ALLOWED_ORIGINS.includes(origin)
+}
+
+function corsHeaders(request) {
+  // 只在 isAllowedOrigin 通过后调用，因此这里可以安全地原样回显
   return {
-    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Origin': request.headers.get('Origin') || ALLOWED_ORIGINS[0],
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Max-Age': '86400',
@@ -44,6 +55,14 @@ function corsHeaders(request) {
 export default {
   async fetch(request) {
     const url = new URL(request.url)
+
+    // 白名单之外（含无 Origin 的非浏览器请求）直接拒绝：不转发、不回 CORS 头
+    if (!isAllowedOrigin(request)) {
+      return new Response(JSON.stringify({ error: 'origin_not_allowed' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
 
     // CORS 预检
     if (request.method === 'OPTIONS') {
