@@ -261,7 +261,7 @@ export default function SongList() {
   const setBgCover = useBackgroundStore((s) => s.setCover)
   const firstSongId = filteredSongs[0]?.id
   useEffect(() => {
-    if (firstSongId != null) setBgCover(getCoverUrl(firstSongId))
+    if (firstSongId != null) setBgCover(getCoverUrl(firstSongId, 'thumb'))
   }, [firstSongId, setBgCover])
 
   // ---- Import handler ----

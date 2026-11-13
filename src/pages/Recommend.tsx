@@ -197,7 +197,7 @@ export default function Recommend() {
   const setBgCover = useBackgroundStore((s) => s.setCover)
   const firstCoverSongId = tab === 'push' ? pushList[0]?.s.songId : exploreList[0]?.songId
   useEffect(() => {
-    if (firstCoverSongId != null) setBgCover(getCoverUrl(firstCoverSongId))
+    if (firstCoverSongId != null) setBgCover(getCoverUrl(firstCoverSongId, 'thumb'))
   }, [firstCoverSongId, setBgCover])
 
   const hasB50 = !!effectiveB50

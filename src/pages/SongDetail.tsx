@@ -46,7 +46,7 @@ export default function SongDetail() {
   const setBgCover = useBackgroundStore((s) => s.setCover)
   const songBgId = song?.id
   useEffect(() => {
-    if (songBgId != null) setBgCover(getCoverUrl(songBgId))
+    if (songBgId != null) setBgCover(getCoverUrl(songBgId, 'thumb'))
   }, [songBgId, setBgCover])
 
   // Aliases (loaded asynchronously, non-blocking)
@@ -59,6 +59,10 @@ export default function SongDetail() {
 
   // Chart stats (non-blocking background load, pass officialLevelMap when songs available)
   const [statsLoaded, setStatsLoaded] = useState(false)
+  // 主图渐进加载：先用 192px 缩略图占位，full 原图 onLoad 后淡入覆盖
+  const [coverLoaded, setCoverLoaded] = useState(false)
+  useEffect(() => { setCoverLoaded(false) }, [song?.id])
+
   useEffect(() => {
     if (songs.length === 0) return
     let cancelled = false
@@ -222,16 +226,24 @@ export default function SongDetail() {
       {/* Basic info */}
       <div className="bg-surface border border-border rounded-lg p-4 sm:p-4 sm:p-5 mb-4">
         <div className="flex gap-3 sm:gap-5">
-          {/* Cover */}
-          <img
-            src={song.imageUrl}
-            alt={song.title}
-            loading="lazy"
-            className="w-20 h-20 sm:w-32 sm:h-32 rounded-lg object-cover shrink-0 bg-bg-gray"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none'
-            }}
-          />
+          {/* Cover：缩略图占位 + 原图淡入，加载期间不留空白，且主图仍是原图 */}
+          <div className="relative w-20 h-20 sm:w-32 sm:h-32 rounded-lg overflow-hidden shrink-0 bg-bg-gray">
+            <img
+              src={getCoverUrl(song.id, 'thumb')}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover blur-[1px] scale-105"
+            />
+            <img
+              src={song.imageUrl}
+              alt={song.title}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${coverLoaded ? 'opacity-100' : 'opacity-0'}`}
+              onLoad={() => setCoverLoaded(true)}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none'
+              }}
+            />
+          </div>
 
           <div className="flex flex-col gap-1 min-w-0 flex-1">
             <h2 className="text-base sm:text-lg font-semibold text-text m-0">{song.title}</h2>
