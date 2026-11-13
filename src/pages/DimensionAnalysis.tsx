@@ -123,7 +123,9 @@ export default function DimensionAnalysis() {
     }]
   }, [playerDims])
 
-  const dimLabels = DIM_ORDER.map(d => DIM_META[d].name)
+  // 引用必须稳定：dimLabels 每次新建数组会让 RadarChart 里 option 的 useMemo 失效，
+  // 于是父组件每渲染一次就要重设一遍 ECharts 配置（notMerge 下等于整图重建）。
+  const dimLabels = useMemo(() => DIM_ORDER.map(d => DIM_META[d].name), [])
 
   const { localB50 } = usePlayerStore()
 
@@ -334,7 +336,10 @@ export default function DimensionAnalysis() {
 
                   {/* Expanded tier detail */}
                   {weaknessTab && (() => {
-                    const tab = weakness.tagStats.find(t => t.tag === weaknessTab)!
+                    // 成绩变动后，原先选中的标签可能已不在新的统计结果里：
+                    // 直接收起明细，不要解引用 undefined。
+                    const tab = weakness.tagStats.find(t => t.tag === weaknessTab)
+                    if (!tab) return null
                     const meta = getTagMeta(tab.tag)
                     return (
                       <div className="border-t border-border/30 pt-3">
