@@ -79,9 +79,9 @@ const COVER_CDN = 'https://assets2.lxns.net/maimai/jacket'
  * @param songId 曲目 ID。落雪按「基础 ID」存曲绘，而本项目曲库来自水鱼，
  *   DX 谱面是独立条目（ID = 基础 + 10000），需取余回基础 ID；
  *   100000 以上是宴会场，不参与换算。
- * @param variant `'thumb'` 取本地 96px WebP 缩略图（约 3 KB，列表与卡片用），
- *   `'full'` 取落雪 400×400 原图（约 367 KB，详情页用）。
- *   缩略图由 `scripts/gen-thumbnails.mjs` 生成。
+ * @param variant `'thumb'` 取本地 192px WebP 缩略图（约 3 KB，列表 / 卡片 / 页面背景用），
+ *   `'full'` 取落雪 400×400 原图（约 367 KB，详情页主图用）。
+ *   缩略图由 `scripts/gen-thumbnails.mjs` 生成，实际尺寸以该脚本的 `SIZE` 常量为准。
  */
 export function getCoverUrl(songId: number | string, variant: 'thumb' | 'full' = 'full'): string {
   const id = typeof songId === 'string' ? parseInt(songId, 10) : songId

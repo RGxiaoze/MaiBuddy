@@ -22,6 +22,7 @@ export function songVersionLabel(song: { id: number; from: string; version: numb
 }
 import { forceRefreshStats, getFitDiffValue } from '@/services/statsService'
 import { UTAGE_ID_THRESHOLD } from '@/config/algorithms'
+import { isLevelValueRangeValid } from '@/utils/levelRange'
 import { sortSongs, type SongScoreStat } from '@/utils/songSort'
 import { fetchLxnsReleaseDates, withLxnsReleaseDates } from '@/services/lxnsSongs'
 
@@ -55,15 +56,6 @@ export type SortOrder = 'asc' | 'desc'
 /** 拟合定数的浮点容差：用户填的边界是 0.1 精度，拟合值是计算出来的带尾数 */
 const FIT_EPS = 1e-9
 
-/**
- * 等级标签 → 拟合定数的十分位区间 `[lo, hi)`。
- * 官标 "13" 覆盖 13.0~13.4，"13+" 覆盖 13.5~13.9。
- */
-function levelLabelTenths(label: string): [number, number] {
-  const base = Math.round(parseFloat(label) * 10)
-  return label.endsWith('+') ? [base + 5, base + 10] : [base, base + 5]
-}
-
 export const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   // 标签写「添加日期」：玩家视角就是「这首歌什么时候进游戏的」，数据源自实装日期
   { value: 'releaseDate', label: '添加日期' },
@@ -76,22 +68,27 @@ export const SORT_OPTIONS: { value: SortBy; label: string }[] = [
 ]
 
 interface AdvancedFilters {
+  /** 官标定数下限 */
   levelValueMin?: number
+  /** 官标定数上限 */
   levelValueMax?: number
   genre?: string
   /** 版本名多选（如 ["舞萌2025", "CiRCLE"]） */
   versions?: string[]
   /** 难度索引多选（0-4） */
   difficultyLevels?: number[]
-  level?: string             // 歌曲等级标签（如 "14+"），谱面级精确匹配
+  level?: string             // 官标等级标签（如 "14+"），谱面级精确匹配
   /**
-   * 按拟合定数筛选的口径。设值时 `level` 与 `levelValueMin/Max`
-   * 改比对拟合定数而非官标定数：
+   * 拟合定数的口径。设置后即启用「拟合定数区间」两个条件；
+   * **不再影响官标的等级 / 定数条件** —— 那是另一套独立维度。
    * - `'sssPlus'` = 水鱼 fit_diff（详情页标 SSS+）
    * - `'sss'`     = 项目自算的 SSS 口径拟合
-   * 该谱面没有对应统计数据时不匹配。
    */
   fitDiffSource?: FitDiffSource
+  /** 拟合定数下限（需先勾选口径） */
+  fitLevelValueMin?: number
+  /** 拟合定数上限（需先勾选口径） */
+  fitLevelValueMax?: number
   /** 是否把宴会场曲目（ID ≥ 100000）纳入列表，默认 false */
   includeUtage?: boolean
 }
@@ -269,41 +266,51 @@ export const useSongStore = create<SongState & SongActions>((set, get) => ({
         chartPredicates.push(d => want.includes(d.levelIndex))
       }
 
-      // 勾选了拟合口径时，等级与定数条件改比对拟合定数。
-      // 没有统计数据（或该口径不适用）的谱面返回 null —— 不满足任何拟合条件，
-      // 而不是退回官标，否则筛选结果会混入两种口径。
-      const fitSource = advancedFilters.fitDiffSource
-      const fitOf = fitSource
-        ? (d: ChartDifficulty): number | null =>
-            getFitDiffValue(song.id, d.level, d.levelValue, fitSource)
-        : null
+      // ---- 官标条件：恒定按官标定数比对 ----
+      // 区间填反时不应用这两个条件：让无效区间把结果清空，用户只会以为
+      // 「没有符合条件的谱面」，反而看不出是自己填反了。面板上会标红提示，
+      // 这里既不修改用户填的值，也不静默交换两端。
+      const officialRangeValid = isLevelValueRangeValid(advancedFilters.levelValueMin, advancedFilters.levelValueMax)
 
-      if (advancedFilters.levelValueMin != null) {
+      if (officialRangeValid && advancedFilters.levelValueMin != null) {
         const min = advancedFilters.levelValueMin
-        chartPredicates.push(fitOf
-          ? d => { const v = fitOf(d); return v !== null && v >= min - FIT_EPS }
-          : d => d.levelValue >= min)
+        chartPredicates.push(d => d.levelValue >= min)
       }
-      if (advancedFilters.levelValueMax != null) {
+      if (officialRangeValid && advancedFilters.levelValueMax != null) {
         const max = advancedFilters.levelValueMax
-        chartPredicates.push(fitOf
-          ? d => { const v = fitOf(d); return v !== null && v <= max + FIT_EPS }
-          : d => d.levelValue <= max)
+        chartPredicates.push(d => d.levelValue <= max)
       }
       if (advancedFilters.level) {
         const lv = advancedFilters.level
-        if (fitOf) {
-          // 官标等级标签是 0.5 宽的区间（"13+" = 13.5~13.9），
-          // 用十分位整数比较，避开拟合定数的浮点尾数
-          const [lo, hi] = levelLabelTenths(lv)
+        chartPredicates.push(d => d.level === lv)
+      }
+
+      // ---- 拟合条件：与官标条件独立叠加 ----
+      // 勾选口径才参与；区间两端都是「不限」时不产生任何限制。
+      // 没有统计数据（或该口径不适用）的谱面返回 null —— 不满足任何拟合条件，
+      // 而不是退回官标，否则筛选结果会混入两种口径。
+      const fitSource = advancedFilters.fitDiffSource
+      if (fitSource) {
+        const fitOf = (d: ChartDifficulty): number | null =>
+          getFitDiffValue(song.id, d.level, d.levelValue, fitSource)
+        const fitRangeValid = isLevelValueRangeValid(
+          advancedFilters.fitLevelValueMin,
+          advancedFilters.fitLevelValueMax,
+        )
+        const fitMin = fitRangeValid ? advancedFilters.fitLevelValueMin : undefined
+        const fitMax = fitRangeValid ? advancedFilters.fitLevelValueMax : undefined
+
+        if (fitMin != null) {
           chartPredicates.push(d => {
             const v = fitOf(d)
-            if (v === null) return false
-            const tenths = Math.round(v * 10)
-            return tenths >= lo && tenths < hi
+            return v !== null && v >= fitMin - FIT_EPS
           })
-        } else {
-          chartPredicates.push(d => d.level === lv)
+        }
+        if (fitMax != null) {
+          chartPredicates.push(d => {
+            const v = fitOf(d)
+            return v !== null && v <= fitMax + FIT_EPS
+          })
         }
       }
 

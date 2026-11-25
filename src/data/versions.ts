@@ -131,3 +131,15 @@ export function formatVersionLabel(from: string, version: number, installYear?: 
   if (year && CN_YEAR_LABEL[year]) return CN_YEAR_LABEL[year]
   return getVersionDisplay(from)
 }
+
+/**
+ * 由日服版本号推断国服实装年。
+ *
+ * 仅作 install-year 精确数据的兜底：那份数据是一次性产物、仓库里没有生成脚本，
+ * 新曲入池后常常缺条目，导致实装年校正静默失效。
+ * 旧框曲（version ≤ 700）不推断 —— 它们统一属于早期世代，本来就没有校正系数。
+ */
+export function inferInstallYearFromVersion(version: number): number | null {
+  if (!(version > 700)) return null
+  return JP_TO_CN_YEAR[version] ?? null
+}

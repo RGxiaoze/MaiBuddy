@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { VERSION_ORDER } from '../versions'
+import { VERSION_ORDER, inferInstallYearFromVersion } from '../versions'
 
 describe('VERSION_ORDER', () => {
   it('早期版本映射到 100–210（GreeN PLUS 及以前）', () => {
@@ -30,5 +30,29 @@ describe('VERSION_ORDER', () => {
     expect(VERSION_ORDER.get('舞萌DX 2021')).toBe(8020)
     expect(VERSION_ORDER.get('舞萌2025')).toBe(8060)
     expect(VERSION_ORDER.get('舞萌2026')).toBe(8070)
+  })
+})
+
+describe('inferInstallYearFromVersion — install-year 缺失时的兜底', () => {
+  it('PRiSM 系列推断为 2026 / 2025（国服滞后一年）', () => {
+    expect(inferInstallYearFromVersion(910)).toBe(2026)
+    expect(inferInstallYearFromVersion(900)).toBe(2025)
+  })
+
+  it('较早的 DX 版本推断到对应年份', () => {
+    expect(inferInstallYearFromVersion(800)).toBe(2020)
+    expect(inferInstallYearFromVersion(850)).toBe(2021)
+    expect(inferInstallYearFromVersion(870)).toBe(2022)
+    expect(inferInstallYearFromVersion(890)).toBe(2023)
+  })
+
+  it('旧框曲（version ≤ 700）不推断', () => {
+    expect(inferInstallYearFromVersion(700)).toBeNull()
+    expect(inferInstallYearFromVersion(100)).toBeNull()
+  })
+
+  it('未知版本与 0 返回 null', () => {
+    expect(inferInstallYearFromVersion(0)).toBeNull()
+    expect(inferInstallYearFromVersion(999)).toBeNull()
   })
 })

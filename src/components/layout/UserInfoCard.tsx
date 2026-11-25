@@ -20,18 +20,35 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  const playerName = usePlayerStore((s) => s.dfPlayerName)
-  const playerRating = usePlayerStore((s) => s.dfRating)
+  const importedPlayerName = usePlayerStore((s) => s.importedPlayerName)
+  const importedRating = usePlayerStore((s) => s.importedRating)
+  const onlinePlayerName = usePlayerStore((s) => s.onlinePlayerName)
+  const onlineRatingRaw = usePlayerStore((s) => s.onlineRating)
+  const onlineBest35 = usePlayerStore((s) => s.onlineBest35)
+  const onlineBest15 = usePlayerStore((s) => s.onlineBest15)
   const localB50 = usePlayerStore((s) => s.localB50)
   const scores = useScoreStore((s) => s.scores)
   const clearAllScores = useScoreStore((s) => s.clearAllScores)
 
-  const hasLocalData = localB50 && localB50.totalRating > 0
-  const hasOnlineData = !!playerName
-  const isLoggedIn = hasLocalData || hasOnlineData
+  // 两套数据各有来源与生命周期，互不顶替。
+  // 本地：localB50 算出来之前，先用导入时缓存的 importedRating 顶上，避免导入后闪一下空。
+  const localRating = localB50 && localB50.totalRating > 0
+    ? localB50.totalRating
+    : (importedRating > 0 ? importedRating : null)
+  // 在线：必须有 B50 明细才算数 —— 只有评分、没有明细的「孤儿数字」不能冒充在线数据
+  const onlineReady = onlineBest35.length + onlineBest15.length > 0
+  const onlineRating = onlineReady && onlineRatingRaw > 0 ? onlineRatingRaw : null
+  const hasLocalData = localRating !== null
+  const isLoggedIn = hasLocalData || onlineRating !== null
+  const displayName = importedPlayerName || onlinePlayerName || (hasLocalData ? '本地玩家' : '')
 
-  const displayRating = hasLocalData ? localB50!.totalRating : playerRating
-  const displayName = hasLocalData ? playerName || '本地玩家' : playerName
+  // 折叠态只有一个数字的位置：优先本地，其次在线，title 里把两者都写清楚
+  const compactRating = localRating ?? onlineRating
+  const compactTitle = [
+    displayName || '玩家',
+    localRating !== null ? `本地 Rating ${localRating}` : null,
+    onlineRating !== null ? `在线 Rating ${onlineRating}` : null,
+  ].filter(Boolean).join(' · ')
 
   // Close menu on outside click
   useEffect(() => {
@@ -63,9 +80,9 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
 
   const handleClear = async () => {
     setMenuOpen(false)
-    if (!window.confirm(`确定清除全部 ${scores.length} 条本地成绩？此操作不可撤销。`)) return
+    if (!window.confirm(`确定清除全部 ${scores.length} 条本地成绩？此操作不可撤销。\n\n在线查询结果不受影响。`)) return
     await clearAllScores()
-    usePlayerStore.setState({ localB50: null })
+    usePlayerStore.getState().clearLocalPlayer()
   }
 
   const [oauthLinked, setOauthLinked] = useState(() => hasOAuthToken())
@@ -114,9 +131,9 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
         <button
           onClick={() => setMenuOpen(!menuOpen)}
           className="flex justify-center py-3 border-b border-border w-full cursor-pointer border-none bg-transparent hover:bg-surface-light transition-colors relative"
-          title={`${displayName} · Rating ${displayRating}`}
+          title={compactTitle}
         >
-          <span className="text-xs font-bold text-primary tabular-nums">{displayRating}</span>
+          <span className="text-xs font-bold text-primary tabular-nums">{compactRating}</span>
           {menuOpen && <MenuPanel items={menuItems} ref={menuRef} />}
         </button>
       )
@@ -146,9 +163,19 @@ export default function UserInfoCard({ collapsed }: UserInfoCardProps) {
               <span className="text-sm font-medium text-text truncate">{displayName}</span>
               <ChevronDown size={12} className={`text-text-tertiary transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-xs text-text-secondary">Rating</span>
-              <span className="text-base font-bold text-primary tabular-nums">{displayRating}</span>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              {localRating !== null && (
+                <span className="flex items-baseline gap-1" title="来自本地成绩">
+                  <span className="text-[10px] text-text-tertiary">本地</span>
+                  <span className="text-base font-bold text-primary tabular-nums">{localRating}</span>
+                </span>
+              )}
+              {onlineRating !== null && (
+                <span className="flex items-baseline gap-1" title="来自在线查分，与本地成绩相互独立">
+                  <span className="text-[10px] text-text-tertiary">在线</span>
+                  <span className="text-base font-bold text-accent tabular-nums">{onlineRating}</span>
+                </span>
+              )}
             </div>
             <span className="text-[10px] text-text-tertiary mt-0.5">{scores.length} 条本地成绩 · 点击管理</span>
           </div>

@@ -4,10 +4,55 @@
 
 import { getCachedAliases, getCachedAliasForward, setCachedAliases } from '@/db/database'
 
-interface AliasEntry {
+export interface AliasEntry {
   SongID: number
   Name: string
   Alias: string[]
+}
+
+/**
+ * 别名接口地址。
+ *
+ * dev 走 Vite 代理（vite.config.ts 的 server.proxy），**生产必须直连** ——
+ * 线上没有代理，`/alias-api/...` 会打到站点自身（GitHub Pages）返回 404，
+ * 于是别名索引永远为 null，所有别名搜索静默返回空。
+ */
+const ALIAS_API_URL = import.meta.env.DEV
+  ? '/alias-api/maimaidx/maimaidxalias'
+  : 'https://www.yuzuchan.moe/api/maimaidx/maimaidxalias'
+
+/**
+ * 解析别名接口响应。
+ *
+ * 接口可能返回 `{ code, content: [...] }` 包装，也可能是裸数组，两种都要能吃。
+ * 单条记录字段缺失时只做归一（`Alias` 缺失 → `[]`），**不能让一条脏数据毁掉
+ * 整份索引** —— 那样所有别名一起失效，而界面上完全看不出原因。
+ */
+export function parseAliasEntries(raw: unknown): AliasEntry[] {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object' && Array.isArray((raw as { content?: unknown }).content)
+      ? (raw as { content: unknown[] }).content
+      : null
+  if (!list) throw new Error('API 返回格式异常')
+
+  const entries: AliasEntry[] = []
+  for (const item of list) {
+    if (!item || typeof item !== 'object') continue
+    const rec = item as { SongID?: unknown; Name?: unknown; Alias?: unknown }
+
+    const songId = typeof rec.SongID === 'number' ? rec.SongID : Number(rec.SongID)
+    if (!Number.isFinite(songId)) continue
+
+    const name = typeof rec.Name === 'string' ? rec.Name : ''
+    const alias = Array.isArray(rec.Alias)
+      ? rec.Alias.filter((a): a is string => typeof a === 'string' && a.length > 0)
+      : []
+
+    if (!name && alias.length === 0) continue
+    entries.push({ SongID: songId, Name: name, Alias: alias })
+  }
+  return entries
 }
 
 let aliasIndex: Map<string, number[]> | null = null
@@ -15,8 +60,31 @@ let aliasForwardMap: Map<number, string[]> | null = null
 let aliasLoadError: string | null = null
 let loadPromise: Promise<Map<string, number[]> | null> | null = null
 
+// ---- 索引版本号 ----
+// 别名是异步加载的，而检索页/统计页的筛选结果被 useMemo 缓存。
+// 没有这个版本号，首次筛选若早于别名到货，结果会被一直缓存成空，
+// 直到用户再次输入才恢复 —— 表现就是「搜别名没结果，也不报错」。
+let aliasVersion = 0
+const versionListeners = new Set<() => void>()
+
+export function getAliasVersion(): number {
+  return aliasVersion
+}
+
+export function subscribeAliasVersion(listener: () => void): () => void {
+  versionListeners.add(listener)
+  return () => {
+    versionListeners.delete(listener)
+  }
+}
+
+function bumpAliasVersion(): void {
+  aliasVersion += 1
+  for (const listener of versionListeners) listener()
+}
+
 /** 构建反向索引：lowercase alias → matching songId[] */
-function buildAliasIndex(entries: AliasEntry[]): Map<string, number[]> {
+export function buildAliasIndex(entries: AliasEntry[]): Map<string, number[]> {
   const index = new Map<string, number[]>()
   for (const entry of entries) {
     const songId = entry.SongID
@@ -56,6 +124,7 @@ export async function loadAliasData(): Promise<Map<string, number[]> | null> {
           if (fwd) aliasForwardMap = fwd
         } catch { /* forward cache miss is non-fatal */ }
         aliasLoadError = null
+        bumpAliasVersion()
         return cached
       }
     } catch {
@@ -64,16 +133,12 @@ export async function loadAliasData(): Promise<Map<string, number[]> | null> {
 
     // 2. 尝试 API 获取
     try {
-      const res = await fetch('/alias-api/maimaidx/maimaidxalias')
+      const res = await fetch(ALIAS_API_URL)
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`)
       }
-      const raw = await res.json()
-      // API 返回 {code: 0, content: [...]} 对象，需提取 content 数组
-      const data: AliasEntry[] = Array.isArray(raw) ? raw : raw.content
-      if (!Array.isArray(data)) {
-        throw new Error('API 返回格式异常')
-      }
+      // 响应可能是 {code, content:[...]} 或裸数组；单条脏数据在内部被归一
+      const data = parseAliasEntries(await res.json())
 
       // 构建反向索引（alias → songIds）
       const index = buildAliasIndex(data)
@@ -89,6 +154,23 @@ export async function loadAliasData(): Promise<Map<string, number[]> | null> {
       aliasIndex = index
       aliasForwardMap = fwd
       aliasLoadError = null
+      bumpAliasVersion()
+
+      // 仅开发环境：留一行可读的载入摘要，并挂一个控制台查询入口，
+      // 便于区分「索引没加载」与「别名 ID 和曲库 ID 对不上」。
+      if (import.meta.env.DEV) {
+        console.info(`[aliases] 载入 ${data.length} 条曲目，索引 ${index.size} 个键`)
+        if (typeof window !== 'undefined') {
+          ;(window as unknown as { __aliasDebug?: unknown }).__aliasDebug = (q: string) => {
+            const hits = [...searchAliases(q, getAliasIndex())]
+            console.info(
+              `[aliases] 查询「${q}」→ 索引 ${getAliasIndex()?.size ?? 0} 键，命中 ${hits.length} 个 ID`,
+              hits.slice(0, 10),
+            )
+            return hits
+          }
+        }
+      }
 
       // 缓存到 IndexedDB
       try {

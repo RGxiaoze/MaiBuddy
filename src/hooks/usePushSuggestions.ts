@@ -8,7 +8,7 @@ import { usePlayerStore } from '@/store/playerStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { useSongStore } from '@/store/songStore'
 import { computePushSuggestions, type PushSuggestion } from '@/utils/pushSuggestions'
-import { computeTheoreticalMaxBoth, type B50Result } from '@/utils/b50'
+import { computeTheoreticalMaxBoth, buildB50FromOnline, type B50Result } from '@/utils/b50'
 import { loadStats, getChartStats, isStatsLoaded } from '@/services/statsService'
 
 /** 核心推荐少于这个条数时，依次放宽拉伸补足 */
@@ -34,7 +34,7 @@ export interface PushHookResult {  /** Effective B50 (DF data takes priority whe
 }
 
 export function usePushSuggestions(): PushHookResult {
-  const { localB50, dfBest35, dfBest15, dfRating, dfPlayerName } = usePlayerStore()
+  const { localB50, onlineBest35, onlineBest15, onlineRating, onlinePlayerName } = usePlayerStore()
   const { scores } = useScoreStore()
   const { songs } = useSongStore()
 
@@ -52,36 +52,15 @@ export function usePushSuggestions(): PushHookResult {
   }, [songs])
 
   const effectiveB50 = useMemo<B50Result | null>(() => {
-    const useDF = dfPlayerName && (dfBest35.length > 0 || dfBest15.length > 0)
+    // 在线查分结果自带明细，优先使用；否则退回本地成绩算出的 B50。
+    // 关键：不再依赖「有没有名字」这种间接信号 —— 有明细才算有数据。
+    if (onlineBest35.length > 0 || onlineBest15.length > 0) {
+      return buildB50FromOnline(onlineBest35, onlineBest15)
+    }
+    return localB50
+  }, [localB50, onlineBest35, onlineBest15])
 
-    if (!useDF && localB50) return localB50
-    if (dfBest35.length === 0 && dfBest15.length === 0) return null
-
-    const toB50Entry = (s: typeof dfBest35[number], isNew: boolean) => ({
-      songId: s.songId,
-      songTitle: s.title,
-      levelIndex: s.levelIndex,
-      level: s.level,
-      levelValue: s.levelValue,
-      songType: s.songType,
-      achievements: s.achievements,
-      rate: s.rate,
-      dxRating: s.dxRating,
-      dxScore: s.dxScore,
-      fcType: s.fcType,
-      fsType: s.fsType,
-      isNew,
-    })
-
-    const best35 = dfBest35.map(s => toB50Entry(s, false))
-    const best15 = dfBest15.map(s => toB50Entry(s, true))
-    const best35Total = best35.reduce((sum, e) => sum + e.dxRating, 0)
-    const best15Total = best15.reduce((sum, e) => sum + e.dxRating, 0)
-
-    return { best35, best15, best35Total, best15Total, totalRating: best35Total + best15Total }
-  }, [localB50, dfBest35, dfBest15, dfPlayerName])
-
-  const b50Rating = effectiveB50?.totalRating ?? dfRating
+  const b50Rating = effectiveB50?.totalRating ?? onlineRating
 
   const result = useMemo(() => {
     if (!effectiveB50 || songs.length === 0) return null
@@ -117,7 +96,7 @@ export function usePushSuggestions(): PushHookResult {
     }
 
     return { suggestions: merged, precisionNote }
-  }, [effectiveB50, localB50, scores, songs, statsReady, dfPlayerName, dfBest35, dfBest15])
+  }, [effectiveB50, localB50, scores, songs, statsReady, onlinePlayerName, onlineBest35, onlineBest15])
 
   return {
     effectiveB50,

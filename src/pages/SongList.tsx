@@ -26,6 +26,9 @@ import { Settings, FolderOpen, X } from 'lucide-react'
 import { importScoresFromFile } from '@/utils/importScores'
 import { matchRateValue } from '@/utils/stats'
 import { buildScoreStats } from '@/utils/songSort'
+import { shouldShowLevelValue } from '@/utils/levelRange'
+import { loadAliasData, getAliasLoadError } from '@/data/aliases'
+import { useAliasVersion } from '@/hooks/useAliasVersion'
 
 // ---- Inline: login-to-token form ----
 
@@ -234,6 +237,16 @@ export default function SongList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 别名数据加载失败时给出可见提示：否则搜索结果为空会被误读成「这首歌没有别名」
+  const [aliasFailed, setAliasFailed] = useState(false)
+  // 别名到货后触发筛选重算（否则首次搜索会被缓存成空结果）
+  const aliasVersion = useAliasVersion()
+  useEffect(() => {
+    loadAliasData()
+      .then((idx) => setAliasFailed(!idx))
+      .catch(() => setAliasFailed(true))
+  }, [])
+
   // Defer search to avoid blocking keystrokes
   const deferredSearchQuery = useDeferredValue(searchQuery)
 
@@ -254,14 +267,14 @@ export default function SongList() {
         (drillLevel == null || sc.levelIndex === drillLevel)
       ))
     },
-    [songs, deferredSearchQuery, advancedFilters, sortBy, sortOrder, getFilteredSongs, playedFilter, scores, scoreStats, statsEpoch]
+    [songs, deferredSearchQuery, advancedFilters, sortBy, sortOrder, getFilteredSongs, playedFilter, scores, scoreStats, statsEpoch, aliasVersion]
   )
 
   // 注册本页背景：列表第一首的封面
   const setBgCover = useBackgroundStore((s) => s.setCover)
   const firstSongId = filteredSongs[0]?.id
   useEffect(() => {
-    if (firstSongId != null) setBgCover(getCoverUrl(firstSongId))
+    if (firstSongId != null) setBgCover(getCoverUrl(firstSongId, 'thumb'))
   }, [firstSongId, setBgCover])
 
   // ---- Import handler ----
@@ -484,8 +497,16 @@ export default function SongList() {
       {/* Advanced filters */}
       {showAdvanced && <SongFilterPanel />}
 
+      {aliasFailed && (
+        <p className="text-xs text-warning bg-warning/5 rounded px-3 py-2 mb-2">
+          别名数据未加载
+          {getAliasLoadError() ? `（${getAliasLoadError()}）` : ''}
+          ，当前只能按曲名 / 曲师 / 谱师搜索
+        </p>
+      )}
+
       {/* Song list */}
-      <SongResultList songs={filteredSongs} />
+      <SongResultList songs={filteredSongs} showLevelValue={shouldShowLevelValue(advancedFilters)} />
 
       {/* ============================================================
           Import modal (inline — migrated from PlayerInfo)

@@ -82,6 +82,8 @@ export const useScoreStore = create<ScoreState>((set, get) => ({
 
   clearAllScores: async () => {
     await dbClearAllScores()
-    set({ scores: [], loaded: false })
+    // loaded 保持 true：数据已经加载过，只是现在空了。
+    // 置回 false 会让依赖 loaded 的页面以为自己「没加载」而重复拉取。
+    set({ scores: [], loaded: true })
   },
 }))

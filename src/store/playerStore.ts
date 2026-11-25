@@ -1,5 +1,10 @@
 // ============================================================
-// Player store — B50 query & rating data
+// Player store — 本地成绩与在线查分两套互不干扰的数据
+//
+// 历史教训：原先 dfPlayerName / dfRating 被「在线查分」和三种「导入」共用，
+// 而 dfBest35 / dfBest15 只有在线查分才会填。于是清空本地成绩后，侧栏仍挂着
+// 一个没有 B50 明细的孤儿 Rating，推荐页却因为没有明细而整页为空。
+// 现在按来源拆成两套：imported*（本地那批成绩的账号信息）与 online*（在线查分）。
 // ============================================================
 
 import { create } from 'zustand'
@@ -13,16 +18,20 @@ import { useScoreStore } from './scoreStore'
 import { useSongStore } from './songStore'
 
 interface PlayerState {
-  // Diving-Fish online query
-  dfBest35: DfScore[]
-  dfBest15: DfScore[]
-  dfRating: number
-  dfLoading: boolean
-  dfError: string | null
-  dfPlayerName: string
-
-  // Local B50 computed from IndexedDB scores
+  // ---- 本地：由已导入的成绩计算 ----
   localB50: B50Result | null
+  /** 导入时缓存的账号名，描述的是那批已导入的成绩；清空成绩时一并清掉 */
+  importedPlayerName: string
+  /** 导入时缓存的 Rating，仅供侧栏展示，不参与推荐计算 */
+  importedRating: number
+
+  // ---- 在线查分：与本地完全独立 ----
+  onlinePlayerName: string
+  onlineRating: number
+  onlineBest35: DfScore[]
+  onlineBest15: DfScore[]
+  onlineLoading: boolean
+  onlineError: string | null
 
   /** Incremented on import/update to force B50 recompute even when scores.length unchanged */
   recomputeFlag: number
@@ -34,6 +43,8 @@ interface PlayerActions {
   clearQuery: () => void
   /** Compute B50 from local IndexedDB scores */
   computeLocalB50: () => void
+  /** 清空本地成绩后调用：只清本地这一套，在线查分结果原样保留 */
+  clearLocalPlayer: () => void
   /** Import ALL scores from Diving-Fish into IndexedDB using Import-Token, then refresh B50 */
   importDivingFishScores: (importToken: string, onProgress?: (current: number, total: number) => void) => Promise<{
     total: number; imported: number; updated: number; skipped: number; nickname: string
@@ -50,41 +61,51 @@ interface PlayerActions {
   incrementRecomputeFlag: () => void
 }
 
+/** 空掉的在线查分结果：导入时用它清场，避免上一轮查到的别人数据混进推荐 */
+const emptyOnline = {
+  onlinePlayerName: '',
+  onlineRating: 0,
+  onlineBest35: [] as DfScore[],
+  onlineBest15: [] as DfScore[],
+  onlineLoading: false,
+  onlineError: null,
+}
+
 export const usePlayerStore = create<PlayerState & PlayerActions>((set, get) => ({
-  dfBest35: [],
-  dfBest15: [],
-  dfRating: 0,
-  dfLoading: false,
-  dfError: null,
-  dfPlayerName: '',
+  // 本地
   localB50: null,
+  importedPlayerName: '',
+  importedRating: 0,
+
+  // 在线
+  onlinePlayerName: '',
+  onlineRating: 0,
+  onlineBest35: [],
+  onlineBest15: [],
+  onlineLoading: false,
+  onlineError: null,
+
   recomputeFlag: 0,
 
   queryPlayer: async (username: string) => {
     const trimmed = username.trim()
     if (!trimmed) return
-    set({ dfLoading: true, dfError: null, dfPlayerName: trimmed })
+    set({ onlineLoading: true, onlineError: null, onlinePlayerName: trimmed })
     try {
       const result = await fetchPlayerScores(trimmed)
       set({
-        dfBest35: result.best35,
-        dfBest15: result.best15,
-        dfRating: result.rating,
-        dfLoading: false,
+        onlineBest35: result.best35,
+        onlineBest15: result.best15,
+        onlineRating: result.rating,
+        onlineLoading: false,
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : '查询失败'
-      set({ dfError: message, dfLoading: false })
+      set({ onlineError: message, onlineLoading: false })
     }
   },
 
-  clearQuery: () => set({
-    dfBest35: [],
-    dfBest15: [],
-    dfRating: 0,
-    dfError: null,
-    dfPlayerName: '',
-  }),
+  clearQuery: () => set({ ...emptyOnline }),
 
   computeLocalB50: () => {
     const { scores } = useScoreStore.getState()
@@ -93,6 +114,12 @@ export const usePlayerStore = create<PlayerState & PlayerActions>((set, get) => 
     const result = computeB50(scores, songMap)
     set({ localB50: result })
   },
+
+  clearLocalPlayer: () => set({
+    localB50: null,
+    importedPlayerName: '',
+    importedRating: 0,
+  }),
 
   importDivingFishScores: async (importToken: string, onProgress?: (current: number, total: number) => void) => {
     const trimmed = importToken.trim()
@@ -108,13 +135,11 @@ export const usePlayerStore = create<PlayerState & PlayerActions>((set, get) => 
     // 3. Bulk upsert into IndexedDB
     const stats = await useScoreStore.getState().bulkImportScores(scores, onProgress)
 
-    // 4. Update player info + trigger B50 recompute
+    // 4. 只写「本地」这一套；同时清掉上一轮在线查分结果，避免别的账号混进来
     set({
-      dfPlayerName: result.nickname || result.username,
-      dfRating: result.rating,
-      dfBest35: [],
-      dfBest15: [],
-      dfError: null,
+      ...emptyOnline,
+      importedPlayerName: result.nickname || result.username,
+      importedRating: result.rating,
       recomputeFlag: get().recomputeFlag + 1,
     })
 
@@ -131,11 +156,9 @@ export const usePlayerStore = create<PlayerState & PlayerActions>((set, get) => 
     const stats = await useScoreStore.getState().bulkImportScores(scores, onProgress)
 
     set({
-      dfPlayerName: result.nickname || result.username,
-      dfRating: result.rating,
-      dfBest35: [],
-      dfBest15: [],
-      dfError: null,
+      ...emptyOnline,
+      importedPlayerName: result.nickname || result.username,
+      importedRating: result.rating,
       recomputeFlag: get().recomputeFlag + 1,
     })
 
@@ -161,11 +184,9 @@ export const usePlayerStore = create<PlayerState & PlayerActions>((set, get) => 
     const rating = typeof player?.rating === 'number' ? player.rating : 0
 
     set({
-      dfPlayerName: nickname,
-      dfRating: rating,
-      dfBest35: [],
-      dfBest15: [],
-      dfError: null,
+      ...emptyOnline,
+      importedPlayerName: nickname,
+      importedRating: rating,
       recomputeFlag: get().recomputeFlag + 1,
     })
 
