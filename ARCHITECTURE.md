@@ -107,6 +107,7 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 | `scoreStore.ts` | 成绩CRUD + IndexedDB同步 + 批量导入 |
 | `playerStore.ts` | DF在线查分 + 本地B50计算 + 一键导入 |
 | `settingsStore.ts` | 暗色模式/语言等偏好持久化 |
+| `hooks/useAliasVersion.ts` | 订阅别名索引版本号；别名到货后触发筛选重算 |
 
 ### API 服务
 | 文件 | 职责 |
@@ -129,6 +130,8 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 | `routePlanner.ts` | 推分路线规划（4阶段定数递进） | pushSuggestions.ts |
 | `dxStar.ts` | DX星数计算（97/95/93/90/85%→⭐1-5） | — |
 | `chartTags.ts` | 谱面标签分类（交互/纵连/星星/跳拍/体力/技巧/综合） | — |
+| `scoreSort.ts` | 成绩按难度排序（详情页「我的成绩」） | — |
+| `levelRange.ts` | 定数区间工具：下拉分组、区间校验、是否显示定数 | — |
 
 ### 配置
 | 文件 | 职责 |
@@ -192,3 +195,15 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 1. `pages/` 新建页面组件
 2. `App.tsx` 注册路由 + lazy import
 3. `Sidebar.tsx` + `MobileBottomNav.tsx` 添加导航项
+
+### 调整高级筛选
+1. UI 在 `SongFilterPanel.tsx`，逻辑在 `songStore.getFilteredSongs()`
+2. **官标条件（`level` / `levelValueMin-Max`）与拟合条件（`fitLevelValueMin-Max`）是两套独立维度**，不要再合并成"勾了就整体切换语义"
+3. 定数下拉上限由数据决定：官方取曲库最大 `levelValue`，拟合取 `statsService.getMaxFitDiffValue()`
+4. 区间填反时不生效、不替用户改值，由面板标红提示
+
+### 实装年校正
+1. 精确数据是 `public/data/install-year.json.gz`（**一次性产物，仓库里没有生成脚本**）
+2. 缺失时由 `versions.ts#inferInstallYearFromVersion` 按版本号兜底，`installYearInferred` 标记来源
+3. `MainLayout` 在曲库就绪后调用 `statsService.setSongYearMap()` 注入
+4. 两者都没有时详情页显示「实装年未知，未校正」——不要让它静默无校正
