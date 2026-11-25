@@ -27,6 +27,7 @@ import { importScoresFromFile } from '@/utils/importScores'
 import { matchRateValue } from '@/utils/stats'
 import { buildScoreStats } from '@/utils/songSort'
 import { shouldShowLevelValue } from '@/utils/levelRange'
+import { loadAliasData, getAliasLoadError } from '@/data/aliases'
 
 // ---- Inline: login-to-token form ----
 
@@ -233,6 +234,14 @@ export default function SongList() {
       fetchSongs()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 别名数据加载失败时给出可见提示：否则搜索结果为空会被误读成「这首歌没有别名」
+  const [aliasFailed, setAliasFailed] = useState(false)
+  useEffect(() => {
+    loadAliasData()
+      .then((idx) => setAliasFailed(!idx))
+      .catch(() => setAliasFailed(true))
   }, [])
 
   // Defer search to avoid blocking keystrokes
@@ -484,6 +493,14 @@ export default function SongList() {
 
       {/* Advanced filters */}
       {showAdvanced && <SongFilterPanel />}
+
+      {aliasFailed && (
+        <p className="text-xs text-warning bg-warning/5 rounded px-3 py-2 mb-2">
+          别名数据未加载
+          {getAliasLoadError() ? `（${getAliasLoadError()}）` : ''}
+          ，当前只能按曲名 / 曲师 / 谱师搜索
+        </p>
+      )}
 
       {/* Song list */}
       <SongResultList songs={filteredSongs} showLevelValue={shouldShowLevelValue(advancedFilters)} />
