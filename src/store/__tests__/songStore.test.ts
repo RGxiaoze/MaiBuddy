@@ -75,59 +75,79 @@ describe('getFilteredSongs — 谱面级条件必须同一谱面满足', () => {
   })
 })
 
-describe('按拟合定数筛选', () => {
+describe('官标与拟合是两套独立条件', () => {
   beforeEach(() => {
     useSongStore.setState({ searchQuery: '', sortBy: 'default', sortOrder: 'desc' } as never)
     mockFitValues.clear()
-    // S1 官标 14.0，水鱼拟合 13.2，自算 SSS 拟合 13.8
-    // S2 官标 13.0，水鱼拟合 14.2，自算 SSS 拟合 12.6
+    // S1 官标 14.0（标签 14） 水鱼拟合 13.2
+    // S2 官标 13.0（标签 13） 水鱼拟合 14.2
+    // S3 官标 13.5（标签 13+）水鱼拟合 13.2
+    // S4 官标 13.6（标签 13+）水鱼拟合 13.9
     useSongStore.setState({
-      songs: [song(1, [diff(3, 14.0, '14')]), song(2, [diff(3, 13.0, '13')])],
+      songs: [
+        song(1, [diff(3, 14.0, '14')]),
+        song(2, [diff(3, 13.0, '13')]),
+        song(3, [diff(3, 13.5, '13+')]),
+        song(4, [diff(3, 13.6, '13+')]),
+      ],
     } as never)
     mockFitValues.set('1-14', { sssPlus: 13.2, sss: 13.8 })
     mockFitValues.set('2-13', { sssPlus: 14.2, sss: 12.6 })
+    mockFitValues.set('3-13+', { sssPlus: 13.2, sss: 13.1 })
+    mockFitValues.set('4-13+', { sssPlus: 13.9, sss: 13.9 })
   })
 
-  it('SSS+ 口径（水鱼 fit_diff）：定数区间按拟合值匹配', () => {
-    const result = filterWith({ fitDiffSource: 'sssPlus', levelValueMin: 13.0, levelValueMax: 13.4 })
+  it('核心场景：官标 13+ 大类里，筛拟合定数 ≤ 13.6', () => {
+    // S3：官标 13+ 且拟合 13.2 → 命中
+    // S4：官标 13+ 但拟合 13.9 → 排除
+    // S1：拟合 13.2 也在区间内，但官标是 14，不属于 13+ 大类 → 排除
+    const result = filterWith({ level: '13+', fitDiffSource: 'sssPlus', fitLevelValueMax: 13.6 })
+    expect(result.map(s => s.id)).toEqual([3])
+  })
+
+  it('只设拟合区间时，官标不参与限制', () => {
+    const result = filterWith({ fitDiffSource: 'sssPlus', fitLevelValueMax: 13.4 })
+    expect(result.map(s => s.id).sort()).toEqual([1, 3])
+  })
+
+  it('只设官标条件时，拟合不参与限制', () => {
+    expect(filterWith({ level: '13+' }).map(s => s.id).sort()).toEqual([3, 4])
+  })
+
+  it('官标区间与拟合上限同时生效', () => {
+    const result = filterWith({
+      levelValueMin: 13.5, levelValueMax: 13.6,
+      fitDiffSource: 'sssPlus', fitLevelValueMax: 13.5,
+    })
+    // S3 官标 13.5 / 拟合 13.2 → 命中；S4 官标 13.6 但拟合 13.9 → 排除
+    expect(result.map(s => s.id)).toEqual([3])
+  })
+
+  it('切换口径会改变拟合条件的判定', () => {
+    const result = filterWith({ fitDiffSource: 'sss', fitLevelValueMax: 13.6 })
+    // SSS 口径下：S1 13.8 排除、S2 12.6 命中、S3 13.1 命中、S4 13.9 排除
+    expect(result.map(s => s.id).sort()).toEqual([2, 3])
+  })
+
+  it('未勾选口径时，拟合区间字段不起作用', () => {
+    const result = filterWith({ fitLevelValueMax: 13.0 })
+    expect(result.map(s => s.id).sort()).toEqual([1, 2, 3, 4])
+  })
+
+  it('缺少统计数据的谱面不匹配任何拟合条件', () => {
+    mockFitValues.delete('3-13+')
+    const result = filterWith({ fitDiffSource: 'sssPlus', fitLevelValueMax: 13.6 })
     expect(result.map(s => s.id)).toEqual([1])
   })
 
-  it('SSS 口径（自算）：同一区间不命中这两首', () => {
-    const result = filterWith({ fitDiffSource: 'sss', levelValueMin: 13.0, levelValueMax: 13.4 })
-    expect(result.map(s => s.id)).toEqual([])
+  it('拟合区间填反时不生效（不静默交换两端）', () => {
+    const result = filterWith({ fitDiffSource: 'sssPlus', fitLevelValueMin: 14.0, fitLevelValueMax: 13.0 })
+    expect(result.map(s => s.id).sort()).toEqual([1, 2, 3, 4])
   })
 
-  it('等级筛选按拟合定数换算：13+ 覆盖 13.5~13.9', () => {
-    // S1 自算拟合 13.8 → "13+"；S2 自算拟合 12.6 → "12+"
-    const result = filterWith({ fitDiffSource: 'sss', level: '13+' })
-    expect(result.map(s => s.id)).toEqual([1])
-  })
-
-  it('同一首歌因口径不同落入不同等级档', () => {
-    // S1：水鱼 13.2 → "13"，自算 13.8 → "13+"
-    expect(filterWith({ fitDiffSource: 'sssPlus', level: '13' }).map(s => s.id)).toEqual([1])
-    expect(filterWith({ fitDiffSource: 'sssPlus', level: '13+' }).map(s => s.id)).toEqual([])
-  })
-
-  it('拟合值 13.5 归入 13+（含下边界）', () => {
-    mockFitValues.set('1-14', { sssPlus: 13.5, sss: 13.5 })
-    expect(filterWith({ fitDiffSource: 'sssPlus', level: '13+' }).map(s => s.id)).toEqual([1])
-  })
-
-  it('未勾选拟合口径时仍按官标定数', () => {
-    expect(filterWith({ level: '14' }).map(s => s.id)).toEqual([1])
-    expect(filterWith({ fitDiffSource: undefined, level: '14' }).map(s => s.id)).toEqual([1])
-  })
-
-  it('缺少统计数据的谱面不匹配任何拟合筛选', () => {
-    mockFitValues.delete('1-14')
-    expect(filterWith({ fitDiffSource: 'sssPlus', level: '13' }).map(s => s.id)).toEqual([])
-  })
-
-  it('SSS 口径下该谱面算不出拟合值时不匹配', () => {
-    mockFitValues.set('1-14', { sssPlus: 13.2 })
-    expect(filterWith({ fitDiffSource: 'sss', level: '13+' }).map(s => s.id)).toEqual([])
+  it('官标区间填反时同样不生效', () => {
+    const result = filterWith({ levelValueMin: 14.0, levelValueMax: 13.0 })
+    expect(result.map(s => s.id).sort()).toEqual([1, 2, 3, 4])
   })
 })
 

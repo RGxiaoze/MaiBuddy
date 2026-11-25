@@ -107,22 +107,34 @@ export default function SongFilterPanel() {
     return max
   }, [songs])
 
-  const levelValueMax = useMemo(
-    () => (fitSource ? (getMaxFitDiffValue() ?? maxOfficialLevelValue) : maxOfficialLevelValue),
+  // 官标与拟合各用一套下拉选项：官标上限取曲库最大 levelValue，
+  // 拟合上限取 chart_stats 里的最大拟合值（未就绪时退回官标上限）。
+  const officialLevelValueGroups = useMemo(
+    () => buildLevelValueGroups(maxOfficialLevelValue),
+    [maxOfficialLevelValue],
+  )
+  const fitLevelValueMax = useMemo(
+    () => (fitSource ? (getMaxFitDiffValue() ?? maxOfficialLevelValue) : 0),
     [fitSource, maxOfficialLevelValue, statsReady],
   )
-
-  const levelValueGroups = useMemo(() => buildLevelValueGroups(levelValueMax), [levelValueMax])
+  const fitLevelValueGroups = useMemo(
+    () => (fitLevelValueMax > 0 ? buildLevelValueGroups(fitLevelValueMax) : []),
+    [fitLevelValueMax],
+  )
 
   // 只判断、不纠正：填反了由用户自己改，界面负责标红与说明
-  const rangeValid = isLevelValueRangeValid(
+  const officialRangeValid = isLevelValueRangeValid(
     advancedFilters.levelValueMin,
     advancedFilters.levelValueMax,
+  )
+  const fitRangeValid = isLevelValueRangeValid(
+    advancedFilters.fitLevelValueMin,
+    advancedFilters.fitLevelValueMax,
   )
 
   return (
     <div className="bg-bg-gray border border-border rounded-lg p-4 mb-6 space-y-3">
-      {/* 拟合定数口径：勾选后下面的等级与定数条件改比对拟合值 */}
+      {/* 拟合定数口径：勾选后启用下面独立的「拟合定数区间」，不影响官标条件 */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         <label className="flex items-center gap-1.5 text-text-secondary cursor-pointer">
           <input
@@ -150,16 +162,59 @@ export default function SongFilterPanel() {
               ))}
             </div>
             <span className="text-text-tertiary">
-              {statsReady ? '等级与定数改为按拟合值匹配' : '全服统计加载中…'}
+              {statsReady ? '仅作用于下面的拟合定数区间' : '全服统计加载中…'}
             </span>
           </>
         )}
       </div>
 
+      {/* 拟合定数区间：只在勾选口径后参与，与官标条件独立叠加 */}
+      {fitSource && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <label className="flex flex-col gap-1 text-xs text-text-secondary">
+            拟合最低定数
+            <select
+              value={advancedFilters.fitLevelValueMin ?? ''}
+              onChange={(e) => setAdvancedFilters({ fitLevelValueMin: e.target.value ? parseFloat(e.target.value) : undefined })}
+              className={`px-2 py-1.5 rounded border text-sm bg-surface focus:outline-none ${fitRangeValid ? 'border-border focus:border-primary' : 'border-error'}`}
+            >
+              <option value="">不限</option>
+              {fitLevelValueGroups.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.values.map((v) => (
+                    <option key={v} value={v}>{v.toFixed(1)}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-secondary">
+            拟合最高定数
+            <select
+              value={advancedFilters.fitLevelValueMax ?? ''}
+              onChange={(e) => setAdvancedFilters({ fitLevelValueMax: e.target.value ? parseFloat(e.target.value) : undefined })}
+              className={`px-2 py-1.5 rounded border text-sm bg-surface focus:outline-none ${fitRangeValid ? 'border-border focus:border-primary' : 'border-error'}`}
+            >
+              <option value="">不限</option>
+              {fitLevelValueGroups.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.values.map((v) => (
+                    <option key={v} value={v}>{v.toFixed(1)}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            {!fitRangeValid && (
+              <span className="text-[11px] text-error">拟合最低定数高于最高定数，区间未生效，请修正</span>
+            )}
+          </label>
+        </div>
+      )}
+
       {/* 等级（官标档位） */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <label className="flex flex-col gap-1 text-xs text-text-secondary">
-          {fitSource ? '拟合等级' : '等级'}
+          {fitSource ? '官标等级' : '等级'}
           <select
             value={advancedFilters.level ?? ''}
             onChange={(e) => setAdvancedFilters({ level: e.target.value || undefined })}
@@ -176,14 +231,14 @@ export default function SongFilterPanel() {
       {/* 定数范围 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <label className="flex flex-col gap-1 text-xs text-text-secondary">
-          {fitSource ? '拟合最低定数' : '最低定数'}
+          {fitSource ? '官标最低定数' : '最低定数'}
           <select
             value={advancedFilters.levelValueMin ?? ''}
             onChange={(e) => setAdvancedFilters({ levelValueMin: e.target.value ? parseFloat(e.target.value) : undefined })}
-            className={`px-2 py-1.5 rounded border text-sm bg-surface focus:outline-none ${rangeValid ? 'border-border focus:border-primary' : 'border-error'}`}
+            className={`px-2 py-1.5 rounded border text-sm bg-surface focus:outline-none ${officialRangeValid ? 'border-border focus:border-primary' : 'border-error'}`}
           >
             <option value="">不限</option>
-            {levelValueGroups.map((group) => (
+            {officialLevelValueGroups.map((group) => (
               <optgroup key={group.label} label={group.label}>
                 {group.values.map((v) => (
                   <option key={v} value={v}>{v.toFixed(1)}</option>
@@ -193,14 +248,14 @@ export default function SongFilterPanel() {
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs text-text-secondary">
-          {fitSource ? '拟合最高定数' : '最高定数'}
+          {fitSource ? '官标最高定数' : '最高定数'}
           <select
             value={advancedFilters.levelValueMax ?? ''}
             onChange={(e) => setAdvancedFilters({ levelValueMax: e.target.value ? parseFloat(e.target.value) : undefined })}
-            className={`px-2 py-1.5 rounded border text-sm bg-surface focus:outline-none ${rangeValid ? 'border-border focus:border-primary' : 'border-error'}`}
+            className={`px-2 py-1.5 rounded border text-sm bg-surface focus:outline-none ${officialRangeValid ? 'border-border focus:border-primary' : 'border-error'}`}
           >
             <option value="">不限</option>
-            {levelValueGroups.map((group) => (
+            {officialLevelValueGroups.map((group) => (
               <optgroup key={group.label} label={group.label}>
                 {group.values.map((v) => (
                   <option key={v} value={v}>{v.toFixed(1)}</option>
@@ -208,7 +263,7 @@ export default function SongFilterPanel() {
               </optgroup>
             ))}
           </select>
-          {!rangeValid && (
+          {!officialRangeValid && (
             <span className="text-[11px] text-error">最低定数高于最高定数，区间未生效，请修正</span>
           )}
         </label>
