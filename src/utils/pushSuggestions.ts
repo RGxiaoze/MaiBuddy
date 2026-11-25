@@ -8,7 +8,7 @@ import type { Song } from '@/types'
 import type { ChartStatSummary } from '@/services/statsService'
 import { type B50Result } from './b50'
 import { computeRating } from './rating'
-import { classifyDifficulty, achievableTargetFor, typicalAchievement, averageAtLevel, TYPICAL_STRETCH, TYPICAL_STRETCH_B15, type LevelSample } from './difficultyTier'
+import { classifyDifficulty, achievableTargetFor, typicalAchievement, TYPICAL_STRETCH, TYPICAL_STRETCH_B15, type LevelSample } from './difficultyTier'
 import { isChartExcluded } from '@/data/excluded-charts'
 import { predictLevelToAch } from './regression'
 import {
@@ -50,12 +50,6 @@ export interface PushSuggestion {
    * 描述谱面本身，对已 SSS 的谱仍有参考价值。
    */
   fitDelta?: number
-  /**
-   * 玩家在「该谱实际定数」同档上的平均达成率（窄口径，见 averageAtLevel）。
-   * 用拟合定数（若比官标低）来取，回答「以你这一档的平均表现，
-   * 够不够吃到这首的水分」。无全量成绩或样本不足时不提供。
-   */
-  yourBandAvg?: number
   /**
    * 拉伸档位：1 = 核心推荐（默认拉伸）；2/3 = 核心不够时逐步放宽目标补出来的
    * 备选，由调用方在列表末尾单独展示，不与核心推荐混排。
@@ -533,12 +527,6 @@ export function computePushSuggestions(
         if (stats?.fitDiff && stats.fitDiff > 0) {
           cand.fitDelta = Math.round((stats.fitDiff - lv) * 10) / 10
         }
-        // 「该档平均」只对**没打过**的谱有意义：它是对这首的预期。
-        // 已经打出成绩的谱，卡片上显示的是真实成绩，再挂个全档平均只会让人困惑
-        // （实测有谱打到 100%+，而同档平均只有 96%，两个数字互相打脸）。
-        cand.yourBandAvg = precision === 'estimated'
-          ? (averageAtLevel(effectiveLevel, allSamples, key) ?? undefined)
-          : undefined
         // Only add if at least one gain > 0 (or AP gain exists)
         if (cand.gains.some(g => g.ratingGain > 0) || (cand.apGain && cand.apGain.ratingGain > 0)) {
           suggestions.push(cand)

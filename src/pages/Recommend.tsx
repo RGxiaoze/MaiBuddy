@@ -394,7 +394,6 @@ function PushGroup({ title, items, tagColor, defaultVisible }: {
       tagColor={tagColor}
       fitDelta={s.fitDelta}
       sssPlusRate={s.sssPlusRate}
-      yourBandAvg={s.yourBandAvg}
     />
   )
 
