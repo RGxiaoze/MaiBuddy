@@ -28,6 +28,7 @@ import { matchRateValue } from '@/utils/stats'
 import { buildScoreStats } from '@/utils/songSort'
 import { shouldShowLevelValue } from '@/utils/levelRange'
 import { loadAliasData, getAliasLoadError } from '@/data/aliases'
+import { useAliasVersion } from '@/hooks/useAliasVersion'
 
 // ---- Inline: login-to-token form ----
 
@@ -238,6 +239,8 @@ export default function SongList() {
 
   // 别名数据加载失败时给出可见提示：否则搜索结果为空会被误读成「这首歌没有别名」
   const [aliasFailed, setAliasFailed] = useState(false)
+  // 别名到货后触发筛选重算（否则首次搜索会被缓存成空结果）
+  const aliasVersion = useAliasVersion()
   useEffect(() => {
     loadAliasData()
       .then((idx) => setAliasFailed(!idx))
@@ -264,7 +267,7 @@ export default function SongList() {
         (drillLevel == null || sc.levelIndex === drillLevel)
       ))
     },
-    [songs, deferredSearchQuery, advancedFilters, sortBy, sortOrder, getFilteredSongs, playedFilter, scores, scoreStats, statsEpoch]
+    [songs, deferredSearchQuery, advancedFilters, sortBy, sortOrder, getFilteredSongs, playedFilter, scores, scoreStats, statsEpoch, aliasVersion]
   )
 
   // 注册本页背景：列表第一首的封面

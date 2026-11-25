@@ -60,6 +60,29 @@ let aliasForwardMap: Map<number, string[]> | null = null
 let aliasLoadError: string | null = null
 let loadPromise: Promise<Map<string, number[]> | null> | null = null
 
+// ---- 索引版本号 ----
+// 别名是异步加载的，而检索页/统计页的筛选结果被 useMemo 缓存。
+// 没有这个版本号，首次筛选若早于别名到货，结果会被一直缓存成空，
+// 直到用户再次输入才恢复 —— 表现就是「搜别名没结果，也不报错」。
+let aliasVersion = 0
+const versionListeners = new Set<() => void>()
+
+export function getAliasVersion(): number {
+  return aliasVersion
+}
+
+export function subscribeAliasVersion(listener: () => void): () => void {
+  versionListeners.add(listener)
+  return () => {
+    versionListeners.delete(listener)
+  }
+}
+
+function bumpAliasVersion(): void {
+  aliasVersion += 1
+  for (const listener of versionListeners) listener()
+}
+
 /** 构建反向索引：lowercase alias → matching songId[] */
 export function buildAliasIndex(entries: AliasEntry[]): Map<string, number[]> {
   const index = new Map<string, number[]>()
@@ -101,6 +124,7 @@ export async function loadAliasData(): Promise<Map<string, number[]> | null> {
           if (fwd) aliasForwardMap = fwd
         } catch { /* forward cache miss is non-fatal */ }
         aliasLoadError = null
+        bumpAliasVersion()
         return cached
       }
     } catch {
@@ -130,6 +154,23 @@ export async function loadAliasData(): Promise<Map<string, number[]> | null> {
       aliasIndex = index
       aliasForwardMap = fwd
       aliasLoadError = null
+      bumpAliasVersion()
+
+      // 仅开发环境：留一行可读的载入摘要，并挂一个控制台查询入口，
+      // 便于区分「索引没加载」与「别名 ID 和曲库 ID 对不上」。
+      if (import.meta.env.DEV) {
+        console.info(`[aliases] 载入 ${data.length} 条曲目，索引 ${index.size} 个键`)
+        if (typeof window !== 'undefined') {
+          ;(window as unknown as { __aliasDebug?: unknown }).__aliasDebug = (q: string) => {
+            const hits = [...searchAliases(q, getAliasIndex())]
+            console.info(
+              `[aliases] 查询「${q}」→ 索引 ${getAliasIndex()?.size ?? 0} 键，命中 ${hits.length} 个 ID`,
+              hits.slice(0, 10),
+            )
+            return hits
+          }
+        }
+      }
 
       // 缓存到 IndexedDB
       try {

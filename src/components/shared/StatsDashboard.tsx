@@ -22,6 +22,7 @@ import { buildScoreStats } from '@/utils/songSort'
 import { matchRateValue } from '@/utils/stats'
 import { computeTheoreticalMaxBoth } from '@/utils/b50'
 import { shouldShowLevelValue } from '@/utils/levelRange'
+import { useAliasVersion } from '@/hooks/useAliasVersion'
 import {
   computeStats, getLevelTabs, getGenreTabs,
   DIFFICULTY_TABS, RATE_TABS, FC_TABS, FS_TABS,
@@ -71,6 +72,8 @@ export default function StatsDashboard() {
   const sortBy = useSongStore((s) => s.sortBy)
   const sortOrder = useSongStore((s) => s.sortOrder)
   const statsEpoch = useSongStore((s) => s.statsEpoch)
+  // 别名到货后触发钻取列表重算
+  const aliasVersion = useAliasVersion()
 
   // ---- 常驻 Rating 进度（AP 加成已禁用，扣除历史数据中的加成） ----
   const theoryMax = useMemo(
@@ -159,7 +162,7 @@ export default function StatsDashboard() {
     return list
     // advancedFilters / sortBy / sortOrder / statsEpoch 变化时重新计算
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [songs, scores, scoreStats, drill, getFilteredSongs, advancedFilters, sortBy, sortOrder, statsEpoch])
+  }, [songs, scores, scoreStats, drill, getFilteredSongs, advancedFilters, sortBy, sortOrder, statsEpoch, aliasVersion])
 
   if (!stats) {
     return (
