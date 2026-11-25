@@ -358,6 +358,9 @@ export default function SongDetail() {
                             <span className="text-[11px] text-text-tertiary">SSS</span>
                           </>
                         )}
+                        {chartStats.installYear == null && (
+                          <span className="text-[11px] text-text-tertiary">实装年未知，未校正</span>
+                        )}
                         {(fitCorr || sssCorr) && (
                           <span className="text-[11px] text-text-tertiary group-open:hidden">详情 ▾</span>
                         )}
@@ -369,7 +372,7 @@ export default function SongDetail() {
                               SSS+：水鱼 {chartStats.fitDiffRaw!.toFixed(2)}
                               {chartStats.fitDiff >= chartStats.fitDiffRaw! ? ' + ' : ' − '}
                               {Math.abs(chartStats.fitDiff - chartStats.fitDiffRaw!).toFixed(2)}
-                              （{chartStats.installYear} 实装校正）
+                              （{chartStats.installYear} {chartStats.installYearInferred ? '推断实装年校正' : '实装校正'}）
                             </div>
                           )}
                           {sssCorr && (
@@ -377,7 +380,7 @@ export default function SongDetail() {
                               SSS：自算 {sssFitRaw!.toFixed(2)}
                               {sssFit! >= sssFitRaw! ? ' + ' : ' − '}
                               {Math.abs(sssFit! - sssFitRaw!).toFixed(2)}
-                              （{chartStats.installYear} 实装校正）
+                              （{chartStats.installYear} {chartStats.installYearInferred ? '推断实装年校正' : '实装校正'}）
                             </div>
                           )}
                         </div>

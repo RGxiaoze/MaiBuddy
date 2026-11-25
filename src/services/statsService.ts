@@ -36,6 +36,8 @@ export interface ChartStatSummary {
   sssFitDiffRaw?: number
   /** 该谱面的国服实装年；未知时为空 */
   installYear?: number | null
+  /** 该实装年是由版本号推断的（精确数据缺失时兜底），不是实测值 */
+  installYearInferred?: boolean
   /** 样本量（打过该谱的人数）；缺省表示数据源未提供 */
   sampleCount?: number
   /**
@@ -204,6 +206,20 @@ let _officialLevelAvgs: Map<number, FitDiffAvg> | null = null  // key: 官方 le
 let _loaded = false
 let _loadPromise: Promise<void> | null = null
 
+/**
+ * 兜底实装年映射：曲目 ID → 国服实装年（由曲库版本号推断）。
+ *
+ * `install-year.json.gz` 是一次性产物、仓库里没有生成脚本，新曲入池后必然缺条目，
+ * 校正会静默失效（表现为拟合定数没有「详情」箭头）。这里用版本年份兜底。
+ */
+let _songYearMap: Map<number, number> | null = null
+/** 当前内存里的统计是否在「有兜底映射」的前提下构建过 */
+let _builtWithYearMap = false
+
+export function setSongYearMap(map: Map<number, number>): void {
+  _songYearMap = map
+}
+
 // ---- Public interface ----
 
 export async function loadStats(officialLevelMap?: Map<string, number>): Promise<void> {
@@ -222,6 +238,15 @@ export async function loadStats(officialLevelMap?: Map<string, number>): Promise
     if (officialLevelMap && officialLevelMap.size > 0 && !_officialLevelAvgs) {
       const data = await getCachedStats()
       if (data) _officialLevelAvgs = buildOfficialLevelAvgs(data, officialLevelMap)
+    }
+    // 兜底实装年映射晚于首次构建才注入时，重建一次，
+    // 否则新曲仍然拿不到校正（箭头照旧不出现）
+    if (!_builtWithYearMap && _songYearMap) {
+      const data = await getCachedStats()
+      if (data) {
+        _chartStats = buildChartStats(data)
+        _builtWithYearMap = true
+      }
     }
     return
   }
@@ -268,6 +293,7 @@ export async function loadStats(officialLevelMap?: Map<string, number>): Promise
       _chartStats = buildChartStats(data)
       _levelAvgs = buildLevelAvgs(data)
       _fitDiffAvgs = buildFitDiffAvgs(data)
+      _builtWithYearMap = _songYearMap !== null
       if (officialLevelMap && officialLevelMap.size > 0) {
         _officialLevelAvgs = buildOfficialLevelAvgs(data, officialLevelMap)
       }
@@ -411,7 +437,11 @@ function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary
       const diffFromLevelAvg = entry.avg - levelAvg
 
       // 按实装年校正拟合定数（新曲世代水鱼系统性偏低）
-      const installYear = getInstallYear(songId, levelIndex)
+      // 精确数据缺失时用「版本年份」兜底，并标记为推断值
+      const exactYear = getInstallYear(songId, levelIndex)
+      const fallbackYear = exactYear == null ? (_songYearMap?.get(songId) ?? null) : null
+      const installYear = exactYear ?? fallbackYear
+      const installYearInferred = exactYear == null && fallbackYear != null
       const correction = installYear !== null ? (FIT_DIFF_YEAR_CORRECTION[installYear] ?? 0) : 0
       const fitDiffRaw = entry.fit_diff
       const fitDiff = fitDiffRaw + correction
@@ -427,6 +457,7 @@ function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary
         fitDiff,
         fitDiffRaw,
         installYear,
+        installYearInferred,
         sampleCount: entry.cnt ?? totalDist,
         reliable: isReliableCount(entry.cnt ?? totalDist, medianByLevel.get(entry.diff) ?? 0),
       })
@@ -583,6 +614,7 @@ export async function forceRefreshStats(): Promise<void> {
     _chartStats = buildChartStats(data)
     _levelAvgs = buildLevelAvgs(data)
     _fitDiffAvgs = buildFitDiffAvgs(data)
+    _builtWithYearMap = _songYearMap !== null
     // _officialLevelAvgs depends on external officialLevelMap — clear so
     // next loadStats() call with a map will rebuild it
     _officialLevelAvgs = null

@@ -14,6 +14,8 @@ import { useSongStore } from '@/store/songStore'
 import { useScoreStore } from '@/store/scoreStore'
 import { usePlayerStore } from '@/store/playerStore'
 import { useBackgroundStore } from '@/store/backgroundStore'
+import { setSongYearMap } from '@/services/statsService'
+import { inferInstallYearFromVersion } from '@/data/versions'
 
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false)
@@ -58,6 +60,20 @@ export default function MainLayout() {
   useEffect(() => {
     if (!localB50 && scoreCount > 0 && songCount > 0) computeLocalB50()
   }, [localB50, scoreCount, songCount, computeLocalB50])
+
+  // 实装年兜底：install-year 数据是一次性产物、缺新曲条目，用曲库版本号推断补一份
+  // 映射；否则新曲的拟合定数校正会静默失效（详情页表现为没有「详情」箭头）。
+  // 这里刻意用 getState() 而不是订阅 songs，避免整个布局跟着曲库数组重渲染。
+  useEffect(() => {
+    if (songCount === 0) return
+    const songs = useSongStore.getState().songs
+    const map = new Map<number, number>()
+    for (const s of songs) {
+      const year = inferInstallYearFromVersion(s.version)
+      if (year != null) map.set(s.id, year)
+    }
+    setSongYearMap(map)
+  }, [songCount])
 
   const toggleCollapsed = useCallback(() => setCollapsed((v) => !v), [])
   const openMobile = useCallback(() => setMobileOpen(true), [])
