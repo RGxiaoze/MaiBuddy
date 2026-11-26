@@ -2,7 +2,7 @@
 // Song detail page — info, chart, DX Rating, scores
 // ============================================================
 
-import { useState, useEffect, useMemo, memo } from 'react'
+import { useState, useEffect, useMemo, memo, lazy, Suspense } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { useSongStore } from '@/store/songStore'
@@ -21,6 +21,12 @@ import { useBackgroundStore } from '@/store/backgroundStore'
 import { formatVersionLabel } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
 import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff, computeSssFitDiffRaw, getRateRank } from '@/services/statsService'
+import { summarizeChanges, buildChartSeries, type LevelPoint } from '@/utils/levelHistory'
+import { buildTierRows, CONFIDENCE_LABELS } from '@/utils/tierFit'
+import { loadLevelHistory, getLevelPoints, getLevelHistoryYears } from '@/services/levelHistoryService'
+
+// 折线图按需加载：静态引入会把整个 ECharts 拖进详情页 chunk（实测 +1.1 MB）
+const LevelHistoryChart = lazy(() => import('@/components/charts/LevelHistoryChart'))
 
 export default function SongDetail() {
   const { songId } = useParams<{ songId: string }>()
@@ -63,6 +69,23 @@ export default function SongDetail() {
   const [coverLoaded, setCoverLoaded] = useState(false)
   useEffect(() => { setCoverLoaded(false) }, [song?.id])
 
+  // 定数变迁历史：数据文件很小（只存变化点），进页面就加载；
+  // 折线图本身仍是按需渲染（展开才挂载 ECharts）。
+  const [levelPoints, setLevelPoints] = useState<LevelPoint[] | null>(null)
+  const [historyYears, setHistoryYears] = useState<number[]>([])
+  const [showHistory, setShowHistory] = useState(false)
+  useEffect(() => {
+    const songId = song?.id
+    if (songId == null) return
+    let cancelled = false
+    loadLevelHistory().then(() => {
+      if (cancelled) return
+      setLevelPoints(getLevelPoints(songId, selectedLevel))
+      setHistoryYears(getLevelHistoryYears())
+    })
+    return () => { cancelled = true }
+  }, [song?.id, selectedLevel])
+
   useEffect(() => {
     if (songs.length === 0) return
     let cancelled = false
@@ -88,6 +111,12 @@ export default function SongDetail() {
     : []
   const currentDiff = allDiffs.find((d) => d.levelIndex === selectedLevel) as ChartDifficulty | undefined
   const levelColors = LEVEL_INDEX_MAP[selectedLevel]
+
+  // 定数变更摘要与折线序列（无变更时 summary 为 null，不显示徽章）
+  const changeSummary = levelPoints ? summarizeChanges(levelPoints) : null
+  const historySeries = levelPoints && currentDiff
+    ? buildChartSeries(levelPoints, currentDiff.levelValue, historyYears)
+    : null
 
   // Detect paired song (same title+artist+bpm, different type)
   const pairedSong = useMemo(() => {
@@ -145,6 +174,20 @@ export default function SongDetail() {
       : null),
     [chartStats, officialLevelAvg, currentDiff?.levelValue],
   )
+
+  // 分档拟合表格：SSS/SSS+ 沿用上面那一行的口径，其余档按各自斜率换算
+  const tierRows = useMemo(() => {
+    if (!chartStats || !currentDiff) return []
+    return buildTierRows({
+      chartTiers: chartStats.tiers,
+      levelTiers: officialLevelAvg?.tiers,
+      officialLevelValue: currentDiff.levelValue,
+      sssFit,
+      sssPlusFit: chartStats.fitDiff,
+      sampleCount: chartStats.sampleCount,
+      levelChartCount: officialLevelAvg?.chartCount,
+    })
+  }, [chartStats, currentDiff, sssFit, officialLevelAvg])
 
   // 同上，但取校正前的原始值，供并列展示
   const sssFitRaw = useMemo(
@@ -320,11 +363,37 @@ export default function SongDetail() {
             <div>
               <span className="text-text-secondary">定数：</span>
               <strong>{currentDiff.levelValue}</strong>
+              {changeSummary && (
+                <button
+                  onClick={() => setShowHistory((v) => !v)}
+                  className="ml-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold tabular-nums cursor-pointer
+                             border border-accent/40 bg-accent/5 text-accent hover:bg-accent/15 transition-colors"
+                  title={`定数曾被调整 ${changeSummary.count} 次，最近一次在 ${changeSummary.latestYear} 年`}
+                >
+                  {changeSummary.earliest} → {changeSummary.latest}
+                  {changeSummary.count > 1 ? `（${changeSummary.count} 次）` : `（${changeSummary.latestYear}）`}
+                  <span className="text-[10px] opacity-70">{showHistory ? '▲' : '▾'}</span>
+                </button>
+              )}
             </div>
             <div>
               <span className="text-text-secondary">谱师：</span>
               <strong>{formatDesignerName(currentDiff.noteDesigner)}</strong>
             </div>
+
+            {showHistory && historySeries && (
+              <div className="sm:col-span-2">
+                <p className="text-xs text-text-secondary mb-1">定数变化（年度快照）</p>
+                <Suspense fallback={<div style={{ height: '200px' }} />}>
+                  <LevelHistoryChart series={historySeries} />
+                </Suspense>
+                {historySeries.currentDiffers && levelPoints && currentDiff && (
+                  <p className="text-[11px] text-text-tertiary">
+                    {levelPoints[levelPoints.length - 1][0]} 快照 {levelPoints[levelPoints.length - 1][1]}，当前 {currentDiff.levelValue}（快照可能滞后）
+                  </p>
+                )}
+              </div>
+            )}
 
             {chartStats?.fitDiff != null && (
               <div className="sm:col-span-2">
@@ -407,6 +476,67 @@ export default function SongDetail() {
                     </span>
                   )}
                 </div>
+              </div>
+            )}
+
+            {tierRows.length > 0 && (
+              <div className="sm:col-span-2">
+                <details className="group">
+                  <summary className="list-none cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium
+                    border border-border bg-surface text-text-secondary hover:border-accent hover:text-accent transition-colors">
+                    <span>各档拟合定数</span>
+                    <span className="text-[11px] text-text-tertiary group-open:hidden">展开 ▾</span>
+                    <span className="text-[11px] text-text-tertiary hidden group-open:inline">收起 ▲</span>
+                  </summary>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="text-text-tertiary">
+                          <th className="text-left font-medium py-1 pr-2 whitespace-nowrap">达成梯度</th>
+                          <th className="text-right font-medium py-1 px-2 whitespace-nowrap">拟合定数</th>
+                          <th className="text-right font-medium py-1 pl-2 whitespace-nowrap">可信度</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tierRows.map((r) => (
+                          <tr key={r.tier} className="border-t border-border/30">
+                            <td className="py-1 pr-2 whitespace-nowrap text-text-secondary">{r.label}</td>
+                            <td className="py-1 px-2 text-right tabular-nums font-medium text-text">
+                              {r.fit == null
+                                ? <span className="text-text-tertiary">—</span>
+                                : r.fit.toFixed(2)}
+                            </td>
+                            <td className="py-1 pl-2 text-right whitespace-nowrap">
+                              {r.confidence == null ? (
+                                <span className="text-text-tertiary">—</span>
+                              ) : (
+                                <span
+                                  className={
+                                    r.confidence === 'high' ? 'text-success font-medium'
+                                      : r.confidence === 'medium' ? 'text-text-secondary'
+                                        : 'text-warning font-medium'
+                                  }
+                                  title={r.weakRegression
+                                    ? '该档回归相关性很弱（R² < 0.15），数值仅供参考'
+                                    : '该档回归相关性尚可'}
+                                >
+                                  {CONFIDENCE_LABELS[r.confidence]}
+                                </span>
+                              )}
+                              {r.lowSample && (
+                                <span className="ml-0.5 text-warning" title="样本偏少，仅供参考">⚠</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="mt-1 text-[11px] text-text-tertiary leading-snug">
+                    拟合定数由该档全服率与同档均值的偏差折算；可信度取决于该档回归的 R²。
+                    AP / AP+ 相关性弱，仅供横向参考，不宜当绝对定数使用。
+                  </p>
+                </details>
               </div>
             )}
 

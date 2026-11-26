@@ -116,6 +116,7 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 | `lxnsApi.ts` | LXNS API 桩（待实现） |
 | `adapter.ts` | API原始类型 → 内部中性类型转换 |
 | `statsService.ts` | chart_stats 缓存+预计算（SSS率/AP率/拟合定数等） |
+| `levelHistoryService.ts` | 定数变迁数据加载（`public/data/level-history.json.gz`，按需 + gzip 解压） |
 
 ### 核心算法
 | 文件 | 职责 | 依赖 |
@@ -130,6 +131,9 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 | `routePlanner.ts` | 推分路线规划（4阶段定数递进） | pushSuggestions.ts |
 | `dxStar.ts` | DX星数计算（97/95/93/90/85%→⭐1-5） | — |
 | `chartTags.ts` | 谱面标签分类（交互/纵连/星星/跳拍/体力/技巧/综合） | — |
+| `levelHistory.ts` | 定数变迁：年度快照 → 变化点压缩、徽章摘要、折线序列 | — |
+| `tierRates.ts` | 由 dist / fc_dist 算七档累计率（SS/SS+/SSS/SSS+/FC/AP/AP+） | — |
+| `tierFit.ts` | 分档拟合定数：各档斜率换算、不可用原因、低样本标注 | tierRates.ts |
 | `scoreSort.ts` | 成绩按难度排序（详情页「我的成绩」） | — |
 | `levelRange.ts` | 定数区间工具：下拉分组、区间校验、是否显示定数 | — |
 
@@ -152,6 +156,7 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 | `ErrorBoundary.tsx` | 渲染错误捕获 + 回退UI |
 | `PushSuggestions.tsx` | 推分建议表格（B35+B15双池） |
 | `RadarChart.tsx` | ECharts五维雷达图 |
+| `LevelHistoryChart.tsx` | 定数变迁折线图（echarts core 入口，随详情页展开按需加载） |
 | `Pagination.tsx` | 50条/页分页导航 |
 | `ScoreForm.tsx` | 成绩录入/编辑模态框 |
 | `SearchBar.tsx` | 搜索输入框 |
@@ -167,6 +172,7 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 | `B35_MODE_MIN_COUNT` | algorithms.ts | 众数计算最少样本(5) | 推分区间宽度 |
 | `SKIP_LOW_LEVEL` / `SKIP_LOW_ACH` | algorithms.ts | 过滤低定数低达成噪音 | 建议质量 |
 | `NORM_MAX` | algorithms.ts | 五维各维度归一化上限 | 雷达图范围 |
+| `TIER_FIT_SLOPE` | algorithms.ts | 分档拟合的每档斜率（含 n/R² 注释） | 详情页「各档拟合定数」表 |
 | `LEVEL_TIER_*` | algorithms.ts | 定数区间分段阈值 | 策略卡片归类 |
 | `SONG_CACHE_TTL_MS` | database.ts | 曲目缓存有效期(24h) | 刷新频率 |
 | `VERSION_ORDER` | versions.ts | 版本排序映射表 | 曲目列表排序 |
@@ -191,11 +197,23 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 2. `adapter.ts` 新增格式转换函数
 3. `types/index.ts` 同步类型（保持内部中性命名）
 
+### 调整分档拟合定数
+1. 数据在 `buildChartStats` / `buildLevelAvgs` 等处通过 `computeTierRates` 计算，存进 `ChartStatSummary.tiers`
+2. 斜率在 `algorithms.ts` 的 `TIER_FIT_SLOPE`：**只有 R² ≥ 0.15 的档位才写入**，其余不写 → 表格显示 `—`
+3. 重新标定：用 Browser 工具打开 dev server，在页面上下文对全量 chart_stats 逐档回归（目标值 = 水鱼 fit_diff − 官标定数），只回传系数
+4. SSS / SSS+ 两档不走该表：前者用 `SSS_FIT_SLOPE`，后者直接用 fit_diff，保证与详情页上方那一行一致
+
 ### 新增页面
 1. `pages/` 新建页面组件
 2. `App.tsx` 注册路由 + lazy import
 3. `Sidebar.tsx` + `MobileBottomNav.tsx` 添加导航项
 
+### 更新定数变迁数据
+1. 源文件 `项目资料/song_data.csv`（**不入库**，需在 Excel 里由 xlsx 另存为 CSV）
+2. `node scripts/gen-level-history.mjs --dry-run` 先看摘要：有效谱面 / 有变化的谱面 / 各年变更次数 / 体积
+3. 数字正常再去掉 `--dry-run` 生成 `public/data/level-history.json.gz`
+4. 脚本支持 `--input` / `--out`，可用 `项目资料/sample-level-history.csv` 自测而不动正式文件
+5. 该数据**只用于展示**：拟合定数校正仍由 `install-year.json.gz` 驱动，两者互不影响
 ### 调整高级筛选
 1. UI 在 `SongFilterPanel.tsx`，逻辑在 `songStore.getFilteredSongs()`
 2. **官标条件（`level` / `levelValueMin-Max`）与拟合条件（`fitLevelValueMin-Max`）是两套独立维度**，不要再合并成"勾了就整体切换语义"
