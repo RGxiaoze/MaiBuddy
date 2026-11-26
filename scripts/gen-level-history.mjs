@@ -16,13 +16,20 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { gzipSync } from 'zlib'
-import { resolve, dirname } from 'path'
+import { resolve, dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
-const INPUT = resolve(ROOT, '项目资料', 'song_data.csv')
-const OUTPUT = resolve(ROOT, 'public', 'data', 'level-history.json.gz')
+
+/** 读取 `--flag value` 形式的参数 */
+function argValue(flag, fallback) {
+  const i = process.argv.indexOf(flag)
+  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback
+}
+
+const INPUT = resolve(ROOT, argValue('--input', join('项目资料', 'song_data.csv')))
+const OUTPUT = resolve(ROOT, argValue('--out', join('public', 'data', 'level-history.json.gz')))
 
 const DRY_RUN = process.argv.includes('--dry-run')
 
