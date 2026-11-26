@@ -7,6 +7,7 @@ import { getCachedStats, setCachedStats } from '@/db/database'
 import { isReliableCount } from '@/utils/sampleReliability'
 import { getInstallYear, loadInstallYear } from './installYearService'
 import { FIT_DIFF_YEAR_CORRECTION, SSS_FIT_YEAR_CORRECTION } from '@/config/algorithms'
+import { computeTierRates, type TierRates } from '@/utils/tierRates'
 import type { FitDiffSource } from '@/types'
 
 // ---- Precomputed data structures ----
@@ -38,6 +39,8 @@ export interface ChartStatSummary {
   installYear?: number | null
   /** 该实装年是由版本号推断的（精确数据缺失时兜底），不是实测值 */
   installYearInferred?: boolean
+  /** 各档累计率（七档：SS/SS+/SSS/SSS+/FC/AP/AP+），供分档拟合表格使用 */
+  tiers?: TierRates
   /** 样本量（打过该谱的人数）；缺省表示数据源未提供 */
   sampleCount?: number
   /**
@@ -58,6 +61,8 @@ export interface LevelAvg {
   sssPlusRate: number
   /** 该难度 AP 率（人口加权） */
   apRate: number
+  /** 各档累计率（人口加权），供分档拟合表格使用 */
+  tiers?: TierRates
 }
 
 export interface FitDiffAvg {
@@ -71,6 +76,8 @@ export interface FitDiffAvg {
   cumSssRate: number
   /** AP 率（人口加权） */
   apRate: number
+  /** 各档累计率（人口加权），供分档拟合表格使用 */
+  tiers?: TierRates
 }
 
 /** std_dev 分级阈值 — 阈值对齐 Diving-Fish Prober 官方前端；
@@ -478,6 +485,7 @@ function buildLevelAvgs(data: ChartStatsResponse): Map<string, LevelAvg> {
       sssRate: (entry.dist[12] || 0) / totalDist,
       sssPlusRate: (entry.dist[13] || 0) / totalDist,
       apRate: ((entry.fc_dist[3] || 0) + (entry.fc_dist[4] || 0)) / totalFcDist,
+      tiers: computeTierRates(entry.dist, entry.fc_dist),
     })
   }
   return map
@@ -512,6 +520,7 @@ function buildFitDiffAvgs(data: ChartStatsResponse): Map<number, FitDiffAvg> {
       sssPlusRate: (group.dist[13] || 0) / totalDist,
       cumSssRate: ((group.dist[12] || 0) + (group.dist[13] || 0)) / totalDist,
       apRate: ((group.fc_dist[3] || 0) + (group.fc_dist[4] || 0)) / totalFcDist,
+      tiers: computeTierRates(group.dist, group.fc_dist),
     })
   }
   return map
@@ -585,6 +594,7 @@ function buildOfficialLevelAvgs(
       sssPlusRate: (group.dist[13] || 0) / totalDist,
       cumSssRate: ((group.dist[12] || 0) + (group.dist[13] || 0)) / totalDist,
       apRate: ((group.fc_dist[3] || 0) + (group.fc_dist[4] || 0)) / totalFcDist,
+      tiers: computeTierRates(group.dist, group.fc_dist),
     })
   }
   return map
