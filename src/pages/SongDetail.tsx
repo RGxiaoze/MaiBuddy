@@ -22,6 +22,7 @@ import { formatVersionLabel } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
 import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff, computeSssFitDiffRaw, getRateRank } from '@/services/statsService'
 import { summarizeChanges, buildChartSeries, type LevelPoint } from '@/utils/levelHistory'
+import { buildTierRows } from '@/utils/tierFit'
 import { loadLevelHistory, getLevelPoints, getLevelHistoryYears } from '@/services/levelHistoryService'
 
 // 折线图按需加载：静态引入会把整个 ECharts 拖进详情页 chunk（实测 +1.1 MB）
@@ -173,6 +174,20 @@ export default function SongDetail() {
       : null),
     [chartStats, officialLevelAvg, currentDiff?.levelValue],
   )
+
+  // 分档拟合表格：SSS/SSS+ 沿用上面那一行的口径，其余档按各自斜率换算
+  const tierRows = useMemo(() => {
+    if (!chartStats || !currentDiff) return []
+    return buildTierRows({
+      chartTiers: chartStats.tiers,
+      levelTiers: officialLevelAvg?.tiers,
+      officialLevelValue: currentDiff.levelValue,
+      sssFit,
+      sssPlusFit: chartStats.fitDiff,
+      sampleCount: chartStats.sampleCount,
+      levelChartCount: officialLevelAvg?.chartCount,
+    })
+  }, [chartStats, currentDiff, sssFit, officialLevelAvg])
 
   // 同上，但取校正前的原始值，供并列展示
   const sssFitRaw = useMemo(
@@ -461,6 +476,70 @@ export default function SongDetail() {
                     </span>
                   )}
                 </div>
+              </div>
+            )}
+
+            {tierRows.length > 0 && (
+              <div className="sm:col-span-2">
+                <details className="group">
+                  <summary className="list-none cursor-pointer flex items-center gap-1.5 text-xs text-text-secondary">
+                    各档拟合定数
+                    <span className="text-[11px] text-text-tertiary group-open:hidden">展开 ▾</span>
+                  </summary>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="text-text-tertiary">
+                          <th className="text-left font-medium py-1 pr-2 whitespace-nowrap">达成梯度</th>
+                          <th className="text-right font-medium py-1 px-2 whitespace-nowrap">全服累计</th>
+                          <th className="text-right font-medium py-1 px-2 whitespace-nowrap">同档均值</th>
+                          <th className="text-right font-medium py-1 pl-2 whitespace-nowrap">拟合定数</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tierRows.map((r) => (
+                          <tr key={r.tier} className="border-t border-border/30">
+                            <td className="py-1 pr-2 whitespace-nowrap text-text-secondary">{r.label}</td>
+                            <td className="py-1 px-2 text-right tabular-nums">
+                              {r.rate == null ? '—' : `${(r.rate * 100).toFixed(1)}%`}
+                            </td>
+                            <td className="py-1 px-2 text-right tabular-nums text-text-tertiary">
+                              {r.levelRate == null ? '—' : `${(r.levelRate * 100).toFixed(1)}%`}
+                            </td>
+                            <td className="py-1 pl-2 text-right tabular-nums">
+                              {r.fit == null ? (
+                                <span
+                                  className="text-text-tertiary"
+                                  title={r.unavailable === 'low-r2'
+                                    ? '该档回归质量不足（R² < 0.15），暂不提供拟合定数'
+                                    : '缺少该档的统计数据'}
+                                >
+                                  —
+                                </span>
+                              ) : (
+                                <span className="font-medium text-text">
+                                  {r.fit.toFixed(2)}
+                                  {r.lowSample && (
+                                    <span
+                                      className="ml-0.5 text-warning"
+                                      title={`样本偏少（该谱 ${r.lowSample ? '样本或同档谱面数不足' : ''}），仅供参考`}
+                                    >
+                                      ⚠
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="mt-1 text-[11px] text-text-tertiary leading-snug">
+                    「全服累计」是该谱达到该档及以上的比例，「同档均值」是同定数档的平均水平；
+                    拟合定数为按两者偏差折算的估计值。AP / AP+ 因回归质量不足暂不提供。
+                  </p>
+                </details>
               </div>
             )}
 

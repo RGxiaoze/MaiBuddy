@@ -460,6 +460,7 @@ function buildChartStats(data: ChartStatsResponse): Map<string, ChartStatSummary
         sssPlusRate,
         cumSssRate,
         apRate,
+        tiers: computeTierRates(entry.dist, entry.fc_dist),
         diffFromLevelAvg,
         fitDiff,
         fitDiffRaw,
