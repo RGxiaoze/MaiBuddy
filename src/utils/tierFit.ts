@@ -7,6 +7,10 @@
 
 import {
   TIER_FIT_SLOPE,
+  TIER_FIT_R2,
+  SSS_FIT_R2,
+  TIER_CONFIDENCE_HIGH,
+  TIER_CONFIDENCE_MEDIUM,
   TIER_LOW_SAMPLE_COUNT,
   TIER_LOW_LEVEL_CHARTS,
 } from '@/config/algorithms'
@@ -27,19 +31,28 @@ export const TIER_LABELS: Record<TierKey, string> = {
   app: 'AP+',
 }
 
+/** 可信度三档：由该档回归的 R² 决定 */
+export type Confidence = 'high' | 'medium' | 'low'
+
+export const CONFIDENCE_LABELS: Record<Confidence, string> = {
+  high: '高',
+  medium: '中',
+  low: '低',
+}
+
 export interface TierRow {
   tier: TierKey
   label: string
-  /** 该谱在该档的累计率（0–1）；无统计数据时为空 */
-  rate: number | null
-  /** 同定数档的平均累计率（0–1） */
-  levelRate: number | null
-  /** 拟合定数；null 表示这一档算不出来 */
+  /** 拟合定数；null 表示缺数据算不出来 */
   fit: number | null
-  /** 算不出来的原因 */
-  unavailable?: 'low-r2' | 'no-data'
+  /** 可信度；null 表示无数据无法评估 */
+  confidence: Confidence | null
+  /** 该档回归质量不足（可信度低），UI 需给出提示 */
+  weakRegression: boolean
   /** 样本偏少：数值仍显示，但需要标注 */
   lowSample: boolean
+  /** 算不出来的唯一原因是缺数据 */
+  unavailable?: 'no-data'
 }
 
 export interface BuildTierRowsParams {
@@ -61,12 +74,18 @@ export interface BuildTierRowsParams {
 
 const round2 = (v: number): number => Math.round(v * 100) / 100
 
+function confidenceOf(r2: number): Confidence {
+  if (r2 >= TIER_CONFIDENCE_HIGH) return 'high'
+  if (r2 >= TIER_CONFIDENCE_MEDIUM) return 'medium'
+  return 'low'
+}
+
 /**
  * 生成分档拟合表格的数据。
  *
- * 不可用的两种情形必须在数据层区分清楚，UI 才能给出准确提示：
- * - `low-r2`：该档回归质量不够（斜率未启用），属于**方法问题**
- * - `no-data`：缺该谱或同档的统计数据，属于**数据问题**
+ * 每一档都尽量给出数值 + 可信度，而不是因为回归质量差就显示「—」——
+ * 「算不出来」和「算得出来但仅供参考」是两件事，混在一起会误导。
+ * 只有**缺数据**才返回 fit: null。
  */
 export function buildTierRows(p: BuildTierRowsParams): TierRow[] {
   const lowSample =
@@ -74,31 +93,43 @@ export function buildTierRows(p: BuildTierRowsParams): TierRow[] {
     (p.sampleCount != null && p.sampleCount < TIER_LOW_SAMPLE_COUNT)
 
   return TIER_ORDER.map((tier) => {
-    const rate = p.chartTiers ? p.chartTiers[tier] : null
-    const levelRate = p.levelTiers ? p.levelTiers[tier] : null
     const base: TierRow = {
       tier,
       label: TIER_LABELS[tier],
-      rate: rate ?? null,
-      levelRate: levelRate ?? null,
       fit: null,
+      confidence: null,
+      weakRegression: false,
       lowSample,
     }
 
-    // SSS / SSS+ 用调用方传入的口径，与详情页上面那一行保持一致
-    if (tier === 'sss') {
-      if (p.sssFit == null) return { ...base, unavailable: 'no-data' }
-      return { ...base, fit: round2(p.sssFit) }
-    }
+    // SSS+ 直接用水鱼实测 fit_diff，是这里可信度最高的来源
     if (tier === 'sssp') {
       if (p.sssPlusFit == null) return { ...base, unavailable: 'no-data' }
-      return { ...base, fit: round2(p.sssPlusFit) }
+      return { ...base, fit: round2(p.sssPlusFit), confidence: 'high' }
     }
 
-    const slope = TIER_FIT_SLOPE[tier as 'ss' | 'ssp' | 'fc']
-    if (slope == null) return { ...base, unavailable: 'low-r2' }
+    // SSS 走既有的 SSS_FIT_SLOPE，可信度取其回归 R²
+    if (tier === 'sss') {
+      if (p.sssFit == null) return { ...base, unavailable: 'no-data' }
+      const confidence = confidenceOf(SSS_FIT_R2)
+      return { ...base, fit: round2(p.sssFit), confidence, weakRegression: confidence === 'low' }
+    }
+
+    const key = tier as 'ss' | 'ssp' | 'fc' | 'ap' | 'app'
+    const slope = TIER_FIT_SLOPE[key]
+    const r2 = TIER_FIT_R2[key]
+    if (slope == null || r2 == null) return { ...base, unavailable: 'no-data' }
+
+    const rate = p.chartTiers ? p.chartTiers[tier] : undefined
+    const levelRate = p.levelTiers ? p.levelTiers[tier] : undefined
     if (rate == null || levelRate == null) return { ...base, unavailable: 'no-data' }
 
-    return { ...base, fit: round2(p.officialLevelValue + slope * (rate - levelRate)) }
+    const confidence = confidenceOf(r2)
+    return {
+      ...base,
+      fit: round2(p.officialLevelValue + slope * (rate - levelRate)),
+      confidence,
+      weakRegression: confidence === 'low',
+    }
   })
 }

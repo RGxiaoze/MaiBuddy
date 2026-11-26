@@ -30,8 +30,9 @@ describe('buildTierRows — 各档的取数口径', () => {
     expect(row('sss').fit).toBe(14.87)
   })
 
-  it('SSS+ 直接采用传入的 sssPlusFit（水鱼 fit_diff）', () => {
+  it('SSS+ 直接采用传入的 sssPlusFit（水鱼实测）', () => {
     expect(row('sssp').fit).toBe(15.06)
+    expect(row('sssp').confidence).toBe('high')
   })
 
   it('SS 档用斜率 −1.216 换算', () => {
@@ -45,21 +46,48 @@ describe('buildTierRows — 各档的取数口径', () => {
   })
 })
 
-describe('buildTierRows — 不可用的两种原因要分开', () => {
-  it('AP / AP+ 因回归质量不足而不输出（方法问题）', () => {
-    expect(row('ap').fit).toBeNull()
-    expect(row('ap').unavailable).toBe('low-r2')
-    expect(row('app').fit).toBeNull()
-    expect(row('app').unavailable).toBe('low-r2')
+describe('buildTierRows — 可信度由该档 R² 决定', () => {
+  it('SS / SS+ 的 R²≈0.48 判为高', () => {
+    expect(row('ss').confidence).toBe('high')
+    expect(row('ssp').confidence).toBe('high')
   })
 
-  it('缺统计数据的档位标为 no-data（数据问题）', () => {
+  it('SSS 用既有回归 R² 0.376，判为中', () => {
+    expect(row('sss').confidence).toBe('medium')
+  })
+
+  it('FC 的 R² 0.213 判为中', () => {
+    expect(row('fc').confidence).toBe('medium')
+  })
+
+  it('AP / AP+ 的 R² 过低，仍给数值但标注可信度低', () => {
+    const ap = row('ap')
+    expect(ap.fit).not.toBeNull()
+    expect(ap.confidence).toBe('low')
+    expect(ap.weakRegression).toBe(true)
+
+    const app = row('app')
+    expect(app.fit).not.toBeNull()
+    expect(app.confidence).toBe('low')
+    expect(app.weakRegression).toBe(true)
+  })
+
+  it('回归质量好的档位不被标记为弱回归', () => {
+    expect(row('ss').weakRegression).toBe(false)
+    expect(row('fc').weakRegression).toBe(false)
+  })
+})
+
+describe('buildTierRows — 缺数据时才不输出数值', () => {
+  it('缺统计数据 → fit 为 null 且标 no-data', () => {
     const rows = buildTierRows({ ...base, chartTiers: undefined, levelTiers: undefined })
-    expect(rows.find((r) => r.tier === 'ss')!.unavailable).toBe('no-data')
-    expect(rows.find((r) => r.tier === 'fc')!.unavailable).toBe('no-data')
+    const ss = rows.find((r) => r.tier === 'ss')!
+    expect(ss.fit).toBeNull()
+    expect(ss.unavailable).toBe('no-data')
+    expect(ss.confidence).toBeNull()
   })
 
-  it('SSS 拿不到拟合值时标为 no-data', () => {
+  it('SSS 拿不到拟合值 → no-data', () => {
     const rows = buildTierRows({ ...base, sssFit: null })
     const r = rows.find((x) => x.tier === 'sss')!
     expect(r.fit).toBeNull()
@@ -81,8 +109,7 @@ describe('buildTierRows — 低样本只标注、不隐藏', () => {
   })
 
   it('样本充足时不标注', () => {
-    const rows = buildTierRows(base)
-    expect(rows.every((r) => r.lowSample)).toBe(false)
+    expect(buildTierRows(base).every((r) => r.lowSample)).toBe(false)
   })
 
   it('未提供样本信息时不误标为低样本', () => {

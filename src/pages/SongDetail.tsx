@@ -22,7 +22,7 @@ import { formatVersionLabel } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
 import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff, computeSssFitDiffRaw, getRateRank } from '@/services/statsService'
 import { summarizeChanges, buildChartSeries, type LevelPoint } from '@/utils/levelHistory'
-import { buildTierRows } from '@/utils/tierFit'
+import { buildTierRows, CONFIDENCE_LABELS } from '@/utils/tierFit'
 import { loadLevelHistory, getLevelPoints, getLevelHistoryYears } from '@/services/levelHistoryService'
 
 // 折线图按需加载：静态引入会把整个 ECharts 拖进详情页 chunk（实测 +1.1 MB）
@@ -366,13 +366,13 @@ export default function SongDetail() {
               {changeSummary && (
                 <button
                   onClick={() => setShowHistory((v) => !v)}
-                  className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold tabular-nums cursor-pointer border-none
-                             bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+                  className="ml-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold tabular-nums cursor-pointer
+                             border border-accent/40 bg-accent/5 text-accent hover:bg-accent/15 transition-colors"
                   title={`定数曾被调整 ${changeSummary.count} 次，最近一次在 ${changeSummary.latestYear} 年`}
                 >
                   {changeSummary.earliest} → {changeSummary.latest}
                   {changeSummary.count > 1 ? `（${changeSummary.count} 次）` : `（${changeSummary.latestYear}）`}
-                  {showHistory ? ' ▲' : ' ▾'}
+                  <span className="text-[10px] opacity-70">{showHistory ? '▲' : '▾'}</span>
                 </button>
               )}
             </div>
@@ -482,52 +482,49 @@ export default function SongDetail() {
             {tierRows.length > 0 && (
               <div className="sm:col-span-2">
                 <details className="group">
-                  <summary className="list-none cursor-pointer flex items-center gap-1.5 text-xs text-text-secondary">
-                    各档拟合定数
+                  <summary className="list-none cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium
+                    border border-border bg-surface text-text-secondary hover:border-accent hover:text-accent transition-colors">
+                    <span>各档拟合定数</span>
                     <span className="text-[11px] text-text-tertiary group-open:hidden">展开 ▾</span>
+                    <span className="text-[11px] text-text-tertiary hidden group-open:inline">收起 ▲</span>
                   </summary>
                   <div className="mt-2 overflow-x-auto">
                     <table className="w-full text-xs border-collapse">
                       <thead>
                         <tr className="text-text-tertiary">
                           <th className="text-left font-medium py-1 pr-2 whitespace-nowrap">达成梯度</th>
-                          <th className="text-right font-medium py-1 px-2 whitespace-nowrap">全服累计</th>
-                          <th className="text-right font-medium py-1 px-2 whitespace-nowrap">同档均值</th>
-                          <th className="text-right font-medium py-1 pl-2 whitespace-nowrap">拟合定数</th>
+                          <th className="text-right font-medium py-1 px-2 whitespace-nowrap">拟合定数</th>
+                          <th className="text-right font-medium py-1 pl-2 whitespace-nowrap">可信度</th>
                         </tr>
                       </thead>
                       <tbody>
                         {tierRows.map((r) => (
                           <tr key={r.tier} className="border-t border-border/30">
                             <td className="py-1 pr-2 whitespace-nowrap text-text-secondary">{r.label}</td>
-                            <td className="py-1 px-2 text-right tabular-nums">
-                              {r.rate == null ? '—' : `${(r.rate * 100).toFixed(1)}%`}
+                            <td className="py-1 px-2 text-right tabular-nums font-medium text-text">
+                              {r.fit == null
+                                ? <span className="text-text-tertiary">—</span>
+                                : r.fit.toFixed(2)}
                             </td>
-                            <td className="py-1 px-2 text-right tabular-nums text-text-tertiary">
-                              {r.levelRate == null ? '—' : `${(r.levelRate * 100).toFixed(1)}%`}
-                            </td>
-                            <td className="py-1 pl-2 text-right tabular-nums">
-                              {r.fit == null ? (
-                                <span
-                                  className="text-text-tertiary"
-                                  title={r.unavailable === 'low-r2'
-                                    ? '该档回归质量不足（R² < 0.15），暂不提供拟合定数'
-                                    : '缺少该档的统计数据'}
-                                >
-                                  —
-                                </span>
+                            <td className="py-1 pl-2 text-right whitespace-nowrap">
+                              {r.confidence == null ? (
+                                <span className="text-text-tertiary">—</span>
                               ) : (
-                                <span className="font-medium text-text">
-                                  {r.fit.toFixed(2)}
-                                  {r.lowSample && (
-                                    <span
-                                      className="ml-0.5 text-warning"
-                                      title={`样本偏少（该谱 ${r.lowSample ? '样本或同档谱面数不足' : ''}），仅供参考`}
-                                    >
-                                      ⚠
-                                    </span>
-                                  )}
+                                <span
+                                  className={
+                                    r.confidence === 'high' ? 'text-success font-medium'
+                                      : r.confidence === 'medium' ? 'text-text-secondary'
+                                        : 'text-warning font-medium'
+                                  }
+                                  title={r.weakRegression
+                                    ? '该档回归相关性很弱（R² < 0.15），数值仅供参考'
+                                    : '该档回归相关性尚可'}
+                                >
+                                  {CONFIDENCE_LABELS[r.confidence]}
                                 </span>
+                              )}
+                              {r.lowSample && (
+                                <span className="ml-0.5 text-warning" title="样本偏少，仅供参考">⚠</span>
                               )}
                             </td>
                           </tr>
@@ -536,8 +533,8 @@ export default function SongDetail() {
                     </table>
                   </div>
                   <p className="mt-1 text-[11px] text-text-tertiary leading-snug">
-                    「全服累计」是该谱达到该档及以上的比例，「同档均值」是同定数档的平均水平；
-                    拟合定数为按两者偏差折算的估计值。AP / AP+ 因回归质量不足暂不提供。
+                    拟合定数由该档全服率与同档均值的偏差折算；可信度取决于该档回归的 R²。
+                    AP / AP+ 相关性弱，仅供横向参考，不宜当绝对定数使用。
                   </p>
                 </details>
               </div>
