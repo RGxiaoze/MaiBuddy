@@ -22,6 +22,7 @@ import { formatVersionLabel } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
 import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff, computeSssFitDiffRaw, getRateRank } from '@/services/statsService'
 import { summarizeChanges, buildChartSeries, type LevelPoint } from '@/utils/levelHistory'
+import { buildTierRows, CONFIDENCE_LABELS } from '@/utils/tierFit'
 import { loadLevelHistory, getLevelPoints, getLevelHistoryYears } from '@/services/levelHistoryService'
 
 // 折线图按需加载：静态引入会把整个 ECharts 拖进详情页 chunk（实测 +1.1 MB）
@@ -173,6 +174,20 @@ export default function SongDetail() {
       : null),
     [chartStats, officialLevelAvg, currentDiff?.levelValue],
   )
+
+  // 分档拟合表格：SSS/SSS+ 沿用上面那一行的口径，其余档按各自斜率换算
+  const tierRows = useMemo(() => {
+    if (!chartStats || !currentDiff) return []
+    return buildTierRows({
+      chartTiers: chartStats.tiers,
+      levelTiers: officialLevelAvg?.tiers,
+      officialLevelValue: currentDiff.levelValue,
+      sssFit,
+      sssPlusFit: chartStats.fitDiff,
+      sampleCount: chartStats.sampleCount,
+      levelChartCount: officialLevelAvg?.chartCount,
+    })
+  }, [chartStats, currentDiff, sssFit, officialLevelAvg])
 
   // 同上，但取校正前的原始值，供并列展示
   const sssFitRaw = useMemo(
@@ -351,13 +366,13 @@ export default function SongDetail() {
               {changeSummary && (
                 <button
                   onClick={() => setShowHistory((v) => !v)}
-                  className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold tabular-nums cursor-pointer border-none
-                             bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+                  className="ml-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold tabular-nums cursor-pointer
+                             border border-accent/40 bg-accent/5 text-accent hover:bg-accent/15 transition-colors"
                   title={`定数曾被调整 ${changeSummary.count} 次，最近一次在 ${changeSummary.latestYear} 年`}
                 >
                   {changeSummary.earliest} → {changeSummary.latest}
                   {changeSummary.count > 1 ? `（${changeSummary.count} 次）` : `（${changeSummary.latestYear}）`}
-                  {showHistory ? ' ▲' : ' ▾'}
+                  <span className="text-[10px] opacity-70">{showHistory ? '▲' : '▾'}</span>
                 </button>
               )}
             </div>
@@ -461,6 +476,67 @@ export default function SongDetail() {
                     </span>
                   )}
                 </div>
+              </div>
+            )}
+
+            {tierRows.length > 0 && (
+              <div className="sm:col-span-2">
+                <details className="group">
+                  <summary className="list-none cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium
+                    border border-border bg-surface text-text-secondary hover:border-accent hover:text-accent transition-colors">
+                    <span>各档拟合定数</span>
+                    <span className="text-[11px] text-text-tertiary group-open:hidden">展开 ▾</span>
+                    <span className="text-[11px] text-text-tertiary hidden group-open:inline">收起 ▲</span>
+                  </summary>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="text-text-tertiary">
+                          <th className="text-left font-medium py-1 pr-2 whitespace-nowrap">达成梯度</th>
+                          <th className="text-right font-medium py-1 px-2 whitespace-nowrap">拟合定数</th>
+                          <th className="text-right font-medium py-1 pl-2 whitespace-nowrap">可信度</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tierRows.map((r) => (
+                          <tr key={r.tier} className="border-t border-border/30">
+                            <td className="py-1 pr-2 whitespace-nowrap text-text-secondary">{r.label}</td>
+                            <td className="py-1 px-2 text-right tabular-nums font-medium text-text">
+                              {r.fit == null
+                                ? <span className="text-text-tertiary">—</span>
+                                : r.fit.toFixed(2)}
+                            </td>
+                            <td className="py-1 pl-2 text-right whitespace-nowrap">
+                              {r.confidence == null ? (
+                                <span className="text-text-tertiary">—</span>
+                              ) : (
+                                <span
+                                  className={
+                                    r.confidence === 'high' ? 'text-success font-medium'
+                                      : r.confidence === 'medium' ? 'text-text-secondary'
+                                        : 'text-warning font-medium'
+                                  }
+                                  title={r.weakRegression
+                                    ? '该档回归相关性很弱（R² < 0.15），数值仅供参考'
+                                    : '该档回归相关性尚可'}
+                                >
+                                  {CONFIDENCE_LABELS[r.confidence]}
+                                </span>
+                              )}
+                              {r.lowSample && (
+                                <span className="ml-0.5 text-warning" title="样本偏少，仅供参考">⚠</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="mt-1 text-[11px] text-text-tertiary leading-snug">
+                    拟合定数由该档全服率与同档均值的偏差折算；可信度取决于该档回归的 R²。
+                    AP / AP+ 相关性弱，仅供横向参考，不宜当绝对定数使用。
+                  </p>
+                </details>
               </div>
             )}
 

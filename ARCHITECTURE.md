@@ -131,6 +131,8 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 | `dxStar.ts` | DX星数计算（97/95/93/90/85%→⭐1-5） | — |
 | `chartTags.ts` | 谱面标签分类（交互/纵连/星星/跳拍/体力/技巧/综合） | — |
 | `levelHistory.ts` | 定数变迁：年度快照 → 变化点压缩、徽章摘要、折线序列 | — |
+| `tierRates.ts` | 由 dist / fc_dist 算七档累计率（SS/SS+/SSS/SSS+/FC/AP/AP+） | — |
+| `tierFit.ts` | 分档拟合定数：各档斜率换算、不可用原因、低样本标注 | tierRates.ts |
 
 ### 配置
 | 文件 | 职责 |
@@ -167,6 +169,7 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 | `B35_MODE_MIN_COUNT` | algorithms.ts | 众数计算最少样本(5) | 推分区间宽度 |
 | `SKIP_LOW_LEVEL` / `SKIP_LOW_ACH` | algorithms.ts | 过滤低定数低达成噪音 | 建议质量 |
 | `NORM_MAX` | algorithms.ts | 五维各维度归一化上限 | 雷达图范围 |
+| `TIER_FIT_SLOPE` | algorithms.ts | 分档拟合的每档斜率（含 n/R² 注释） | 详情页「各档拟合定数」表 |
 | `LEVEL_TIER_*` | algorithms.ts | 定数区间分段阈值 | 策略卡片归类 |
 | `SONG_CACHE_TTL_MS` | database.ts | 曲目缓存有效期(24h) | 刷新频率 |
 | `VERSION_ORDER` | versions.ts | 版本排序映射表 | 曲目列表排序 |
@@ -190,6 +193,12 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 1. `services/` 新建 API 文件
 2. `adapter.ts` 新增格式转换函数
 3. `types/index.ts` 同步类型（保持内部中性命名）
+
+### 调整分档拟合定数
+1. 数据在 `buildChartStats` / `buildLevelAvgs` 等处通过 `computeTierRates` 计算，存进 `ChartStatSummary.tiers`
+2. 斜率在 `algorithms.ts` 的 `TIER_FIT_SLOPE`：**只有 R² ≥ 0.15 的档位才写入**，其余不写 → 表格显示 `—`
+3. 重新标定：用 Browser 工具打开 dev server，在页面上下文对全量 chart_stats 逐档回归（目标值 = 水鱼 fit_diff − 官标定数），只回传系数
+4. SSS / SSS+ 两档不走该表：前者用 `SSS_FIT_SLOPE`，后者直接用 fit_diff，保证与详情页上方那一行一致
 
 ### 新增页面
 1. `pages/` 新建页面组件
