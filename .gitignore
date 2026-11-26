@@ -43,6 +43,6 @@ public/docs-index.json
 .worktrees/
 *.adx
 *.zip
-charts/
+/charts/
 参考谱面/
 public/data/simai_features.json
