@@ -5,7 +5,9 @@
 // ============================================================
 
 import { useMemo } from 'react'
-import ReactEChartsCore from 'echarts-for-react/lib/core'
+// 走 esm/ 入口：lib/core 是 CommonJS（exports.default=…，无 __esModule），
+// 用默认导入拿到的是整个 exports 对象，运行时会报 "Element type is invalid"。
+import ReactEChartsCore from 'echarts-for-react/esm/core'
 import * as echarts from 'echarts/core'
 import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
