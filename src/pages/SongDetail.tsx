@@ -2,7 +2,7 @@
 // Song detail page — info, chart, DX Rating, scores
 // ============================================================
 
-import { useState, useEffect, useMemo, memo } from 'react'
+import { useState, useEffect, useMemo, memo, lazy, Suspense } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { useSongStore } from '@/store/songStore'
@@ -21,6 +21,11 @@ import { useBackgroundStore } from '@/store/backgroundStore'
 import { formatVersionLabel } from '@/data/versions'
 import ScoreForm from '@/components/shared/ScoreForm'
 import { loadStats, getChartStats, getLevelAvg, getFitDiffAvg, getOfficialLevelAvg, STDEV_LEVELS, computeSssFitDiff, computeSssFitDiffRaw, getRateRank } from '@/services/statsService'
+import { summarizeChanges, buildChartSeries, type LevelPoint } from '@/utils/levelHistory'
+import { loadLevelHistory, getLevelPoints, getLevelHistoryYears } from '@/services/levelHistoryService'
+
+// 折线图按需加载：静态引入会把整个 ECharts 拖进详情页 chunk（实测 +1.1 MB）
+const LevelHistoryChart = lazy(() => import('@/components/charts/LevelHistoryChart'))
 
 export default function SongDetail() {
   const { songId } = useParams<{ songId: string }>()
@@ -63,6 +68,23 @@ export default function SongDetail() {
   const [coverLoaded, setCoverLoaded] = useState(false)
   useEffect(() => { setCoverLoaded(false) }, [song?.id])
 
+  // 定数变迁历史：数据文件很小（只存变化点），进页面就加载；
+  // 折线图本身仍是按需渲染（展开才挂载 ECharts）。
+  const [levelPoints, setLevelPoints] = useState<LevelPoint[] | null>(null)
+  const [historyYears, setHistoryYears] = useState<number[]>([])
+  const [showHistory, setShowHistory] = useState(false)
+  useEffect(() => {
+    const songId = song?.id
+    if (songId == null) return
+    let cancelled = false
+    loadLevelHistory().then(() => {
+      if (cancelled) return
+      setLevelPoints(getLevelPoints(songId, selectedLevel))
+      setHistoryYears(getLevelHistoryYears())
+    })
+    return () => { cancelled = true }
+  }, [song?.id, selectedLevel])
+
   useEffect(() => {
     if (songs.length === 0) return
     let cancelled = false
@@ -88,6 +110,12 @@ export default function SongDetail() {
     : []
   const currentDiff = allDiffs.find((d) => d.levelIndex === selectedLevel) as ChartDifficulty | undefined
   const levelColors = LEVEL_INDEX_MAP[selectedLevel]
+
+  // 定数变更摘要与折线序列（无变更时 summary 为 null，不显示徽章）
+  const changeSummary = levelPoints ? summarizeChanges(levelPoints) : null
+  const historySeries = levelPoints && currentDiff
+    ? buildChartSeries(levelPoints, currentDiff.levelValue, historyYears)
+    : null
 
   // Detect paired song (same title+artist+bpm, different type)
   const pairedSong = useMemo(() => {
@@ -320,11 +348,37 @@ export default function SongDetail() {
             <div>
               <span className="text-text-secondary">定数：</span>
               <strong>{currentDiff.levelValue}</strong>
+              {changeSummary && (
+                <button
+                  onClick={() => setShowHistory((v) => !v)}
+                  className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold tabular-nums cursor-pointer border-none
+                             bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+                  title={`定数曾被调整 ${changeSummary.count} 次，最近一次在 ${changeSummary.latestYear} 年`}
+                >
+                  {changeSummary.earliest} → {changeSummary.latest}
+                  {changeSummary.count > 1 ? `（${changeSummary.count} 次）` : `（${changeSummary.latestYear}）`}
+                  {showHistory ? ' ▲' : ' ▾'}
+                </button>
+              )}
             </div>
             <div>
               <span className="text-text-secondary">谱师：</span>
               <strong>{formatDesignerName(currentDiff.noteDesigner)}</strong>
             </div>
+
+            {showHistory && historySeries && (
+              <div className="sm:col-span-2">
+                <p className="text-xs text-text-secondary mb-1">定数变化（年度快照）</p>
+                <Suspense fallback={<div style={{ height: '200px' }} />}>
+                  <LevelHistoryChart series={historySeries} />
+                </Suspense>
+                {historySeries.currentDiffers && levelPoints && currentDiff && (
+                  <p className="text-[11px] text-text-tertiary">
+                    {levelPoints[levelPoints.length - 1][0]} 快照 {levelPoints[levelPoints.length - 1][1]}，当前 {currentDiff.levelValue}（快照可能滞后）
+                  </p>
+                )}
+              </div>
+            )}
 
             {chartStats?.fitDiff != null && (
               <div className="sm:col-span-2">
