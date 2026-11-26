@@ -115,6 +115,7 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 | `lxnsApi.ts` | LXNS API 桩（待实现） |
 | `adapter.ts` | API原始类型 → 内部中性类型转换 |
 | `statsService.ts` | chart_stats 缓存+预计算（SSS率/AP率/拟合定数等） |
+| `levelHistoryService.ts` | 定数变迁数据加载（`public/data/level-history.json.gz`，按需 + gzip 解压） |
 
 ### 核心算法
 | 文件 | 职责 | 依赖 |
@@ -129,6 +130,7 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 | `routePlanner.ts` | 推分路线规划（4阶段定数递进） | pushSuggestions.ts |
 | `dxStar.ts` | DX星数计算（97/95/93/90/85%→⭐1-5） | — |
 | `chartTags.ts` | 谱面标签分类（交互/纵连/星星/跳拍/体力/技巧/综合） | — |
+| `levelHistory.ts` | 定数变迁：年度快照 → 变化点压缩、徽章摘要、折线序列 | — |
 
 ### 配置
 | 文件 | 职责 |
@@ -149,6 +151,7 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 | `ErrorBoundary.tsx` | 渲染错误捕获 + 回退UI |
 | `PushSuggestions.tsx` | 推分建议表格（B35+B15双池） |
 | `RadarChart.tsx` | ECharts五维雷达图 |
+| `LevelHistoryChart.tsx` | 定数变迁折线图（echarts core 入口，随详情页展开按需加载） |
 | `Pagination.tsx` | 50条/页分页导航 |
 | `ScoreForm.tsx` | 成绩录入/编辑模态框 |
 | `SearchBar.tsx` | 搜索输入框 |
@@ -192,3 +195,10 @@ Diving-Fish API → adapter → scoreStore → IndexedDB 成绩表
 1. `pages/` 新建页面组件
 2. `App.tsx` 注册路由 + lazy import
 3. `Sidebar.tsx` + `MobileBottomNav.tsx` 添加导航项
+
+### 更新定数变迁数据
+1. 源文件 `项目资料/song_data.csv`（**不入库**，需在 Excel 里由 xlsx 另存为 CSV）
+2. `node scripts/gen-level-history.mjs --dry-run` 先看摘要：有效谱面 / 有变化的谱面 / 各年变更次数 / 体积
+3. 数字正常再去掉 `--dry-run` 生成 `public/data/level-history.json.gz`
+4. 脚本支持 `--input` / `--out`，可用 `项目资料/sample-level-history.csv` 自测而不动正式文件
+5. 该数据**只用于展示**：拟合定数校正仍由 `install-year.json.gz` 驱动，两者互不影响
